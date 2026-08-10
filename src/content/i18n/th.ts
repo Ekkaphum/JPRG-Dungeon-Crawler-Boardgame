@@ -1,5 +1,5 @@
 export const th = {
-  'app.title': 'Monster Colosseum',
+  'app.title': 'MoonRage Dungeon',
   'app.version': 'นาฬิกาแห่งหายนะ',
   'menu.newGame': 'เกมใหม่',
   'menu.continue': 'เล่นต่อ',

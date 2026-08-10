@@ -1,7 +1,7 @@
 import type { I18nKey } from './th';
 
 export const en: Record<I18nKey, string> = {
-  'app.title': 'Monster Colosseum',
+  'app.title': 'MoonRage Dungeon',
   'app.version': 'Clock of Doom',
   'menu.newGame': 'New Game',
   'menu.continue': 'Continue',

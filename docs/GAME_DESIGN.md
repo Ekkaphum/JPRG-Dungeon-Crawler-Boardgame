@@ -1,4 +1,4 @@
-# MONSTER COLOSSEUM — GAME DESIGN DOCUMENT v0.4.1
+# MOONRAGE DUNGEON — GAME DESIGN DOCUMENT v0.4.1
 ## "นาฬิกาแห่งหายนะ" — ชุด Prototype แรก
 
 > **สถานะ: พร้อมสร้างต้นแบบกระดาษ ยังไม่ผ่าน playtest**
