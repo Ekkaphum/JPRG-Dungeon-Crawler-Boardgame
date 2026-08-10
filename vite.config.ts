@@ -13,7 +13,7 @@ export default defineConfig({
       '@session': path.resolve(__dirname, 'src/session'),
     },
   },
-  server: { host: true, port: 5173 },
+  server: { host: true, port: Number(process.env.PORT) || 5173 },
   preview: { host: true, port: 4173 },
   build: { target: 'es2020', sourcemap: false },
 });
