@@ -101,6 +101,16 @@ export const th = {
   'allLose.message': 'นาฬิกาถึงเที่ยงคืนก่อนบอสจะตาย — จบเกมทันที ทุกคนแพ้ร่วมกัน ไม่ได้ไปต่อบอสตัวถัดไป',
   'allLose.progress': 'ปราบไปได้ {n}/3 ตัว',
 
+  'summary.bossHpLeft': 'HP บอสที่เหลือ',
+  'summary.shortBy': 'ขาดอีก {n} HP ({pct}% ของเลือดบอส)',
+  'summary.damageDealt': 'ทำดาเมจรวม {n}',
+  'summary.contribution': 'ดาเมจที่แต่ละคนทำได้',
+  'summary.hits': 'เข้า {n} ครั้ง',
+  'summary.biggest': 'แรงสุด {n}',
+  'summary.healed': 'ฮีล {n}',
+  'summary.died': 'ตาย {n} ครั้ง',
+  'summary.finalBattleOnly': 'ตัวเลขนี้นับเฉพาะยกสุดท้ายเท่านั้น',
+
   'log.empty': 'ยังไม่มีเหตุการณ์',
 
   'common.hp': 'HP',

@@ -2,6 +2,7 @@ import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
 import { BOSSES } from '@content/bosses3';
 import { bossImageUrl, sceneImageUrl } from '@ui/common/assets';
+import { BattleSummaryPanel } from '@ui/panels/BattleSummaryPanel';
 
 export function AllLoseScreen() {
   const t = useT();
@@ -16,14 +17,16 @@ export function AllLoseScreen() {
   const backdrop = failedAt ? bossImageUrl(failedAt) : sceneImageUrl();
 
   return (
-    <div
-      className="relative min-h-screen flex flex-col items-center justify-center gap-6 p-6 overflow-hidden"
-      style={{ backgroundImage: `url(${backdrop})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
-    >
-      <div className="absolute inset-0 bg-black/70" />
-      <div className="absolute inset-0 defeat-vignette" />
+    // Scrolls internally: #root is height:100%, so a taller-than-viewport page would otherwise
+    // strand the buttons off-screen with no document scrollbar to reach them.
+    <div className="relative h-screen overflow-y-auto">
+      {/* Backdrop pinned to the viewport so the summary panel can make the content taller than one
+          screen without the art stretching or scrolling away. */}
+      <div className="fixed inset-0" style={{ backgroundImage: `url(${backdrop})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <div className="fixed inset-0 bg-black/70" />
+      <div className="fixed inset-0 defeat-vignette" />
 
-      <div className="relative z-10 flex flex-col items-center gap-6">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center gap-6 p-6">
         <h2 className="text-3xl font-display text-boss drop-shadow-[0_0_16px_rgba(192,57,43,0.75)]">{t('allLose.title')}</h2>
 
         {failedAt && (
@@ -38,6 +41,8 @@ export function AllLoseScreen() {
         )}
 
         <p className="text-gold-dim max-w-md text-center text-sm">{t('allLose.message')}</p>
+
+        {session && <BattleSummaryPanel state={session.state} tone="lose" />}
 
         <div className="flex gap-3">
           <button onClick={() => setScreen('setup')} className="gold-frame rounded-lg px-6 py-2 hover:bg-gold/10">

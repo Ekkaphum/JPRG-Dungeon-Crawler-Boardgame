@@ -103,6 +103,16 @@ export const en: Record<I18nKey, string> = {
   'allLose.message': 'The clock hit midnight before the boss died — the run ends here, everyone loses together, no advancing to the next boss',
   'allLose.progress': '{n}/3 bosses defeated',
 
+  'summary.bossHpLeft': 'Boss HP remaining',
+  'summary.shortBy': 'Short by {n} HP ({pct}% of the boss\'s health)',
+  'summary.damageDealt': '{n} total damage dealt',
+  'summary.contribution': 'Damage by player',
+  'summary.hits': '{n} hits',
+  'summary.biggest': 'best {n}',
+  'summary.healed': 'healed {n}',
+  'summary.died': 'died {n}×',
+  'summary.finalBattleOnly': 'Final battle only',
+
   'log.empty': 'No events yet',
 
   'common.hp': 'HP',
