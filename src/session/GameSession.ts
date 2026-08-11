@@ -197,25 +197,44 @@ export class GameSession {
   }
 
   /** Advances `displayBattle` through every event the engine has produced since the last call,
-   *  pausing between them, then hard-resyncs to the true state. */
+   *  pausing between them, then hard-resyncs to the true state.
+   *
+   *  When a boss dies with the clock already at 0/1, `floor(remaining/2)` EXP is 0 for everyone, so
+   *  runExpPlacement (game.ts) has nobody to ask and never yields — the engine falls straight
+   *  through into prepareBattle() for the *next* boss within the same gen.next() call. By the time
+   *  we get here, `this.state.battle` already points at the new battle and the old one's tail
+   *  (including its BATTLE_END) would be skipped entirely. Drain the outgoing battle first so its
+   *  result is always shown before the next fight appears. */
   private async revealNewEvents() {
     const battle = this.state.battle;
-    if (!battle) {
-      this.displayBattle = null;
-      this.trackedBattle = null;
-      return;
-    }
 
     if (battle !== this.trackedBattle) {
+      if (this.trackedBattle && this.visibleLogCount < this.trackedBattle.log.length) {
+        // The battle we were tracking never got fully revealed — it was superseded mid-burst.
+        // It can only be a non-final boss (the last boss ending the game leaves `state.battle`
+        // untouched, so this branch never fires for it), hence isLastBoss is always false here.
+        await this.drainBattle(this.trackedBattle, false);
+      }
+
       // New battle: rewind to its opening position and replay its log from the top.
       this.trackedBattle = battle;
-      this.displayBattle = initialDisplayBattle(battle);
+      this.displayBattle = battle ? initialDisplayBattle(battle) : null;
       this.visibleLogCount = 0;
-      this.visibleScoreCount = Math.max(0, this.state.scoreLog.length - scoreEventCount(battle));
+      this.visibleScoreCount = battle ? Math.max(0, this.state.scoreLog.length - scoreEventCount(battle)) : this.state.scoreLog.length;
       this.currentEvent = null;
       this.battleResult = null;
     }
 
+    if (!battle) return;
+    await this.drainBattle(battle, this.state.bossIndex === this.state.bossQueue.length - 1);
+  }
+
+  /** Plays every not-yet-revealed event in `battle`'s log into `displayBattle`, pausing between
+   *  them, showing (and waiting on) the result popup if the log ends in BATTLE_END. Only hard-syncs
+   *  `displayBattle` to the live state when `battle` is still the one the engine is currently on —
+   *  an outgoing battle drained late has already been superseded and must not stomp on the new
+   *  battle's in-progress reveal. */
+  private async drainBattle(battle: BattleState, isLastBoss: boolean) {
     while (this.visibleLogCount < battle.log.length) {
       const ev = battle.log[this.visibleLogCount];
       const flash = actionFlashFor(this.state, ev);
@@ -236,7 +255,7 @@ export class GameSession {
           bossId: battle.bossId,
           finishedBy: ev.finishedBy,
           markerLeft: this.displayBattle!.marker,
-          isLastBoss: this.state.bossIndex === this.state.bossQueue.length - 1,
+          isLastBoss,
           acknowledged: false,
         };
         this.notify();
@@ -244,9 +263,11 @@ export class GameSession {
       }
     }
 
-    this.displayBattle = cloneDisplay(battle);
-    this.visibleScoreCount = this.state.scoreLog.length;
-    this.notify();
+    if (battle === this.state.battle) {
+      this.displayBattle = cloneDisplay(battle);
+      this.visibleScoreCount = this.state.scoreLog.length;
+      this.notify();
+    }
   }
 
   /** Drives the whole game. Resolves when the game is over. Safe to call once. */
