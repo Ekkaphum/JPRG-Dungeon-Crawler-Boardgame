@@ -2,7 +2,7 @@ import type { Choice, GameState, PendingDecision } from '@engine/index';
 import type { Agent } from './Agent';
 import { declareCandidates } from './candidates';
 import { chooseCharacterDefault, placeExpDefault } from './common';
-import { estimateChoiceValue, scoreConditionBonus } from './heuristics';
+import { comboSynergyBonus, estimateChoiceValue, scoreConditionBonus } from './heuristics';
 
 /**
  * Same per-⏱ evaluation as the medium bot, plus a self-interest bonus toward its own score
@@ -30,7 +30,10 @@ export function createHardBot(id: number, rand: () => number = Math.random): Age
 
           const scored = candidates
             .map((c) => {
-              let score = estimateChoiceValue(state, decision.playerId, c) + scoreConditionBonus(state, decision.playerId, c);
+              let score =
+                estimateChoiceValue(state, decision.playerId, c) +
+                scoreConditionBonus(state, decision.playerId, c) +
+                comboSynergyBonus(state, decision.playerId, c);
               const isDefensive = c.skillId === 'CounterAttack' || c.skillId === 'ManaCharge' || c.skillId === 'Heal';
               if (critical && isDefensive) score += 4;
               return { choice: c, score };

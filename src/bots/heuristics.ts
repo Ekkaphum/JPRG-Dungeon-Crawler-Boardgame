@@ -1,5 +1,5 @@
-import { SKILLS, skillStats } from '@content/characters';
-import type { Choice, GameState } from '@engine/index';
+import { SKILLS, skillStats, type CharId } from '@content/characters';
+import { applySomnivarTax, type Choice, type GameState } from '@engine/index';
 
 /** Rough per-⏱ value estimate for a candidate DECLARE_ACTION choice. Fully deterministic where
  *  the doc's numbers are deterministic (this ruleset hides nothing — GAME_DESIGN_v0_3_0.md §4.4)
@@ -93,5 +93,60 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;
   }
   void fighter;
+  return bonus;
+}
+
+/** Cross-player timing awareness the per-⏱ value above can't see on its own: whether declaring
+ *  this now would line up with the stacked weak-point + Blessing + big-hit combo
+ *  GAME_DESIGN_v0_3_0.md §8/§9 calls out as the *only* way Kit or Luna can help break Aurelius's
+ *  armor (each alone tops out under the >12-post-armor threshold). Every bot tier scores its own
+ *  pending action in isolation — this reads teammates' *already-declared* pending actions and the
+ *  boss's *already-rolled* next move off shared battle state (all public per §4.4, "เปิดเผยหมด"),
+ *  so it recognizes a window that's already forming rather than planning one that might not happen.
+ *
+ *  Deliberately conservative: it only fires when the timing already lines up given what's known
+ *  right now, never "declare X and hope a teammate follows up later" — that direction has no
+ *  landedAtSlot to check yet, so it would be a guess, not a read of visible information. */
+export function comboSynergyBonus(state: GameState, playerId: number, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>): number {
+  const battle = state.battle!;
+  const player = state.players.find((p) => p.id === playerId)!;
+  const isLv2 = !!state.progress[playerId]?.isLv2[choice.skillId];
+  const timeCost = applySomnivarTax(state, skillStats(choice.skillId, isLv2).time);
+  const landedAtSlot = battle.marker - timeCost;
+
+  const pendingOf = (charId: CharId) => {
+    const p = state.players.find((pp) => pp.charId === charId);
+    const f = p ? battle.fighters.find((ff) => ff.playerId === p.id) : undefined;
+    return f?.pending ?? null;
+  };
+  const isBigHit = (skillId: string) => skillId === 'Fireball' || skillId === 'Meteor';
+  // undefined = boss hasn't re-declared since its last move, so nothing known is about to clear
+  // the weak point — treated as "won't interrupt" rather than guessed either way.
+  const bossNextResolvesAt = battle.bossPending?.landedAtSlot;
+
+  let bonus = 0;
+
+  if (player.charId === 'Kit' && choice.skillId === 'QuickShot' && !battle.weakPointActive) {
+    const veraPending = pendingOf('Vera');
+    if (veraPending && isBigHit(veraPending.skillId)) {
+      // Opens in time to still be up when Vera's hit resolves, and the boss's own already-rolled
+      // next move (if any) won't clear it first.
+      const opensInTime = landedAtSlot >= veraPending.landedAtSlot;
+      const bossWontInterrupt = bossNextResolvesAt === undefined || bossNextResolvesAt < veraPending.landedAtSlot;
+      if (opensInTime && bossWontInterrupt) bonus += 5;
+    }
+  }
+
+  if (player.charId === 'Luna' && choice.skillId === 'Blessing' && !battle.partyBuff) {
+    const kitPending = pendingOf('Kit');
+    const veraPending = pendingOf('Vera');
+    const weakPointComing = battle.weakPointActive || kitPending?.skillId === 'QuickShot';
+    // Unlike weak point (turns on at resolve), Blessing is active from the moment it's *declared*
+    // (now) until Luna's own resolve — so it covers Vera's hit only if Luna's expiry (this
+    // candidate's landedAtSlot) falls at or after Vera's resolve, i.e. a *smaller* marker value.
+    const bigHitComing = !!veraPending && isBigHit(veraPending.skillId) && landedAtSlot <= veraPending.landedAtSlot;
+    if (weakPointComing || bigHitComing) bonus += 5;
+  }
+
   return bonus;
 }

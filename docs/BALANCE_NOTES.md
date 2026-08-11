@@ -85,3 +85,49 @@ outside it. Covered by `tests/trapSlots.test.ts`.
 in the table above exactly (win 17.9% · Ragorath 71.4% · Somnivar 55.5% · Aurelius 17.9% · armor
 broke 13.6% · Set Trap 2,771 declares at 3.96 dmg · trigger 97.7% · cancel 37.6%). Bots were always
 playing legally, so the sim never exercised the bug — it only ever affected human play.
+
+---
+
+## Combo-timing awareness for medium/hard bots — 2026-08-11 (bot AI, no content change)
+
+The M8 run above flagged the real cause of Aurelius's near-0% armor-break rate: bots scored only
+their *own* pending action's immediate value, with no awareness of what a teammate had already
+declared. Kit and Luna each top out well under Aurelius's >12-post-armor break threshold alone
+(GAME_DESIGN_v0_3_0.md §9's own table) — the armor was *designed* to require timing weak point +
+Blessing under a teammate's big hit, and heuristic bots that only look at their own turn will
+essentially never stumble into that by chance (0 of 1500 games ever logged a ≥25 dmg hit).
+
+Added `comboSynergyBonus()` (`src/bots/heuristics.ts`), applied to both medium and hard bots: reads
+teammates' *already-declared* pending actions and the boss's *already-rolled* next move — all public
+information per §4.4 ("เปิดเผยหมด") — and rewards Kit's QuickShot when it would open the weak point in
+time for a pending Fireball/Meteor to land under it (and the boss's known next move won't clear it
+first), and rewards Luna's Blessing when either the weak point is coming or a teammate's big hit is
+about to land within Blessing's active window. Deliberately reads only what's already declared, never
+plans a multi-turn setup that assumes a teammate will follow up — see the function's own doc comment.
+
+Caught by its own test (`tests/comboSynergy.test.ts`) before this shipped: the Blessing timing
+condition initially had the comparison direction backwards (Blessing turns on *at declare* and off
+*at Luna's own resolve*, the opposite lifecycle from weak point, which turns on *at Kit's resolve*) —
+the first balance run below is from the buggy version, the second from the fix.
+
+| Metric (3000 games, 4 medium bots) | before (M8 baseline, scaled) | after — buggy Blessing direction | after — fixed |
+|---|---|---|---|
+| Overall win rate | 17.9% | 40.0% | **45.5%** |
+| Ragorath clear | 71.4% | 88.5% | 90.5% |
+| Somnivar clear | 55.5% | 82.3% | 86.2% |
+| Aurelius clear | 17.9% | 40.0% | **45.5%** |
+| Aurelius armor broke ≥1× | 13.6% | 28.4% | **31.0%** |
+| ≥25 dmg hits (combo proxy) | 0 / 1500 games | 20 / 3000 | 22 / 3000 |
+| Blessing declares | 2,771/2000 games (~1.4/game) | — | 32,073/3000 (~10.7/game) |
+
+**Reading this:** the jump isn't just Aurelius — weak point and Blessing both buff *every* hit
+during their window, not only the "big" one, so more purposeful timing raises damage output against
+all three bosses, not only the armored one. Aurelius still clears less than half the time and is
+still clearly the hardest fight, which matches the design doc's intent ("cannot be cleared without
+real cooperation") better than a near-0% wall did. The combo proxy (≥25 dmg hits) is still rare in
+absolute terms (~1 in 135 games) — bots line up the timing correctly now, but Vera still has to
+actually declare a high-mana Meteor into that window, which this change doesn't force.
+
+**Still not a reason to touch boss HP/armor.** These numbers describe heuristic bots with full
+information, not humans — a real table won't always have this much cross-player attention either.
+Get human playtesting before changing content numbers off of any bot-sim run, per the M8 note above.

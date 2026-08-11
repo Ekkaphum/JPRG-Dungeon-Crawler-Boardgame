@@ -8,7 +8,7 @@ export type { RNG } from './rng';
 export { newGame, runDraft, prepareBattle } from './clock/setup';
 export { playGame } from './clock/game';
 export { runClockBattle, resetFighterForNewBattle } from './clock/walk';
-export { declareSkill, legalTrapSlots, resolveFighterPending, processTrapsAtMarker, dealDamageToFighterFromBoss } from './clock/skills';
+export { applySomnivarTax, declareSkill, legalTrapSlots, resolveFighterPending, processTrapsAtMarker, dealDamageToFighterFromBoss } from './clock/skills';
 export { declareBossAction, resolveBossPending } from './clock/bossAI';
 export { pickExtreme, pickExtremeN } from './clock/rank';
 export { currentTotalScore, pushScore, applyDamageToFighter, applyDamageToBoss, healFighter, killFighter, reviveFighter } from './clock/damage';
