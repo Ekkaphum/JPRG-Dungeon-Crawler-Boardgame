@@ -257,6 +257,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         slot: 1,
         points: 1,
         perOccurrence: true,
+        // Tried 15 -> 13 on 2026-08-11, reverted: see the note on vera2 below — the pre-existing
+        // numbers turned out not to need fixing. docs/BALANCE_NOTES.md has the full before/after.
         desc: { th: 'ทำ dmg ครั้งเดียวได้ 15 ขึ้นไป', en: 'Deal 15+ damage in one hit' },
       },
       {
@@ -265,6 +267,12 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         slot: 2,
         points: 4,
         perOccurrence: false,
+        // Tried broadening to Fireball-or-Meteor on 2026-08-11, reverted. Pre-item-3-cooperation-fix
+        // data made Vera look under-scored (my read of the code before any sim existed), but by the
+        // time this was tested she was already the 2nd-highest scorer (8.6, next to Kit's 8.9) — the
+        // broadened version overshot to *highest* (9.4-9.9) even after halving its point premium.
+        // Reverted rather than kept "close enough": the actual outlier is Luna alone (7.5), not
+        // Vera — see luna1 below and docs/BALANCE_NOTES.md for the full data.
         desc: { th: 'ตี Last Shot ปราบบอสด้วย Meteor', en: 'Land the Last Shot with Meteor' },
       },
       {
@@ -289,7 +297,15 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'luna1',
         charId: 'Luna',
         slot: 1,
-        points: 1,
+        // 1 -> 3 (2026-08-11): with comboSynergyBonus now steering Luna toward Blessing whenever a
+        // teammate's big hit is lining up, Heal was barely worth declaring — balance sim showed it
+        // contributing under 3% of her total score in won games, next to nothing next to luna3's
+        // ~50%. Bots don't pick Heal for its point value (estimateChoiceValue's heal case is purely
+        // HP-need-driven; scoreConditionBonus doesn't touch luna1 at all), so this fire rate is a
+        // fixed multiplier — 2x wasn't enough to move Luna's total meaningfully (+0.1 pts/win over
+        // 4000 games); 3x still leaves it well under matt3's contribution at the same frequency
+        // scale. See docs/BALANCE_NOTES.md for the tested progression.
+        points: 3,
         perOccurrence: true,
         desc: { th: 'ใช้ Heal แล้วฟื้น HP ให้เพื่อนได้จริงอย่างน้อย 1 แต้ม', en: 'Heal restores at least 1 HP to an injured ally' },
       },
@@ -322,4 +338,16 @@ export function skillDef(id: SkillId): SkillDef {
 export function skillStats(id: SkillId, isLv2: boolean): SkillLevelStats {
   const s = SKILLS[id];
   return isLv2 ? s.lv2 : s.lv1;
+}
+
+/** Single source of truth for a personal score condition's point value — scoring.ts's pushScore()
+ *  calls read through this instead of repeating the number, so a rebalance only ever needs to
+ *  change it here. (Doesn't cover 'timeBonus', which isn't a personal condition — it's computed
+ *  dynamically from the clock's remaining slots and split equally among all four players.) */
+export function scorePoints(conditionId: string): number {
+  for (const charId of CHAR_IDS) {
+    const c = CHARACTERS[charId].score.find((s) => s.id === conditionId);
+    if (c) return c.points;
+  }
+  throw new Error(`unknown score condition: ${conditionId}`);
 }

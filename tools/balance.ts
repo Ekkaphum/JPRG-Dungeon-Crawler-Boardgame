@@ -9,6 +9,7 @@
 import { createRNG, newGame, playGame, type NewGameSetup, type BossId, type CharId, type ClockLogEvent, type Choice, type PendingDecision } from '../src/engine';
 import { createMediumBot } from '../src/bots/medium';
 import type { Agent } from '../src/bots/Agent';
+import { CHARACTERS } from '../src/content/characters';
 
 function setup(): NewGameSetup {
   return {
@@ -51,6 +52,15 @@ async function main() {
   const bossCleared: Partial<Record<BossId, number>> = {};
   const bossAttempts: Partial<Record<BossId, number>> = {};
   const scoreByChar: Record<CharId, number[]> = { Matt: [], Kit: [], Vera: [], Luna: [] };
+  // Per-condition breakdown (all games, not just wins) — how often each of the 12 score
+  // conditions actually fires and how many points it hands out in total, which the per-character
+  // total above can't distinguish (e.g. a per-occurrence condition firing often vs. a rare
+  // high-value one landing at the same average).
+  const conditionHits: Record<string, number> = {};
+  const conditionPoints: Record<string, number> = {};
+  const wonConditionHits: Record<string, number> = {};
+  const wonConditionPoints: Record<string, number> = {};
+  const timeBonusByChar: Record<string, number> = {};
   let bigHits = 0;
   let armorBrokeGames = 0;
 
@@ -101,6 +111,10 @@ async function main() {
             if (ev.skillId === 'CounterAttack' && openWindow[ev.playerId] !== undefined) openWindow[ev.playerId]++;
           }
         }
+        if (ev.t === 'SCORE') {
+          conditionHits[ev.entry.conditionId] = (conditionHits[ev.entry.conditionId] ?? 0) + 1;
+          conditionPoints[ev.entry.conditionId] = (conditionPoints[ev.entry.conditionId] ?? 0) + ev.entry.points;
+        }
         if (ev.t === 'RESOLVE_TRAP_TRIGGER') {
           trapTriggers++;
           dmgBySkill.SetTrap = (dmgBySkill.SetTrap ?? 0) + ev.dmg;
@@ -118,6 +132,23 @@ async function main() {
     if (state.gameOver?.outcome === 'win') {
       wins++;
       for (const p of state.players) scoreByChar[p.charId].push(state.gameOver.totals[p.id] ?? 0);
+      // Won-games-only condition breakdown: scoring only ever decides a winner in a game the party
+      // actually wins, so this — not the all-games figures above — is what determines who tends to
+      // come out ahead. state.scoreLog accumulates across all 3 battles, same source
+      // currentTotalScore() reads for the final tally. 'timeBonus' (Aurelius's leftover-clock
+      // payout) is the one condition every player earns under the *same* id regardless of
+      // character, so it can't be attributed via conditionId alone the way the 12 personal
+      // conditions can — route it through the player's actual character instead.
+      const charOf: Record<number, CharId> = {};
+      for (const p of state.players) charOf[p.id] = p.charId;
+      for (const entry of state.scoreLog) {
+        wonConditionHits[entry.conditionId] = (wonConditionHits[entry.conditionId] ?? 0) + 1;
+        wonConditionPoints[entry.conditionId] = (wonConditionPoints[entry.conditionId] ?? 0) + entry.points;
+        if (entry.conditionId === 'timeBonus') {
+          const c = charOf[entry.playerId];
+          timeBonusByChar[c] = (timeBonusByChar[c] ?? 0) + entry.points;
+        }
+      }
     }
   }
 
@@ -156,6 +187,42 @@ async function main() {
   console.log('\navg total score by character (won games only):');
   for (const charId of Object.keys(scoreByChar) as CharId[]) {
     console.log(`  ${charId}: ${mean(scoreByChar[charId]).toFixed(1)}`);
+  }
+
+  const conditionChar: Record<string, string> = {};
+  for (const charId of Object.keys(CHARACTERS) as CharId[]) {
+    for (const c of CHARACTERS[charId].score) conditionChar[c.id] = charId;
+  }
+  console.log('\nscore conditions, all games (id / char / fires per game / avg pts per game):');
+  for (const id of Object.keys(conditionChar).sort()) {
+    const hits = conditionHits[id] ?? 0;
+    const pts = conditionPoints[id] ?? 0;
+    console.log(`  ${id.padEnd(6)} ${(conditionChar[id] ?? '?').padEnd(6)} ${(hits / games).toFixed(2).padStart(6)}/game   ${(pts / games).toFixed(2).padStart(6)} pts/game`);
+  }
+
+  // The figures that actually decide winners: only games the party won, normalized per winning
+  // game rather than per game overall, plus each condition's share of its own character's *true*
+  // total (personal conditions + this character's slice of the shared timeBonus payout) — the
+  // number that answers "is any one of Luna's/Vera's three conditions carrying her score, or is
+  // one of them dead weight next to how much timeBonus alone hands out?"
+  const charTotalWon: Record<string, number> = { ...timeBonusByChar };
+  for (const [id, pts] of Object.entries(wonConditionPoints)) {
+    const c = conditionChar[id];
+    if (c) charTotalWon[c] = (charTotalWon[c] ?? 0) + pts;
+  }
+  console.log('\nscore conditions, won games only (id / char / fires per win / avg pts per win / share of char total):');
+  for (const id of [...Object.keys(conditionChar).sort(), 'timeBonus']) {
+    const hits = wonConditionHits[id] ?? 0;
+    const pts = id === 'timeBonus' ? Object.values(timeBonusByChar).reduce((a, b) => a + b, 0) : wonConditionPoints[id] ?? 0;
+    const c = id === 'timeBonus' ? 'ALL' : conditionChar[id] ?? '?';
+    const share = id === 'timeBonus' ? null : charTotalWon[c] ? (pts / charTotalWon[c]) * 100 : 0;
+    console.log(
+      `  ${id.padEnd(6)} ${c.padEnd(6)} ${(hits / Math.max(1, wins)).toFixed(2).padStart(6)}/win   ${(pts / Math.max(1, wins)).toFixed(2).padStart(6)} pts/win   ${share === null ? '  —' : share.toFixed(0).padStart(3) + '%'}`
+    );
+  }
+  console.log('\ntrue total per character in won games (personal conditions + their slice of timeBonus):');
+  for (const charId of Object.keys(scoreByChar) as CharId[]) {
+    console.log(`  ${charId}: ${(charTotalWon[charId] / Math.max(1, wins)).toFixed(2)} pts/win`);
   }
 }
 

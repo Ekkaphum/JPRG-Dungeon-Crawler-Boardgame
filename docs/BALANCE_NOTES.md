@@ -131,3 +131,72 @@ actually declare a high-mana Meteor into that window, which this change doesn't 
 **Still not a reason to touch boss HP/armor.** These numbers describe heuristic bots with full
 information, not humans — a real table won't always have this much cross-player attention either.
 Get human playtesting before changing content numbers off of any bot-sim run, per the M8 note above.
+
+---
+
+## Score condition rebalance — 2026-08-11 (Luna/Vera, one change kept, two reverted)
+
+`tools/balance.ts` previously only reported each character's *total* score, which can't tell a
+weak condition apart from a strong one landing at the same average. Extended it to report every
+condition's fire rate and points **per won game** specifically (`scoreLog` after `state.gameOver`),
+since scoring only ever decides a winner in a game the party actually wins — an all-games figure
+gets diluted by the ~55% of games that end in a loss at Aurelius. Also caught and fixed a real bug
+while building this: `scoring.ts` hardcoded point values as literals separate from
+`CHARACTERS[charId].score[n].points` (what the UI actually displays), so the two could drift.
+Added `scorePoints(conditionId)` in `@content/characters` as the one source of truth; `scoring.ts`
+now reads through it everywhere.
+
+**Baseline (post-item-3 cooperation fix, before any score changes), 4000 games:**
+
+| Character | pts/win |
+|---|---|
+| Kit | 8.9 |
+| Vera | 8.6 |
+| Matt | 7.9 |
+| Luna | 7.5 |
+
+Spread 1.4 pts — tighter than the original code-reading diagnosis (written before any sim data
+existed) assumed. Per-condition breakdown showed the real story:
+
+| Condition | Char | Share of char total |
+|---|---|---|
+| kit1 (weak point) | Kit | 39% |
+| kit3 (5+ attacks) | Kit | 35% |
+| vera3 (never died) | Vera | 49% |
+| luna3 (nobody died) | Luna | 49% |
+| matt2 (Last Shot) | Matt | 36% |
+| vera2 (Last Shot w/ Meteor) | Vera | 14% |
+| luna1 (Heal ≥1hp) | Luna | 2% |
+
+**Tried and reverted — vera1 (15→13 dmg threshold) and vera2 (Meteor-only → Fireball-or-Meteor):**
+the original diagnosis read Vera's conditions as too narrow, but by the time this was tested
+(post-item-3) she was already the *2nd-highest* scorer, not a weak one. Broadening vera2 alone (kept
+at 4pts) pushed her fire rate from 0.31→0.73/win and her total to **9.93** — highest of all four,
+worse spread than baseline. Cutting the point premium to 3 (matching matt2, since Fireball+Meteor
+is *all* of Vera's attack options — no longer a rare subset once broadened) still left her at
+**9.41**. vera1's threshold change had negligible effect either way (14–16% share regardless).
+Reverted both to original values rather than force through a change the data said was wrong.
+
+**Kept — luna1 (Heal ≥1hp), 1→3 points:** the actual outlier was Luna, not Vera, and her weakest
+condition was luna1, contributing under 3% of her total. Bots don't pick Heal for its point value —
+`estimateChoiceValue`'s heal case is purely HP-need-driven, and `scoreConditionBonus` (hard-bot-only)
+doesn't touch luna1 at all — so its ~0.15/win fire rate is a fixed multiplier the AI won't chase no
+matter the point value; only the payout scales. Tested 1→2 (+0.10 pts/win, too small to matter) then
+1→3 before settling.
+
+**Final result, 5000 games:**
+
+| Character | pts/win | vs. baseline |
+|---|---|---|
+| Kit | 8.88 | ~unchanged |
+| Vera | 8.53 | ~unchanged |
+| Matt | 7.79 | ~unchanged |
+| Luna | 7.70 | **+0.20** |
+
+Spread 1.18 (down from 1.4), Matt and Luna now close to tied at the bottom instead of Luna alone.
+Kit's lead (driven by kit1+kit3, both a direct result of item 3's comboSynergyBonus rewarding
+QuickShot) is a separate question from what this pass was scoped to — not touched here.
+
+Covered by `tests/scoreConditions.test.ts`, which had zero coverage of `onPlayerDealtDamage`,
+`onWeakPointOpened`, `onTrapTriggered`, or `onHealResolved` before this pass — none of the 12 score
+conditions' exact thresholds or point values were pinned by any test.

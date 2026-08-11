@@ -3,7 +3,7 @@
 // instant they happen; the "slot 3" end-of-battle conditions are checked once here after a boss
 // dies.
 
-import type { SkillId } from '@content/characters';
+import { scorePoints, type SkillId } from '@content/characters';
 import { pushScore, currentTotalScore } from './damage';
 import type { GameState, PlayerId } from './types';
 
@@ -13,36 +13,37 @@ function playerByChar(state: GameState, charId: string): PlayerId {
 
 /** Matt cond1 (dmg>10), Vera cond1 (dmg>=15), Luna cond2 (blessed ally dmg>15), and both
  *  characters' "Last Shot" bonuses — called right after any player-sourced hit on the boss
- *  resolves (not for trap damage, which has no attributable "player action"). */
+ *  resolves (not for trap damage, which has no attributable "player action"). Point values live in
+ *  @content/characters (scorePoints()) — this is only the trigger logic, not the numbers. */
 export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillId: SkillId, effectiveDmg: number) {
   const battle = state.battle!;
   const charId = state.players.find((p) => p.id === playerId)!.charId;
 
   if (charId === 'Matt' && effectiveDmg > 10) {
-    pushScore(state, { playerId, conditionId: 'matt1', points: 1 });
+    pushScore(state, { playerId, conditionId: 'matt1', points: scorePoints('matt1') });
   }
   if (charId === 'Vera' && effectiveDmg >= 15) {
-    pushScore(state, { playerId, conditionId: 'vera1', points: 1 });
+    pushScore(state, { playerId, conditionId: 'vera1', points: scorePoints('vera1') });
   }
   if (battle.partyBuff && effectiveDmg > 15) {
-    pushScore(state, { playerId: playerByChar(state, 'Luna'), conditionId: 'luna2', points: 1 });
+    pushScore(state, { playerId: playerByChar(state, 'Luna'), conditionId: 'luna2', points: scorePoints('luna2') });
   }
   if (battle.finishedBy === playerId) {
-    if (charId === 'Matt') pushScore(state, { playerId, conditionId: 'matt2', points: 3 });
-    if (charId === 'Vera' && skillId === 'Meteor') pushScore(state, { playerId, conditionId: 'vera2', points: 4 });
+    if (charId === 'Matt') pushScore(state, { playerId, conditionId: 'matt2', points: scorePoints('matt2') });
+    if (charId === 'Vera' && skillId === 'Meteor') pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
   }
 }
 
 export function onWeakPointOpened(state: GameState, playerId: PlayerId) {
-  pushScore(state, { playerId, conditionId: 'kit1', points: 1 });
+  pushScore(state, { playerId, conditionId: 'kit1', points: scorePoints('kit1') });
 }
 
 export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
-  pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: 1 });
+  pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2') });
 }
 
 export function onHealResolved(state: GameState, healerId: PlayerId, actualAmount: number) {
-  if (actualAmount >= 1) pushScore(state, { playerId: healerId, conditionId: 'luna1', points: 1 });
+  if (actualAmount >= 1) pushScore(state, { playerId: healerId, conditionId: 'luna1', points: scorePoints('luna1') });
 }
 
 /** "Slot 3" end-of-battle conditions — only meaningful when the boss was actually defeated. */
@@ -53,18 +54,18 @@ export function onBattleEndScoring(state: GameState) {
   for (const p of state.players) {
     const f = battle.fighters.find((x) => x.playerId === p.id)!;
     if (p.charId === 'Matt' && f.alive && f.hp < 5) {
-      pushScore(state, { playerId: p.id, conditionId: 'matt3', points: 2 });
+      pushScore(state, { playerId: p.id, conditionId: 'matt3', points: scorePoints('matt3') });
     }
     if (p.charId === 'Kit' && f.attackCountThisBattle >= 5) {
-      pushScore(state, { playerId: p.id, conditionId: 'kit3', points: 2 });
+      pushScore(state, { playerId: p.id, conditionId: 'kit3', points: scorePoints('kit3') });
     }
     if (p.charId === 'Vera' && !f.everDiedThisBattle) {
-      pushScore(state, { playerId: p.id, conditionId: 'vera3', points: 2 });
+      pushScore(state, { playerId: p.id, conditionId: 'vera3', points: scorePoints('vera3') });
     }
   }
   const noOneEverDied = battle.fighters.every((f) => !f.everDiedThisBattle);
   if (noOneEverDied) {
-    pushScore(state, { playerId: playerByChar(state, 'Luna'), conditionId: 'luna3', points: 3 });
+    pushScore(state, { playerId: playerByChar(state, 'Luna'), conditionId: 'luna3', points: scorePoints('luna3') });
   }
 }
 
