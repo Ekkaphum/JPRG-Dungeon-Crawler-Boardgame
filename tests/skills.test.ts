@@ -135,6 +135,8 @@ describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact s
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
+    // Set Trap is ⏱4, so slot 10 is only armable from marker 11–13 (see tests/trapSlots.test.ts).
+    state.battle!.marker = 13;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
     expect(state.battle!.traps).toHaveLength(1);
 
@@ -156,6 +158,8 @@ describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact s
     const kit = findFighter(state, 'Kit');
 
     const armAndTrigger = (rng: ReturnType<typeof createRNG>) => {
+      // Rewind the marker so slot 10 sits inside Set Trap's ⏱4 window before each re-arm.
+      state.battle!.marker = 13;
       declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
       state.battle!.marker = 10;
       state.battle!.bossSlot = 10;
@@ -182,6 +186,7 @@ describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact s
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 13; // slot 10 must be inside Set Trap's ⏱4 window to arm
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
     state.battle!.marker = 10;
     state.battle!.bossSlot = 6; // boss is headed elsewhere, not stopping at 10

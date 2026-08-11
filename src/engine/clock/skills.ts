@@ -17,6 +17,23 @@ export function applySomnivarTax(state: GameState, baseTime: number): number {
   return baseTime;
 }
 
+/** Slots Set Trap may legally be armed on: strictly inside the skill's own ⏱ window (so the trap is
+ *  a read of where the boss stops next, not a snipe anywhere on the clock — the whole point of the
+ *  v0.4.2 redesign), at or above slot 0, and not already holding another trap.
+ *
+ *  Single source of truth on purpose: buildDeclareOptions() offers exactly this list to the UI and
+ *  the bots, and declareSkill() below rejects anything outside it. Computing it in two places is
+ *  what let the UI hand humans illegal slots while bots played by the rules. */
+export function legalTrapSlots(state: GameState, fighter: Fighter): number[] {
+  const battle = state.battle!;
+  const trapTime = applySomnivarTax(state, skillStats('SetTrap', isLv2(state, fighter, 'SetTrap')).time);
+  const slots: number[] = [];
+  for (let s = battle.marker - 1; s > battle.marker - trapTime && s >= 0; s--) {
+    if (!battle.traps.some((t) => t.slot === s)) slots.push(s);
+  }
+  return slots;
+}
+
 /** Escalating dice ladder shared by Quick Shot's weak point and Set Trap's cancel: 5+ on the first
  *  try, one easier per miss, automatic on the 5th, and reset the moment it lands (§5.2). */
 function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpose: string, rng: RNG): boolean {
@@ -62,9 +79,18 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       fighter.mana = Math.min(3, fighter.mana + stats.primary!);
       fighter.shield = { kind: 'mana', reduction: stats.secondary! };
       break;
-    case 'trap':
-      battle.traps.push({ slot: choice.trapSlot!, dmg: stats.primary!, ownerId: fighter.playerId });
+    case 'trap': {
+      // Validated rather than trusted: the choice comes from a UI or a bot, and an out-of-window
+      // slot would silently hand that player the pre-v0.4.2 "arm it anywhere" power.
+      const legal = legalTrapSlots(state, fighter);
+      if (choice.trapSlot == null || !legal.includes(choice.trapSlot)) {
+        throw new Error(
+          `illegal Set Trap slot ${choice.trapSlot} for player ${fighter.playerId} at marker ${battle.marker} (legal: ${legal.join(',') || 'none'})`
+        );
+      }
+      battle.traps.push({ slot: choice.trapSlot, dmg: stats.primary!, ownerId: fighter.playerId });
       break;
+    }
     case 'attackMana':
       // Mana is paid up front and never refunded, even if the attack later fizzles (§5.1/§8).
       fighter.mana = Math.max(0, fighter.mana - (choice.manaSpent ?? 0));

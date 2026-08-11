@@ -67,3 +67,21 @@ stat silently described boss 3 only; all numbers below are from the fixed tool):
 The medium bot's heuristic was also taught to aim traps at the boss's current slot and to skip
 arming when nothing is declared yet (`src/bots/heuristics.ts`) — before that, bots armed traps
 blind and 0 of them ever triggered, which would have made every trap number above meaningless.
+
+---
+
+## Set Trap slot validation — 2026-08-11 (bug fix, no content change)
+
+The ⏱-window restriction from the v0.4.2 redesign was computed in two places. Bots read the correct
+list (`options.trapSlots`), but the human decision panel offered `options.emptySlotsBelowMarker` —
+*every* free slot below the marker — and `declareSkill` never validated what it was handed. Human
+players could therefore arm traps anywhere on the clock, which is exactly the power v0.4.2 removed.
+
+The window is now computed once in `legalTrapSlots()` (`src/engine/clock/skills.ts`), consumed by
+both `buildDeclareOptions()` and the UI, and enforced in `declareSkill()`, which throws on anything
+outside it. Covered by `tests/trapSlots.test.ts`.
+
+**No re-tuning needed:** re-running `npm run balance -- 2000` after the fix reproduces the numbers
+in the table above exactly (win 17.9% · Ragorath 71.4% · Somnivar 55.5% · Aurelius 17.9% · armor
+broke 13.6% · Set Trap 2,771 declares at 3.96 dmg · trigger 97.7% · cancel 37.6%). Bots were always
+playing legally, so the sim never exercised the bug — it only ever affected human play.

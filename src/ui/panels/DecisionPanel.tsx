@@ -106,7 +106,10 @@ function DeclareActionPanel({
       {!skillId && (
         <div className="flex gap-2 flex-wrap">
           {def.skills.map((sid) => {
-            const disabled = sid === 'Berserk' && fighter.hp > 5;
+            // Berserk needs its HP<=5 gate met; Set Trap needs at least one free slot inside its
+            // own ⏱ window, otherwise the picker would open with nothing to choose.
+            const disabled =
+              (sid === 'Berserk' && fighter.hp > 5) || (SKILLS[sid].kind === 'trap' && decision.options.trapSlots.length === 0);
             const stats = skillStats(sid, isLv2(sid));
             return (
               <button
@@ -167,7 +170,9 @@ function DeclareActionPanel({
       {skillId && skillKind === 'trap' && (
         <div className="flex gap-2 flex-wrap items-center">
           <span className="text-xs text-gold-dim">{t('decision.trapSlot')}</span>
-          {decision.options.emptySlotsBelowMarker.slice(0, 20).map((slot) => (
+          {/* Must be options.trapSlots, never emptySlotsBelowMarker: a trap is only legal inside
+              Set Trap's own ⏱ window, and the engine rejects anything else outright. */}
+          {decision.options.trapSlots.map((slot) => (
             <button key={slot} onClick={() => submit({ kind: 'DECLARE_ACTION', skillId, trapSlot: slot })} className="gold-frame rounded px-2 py-1 text-xs hover:bg-gold/10">
               {slot}
             </button>

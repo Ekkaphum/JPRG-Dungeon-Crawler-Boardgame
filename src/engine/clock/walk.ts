@@ -1,9 +1,9 @@
 // The clock walk — the whole game's core loop. See docs/10-v0.3.0-rulings.md and
 // GAME_DESIGN_v0_3_0.md §4 for the rules this implements.
 
-import { CHARACTERS, skillStats } from '@content/characters';
+import { CHARACTERS } from '@content/characters';
 import type { RNG } from '../rng';
-import { applySomnivarTax, declareSkill, processTrapsAtMarker, resolveFighterPending } from './skills';
+import { declareSkill, legalTrapSlots, processTrapsAtMarker, resolveFighterPending } from './skills';
 import { declareBossAction, resolveBossPending } from './bossAI';
 import { reviveFighter } from './damage';
 import { onBattleEndScoring } from './scoring';
@@ -17,22 +17,16 @@ function buildDeclareOptions(state: GameState, fighter: Fighter): DeclareOptions
   const emptySlotsBelowMarker: number[] = [];
   for (let s = 0; s < battle.marker; s++) if (!occupied.has(s)) emptySlotsBelowMarker.push(s);
 
-  // Set Trap can only be armed inside the span the skill itself covers — between here and where
-  // Kit's pawn lands — so it reads the boss's next stop rather than sniping anywhere on the clock.
-  // Overlapping a fighter is fine (a trap sits on the track, not on a person); another trap isn't.
-  const trapTime = applySomnivarTax(state, skillStats('SetTrap', !!state.progress[fighter.playerId]?.isLv2.SetTrap).time);
-  const trapSlots: number[] = [];
-  for (let s = battle.marker - 1; s > battle.marker - trapTime && s >= 0; s--) {
-    if (!battle.traps.some((t) => t.slot === s)) trapSlots.push(s);
-  }
-
   return {
     charId: fighter.charId,
     currentSlot: fighter.slot,
     mana: fighter.mana,
     maxManaSpend: Math.min(fighter.mana, 3),
     emptySlotsBelowMarker,
-    trapSlots,
+    // Set Trap can only be armed inside the span the skill itself covers — between here and where
+    // Kit's pawn lands — so it reads the boss's next stop rather than sniping anywhere on the clock.
+    // Overlapping a fighter is fine (a trap sits on the track, not on a person); another trap isn't.
+    trapSlots: legalTrapSlots(state, fighter),
   };
 }
 
