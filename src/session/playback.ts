@@ -107,6 +107,52 @@ export function eventDelay(ev: ClockLogEvent, base: number): number {
   }
 }
 
+/** Every named sound effect the game can play, synthesized (no audio assets — see
+ *  @ui/audio/AudioEngine) rather than sourced. */
+export type SoundName =
+  | 'tick'
+  | 'hitBoss'
+  | 'hitPlayer'
+  | 'heal'
+  | 'death'
+  | 'revive'
+  | 'weakPoint'
+  | 'bossMove'
+  | 'victory'
+  | 'defeat'
+  | 'score';
+
+/** Which sound (if any) a resolved event should trigger. Pure and side-effect-free on purpose —
+ *  the actual AudioContext calls live in the UI layer (@ui/audio) so this stays unit-testable
+ *  without a browser, same split as popupFor/actionFlashFor above. MARKER_TICK is deliberately
+ *  excluded: its "tick" cadence is driven separately by the marker value itself (speeding up near
+ *  0), not by this per-event mapping. */
+export function soundFor(ev: ClockLogEvent): Exclude<SoundName, 'tick'> | null {
+  switch (ev.t) {
+    case 'RESOLVE_ATTACK':
+      if (ev.wasted || ev.dmg <= 0) return null;
+      return ev.targetId === 'boss' ? 'hitBoss' : 'hitPlayer';
+    case 'RESOLVE_TRAP_TRIGGER':
+      return ev.dmg > 0 ? 'hitBoss' : null;
+    case 'RESOLVE_HEAL':
+      return !ev.wasted && ev.amount > 0 ? 'heal' : null;
+    case 'DEATH':
+      return 'death';
+    case 'REVIVE':
+      return 'revive';
+    case 'ROLL':
+      return ev.purpose === 'QuickShot weak point' && ev.success ? 'weakPoint' : null;
+    case 'BOSS_MOVE':
+      return 'bossMove';
+    case 'SCORE':
+      return 'score';
+    case 'BATTLE_END':
+      return ev.outcome === 'boss_defeated' ? 'victory' : 'defeat';
+    default:
+      return null;
+  }
+}
+
 export function popupFor(ev: ClockLogEvent): Omit<DamagePopup, 'id'> | null {
   switch (ev.t) {
     case 'RESOLVE_ATTACK':

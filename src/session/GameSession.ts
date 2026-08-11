@@ -71,6 +71,11 @@ export class GameSession {
   /** Fires with a resumable snapshot right after a battle fully commits (bossIndex advances) —
    *  mid-battle progress is intentionally not saved, same tradeoff v0.2.0 made (docs/07 §6). */
   onBattleBoundary: ((snapshot: GameState) => void) | null = null;
+  /** Fires once per event as it's revealed (paced, same rhythm as the popups/flashes above),
+   *  including MARKER_TICK — unlike `currentEvent`, which skips ticks since the action banner has
+   *  nothing to show for them. The UI's audio hook is the only current subscriber; kept as a plain
+   *  callback rather than a session field so this class never has to import an AudioContext. */
+  onEvent: ((ev: ClockLogEvent) => void) | null = null;
 
   private visibleLogCount = 0;
   private visibleScoreCount = 0;
@@ -244,6 +249,7 @@ export class GameSession {
       const p = popupFor(ev);
       if (p) this.pushPopup(p);
       if (ev.t !== 'MARKER_TICK') this.currentEvent = ev;
+      this.onEvent?.(ev);
       this.visibleLogCount++;
       this.notify();
       const d = eventDelay(ev, this.animSpeedMs);

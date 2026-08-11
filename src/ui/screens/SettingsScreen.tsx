@@ -1,6 +1,7 @@
 import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
 import { ANIM_DELAY_OPTIONS } from '@session/persistence';
+import { audioEngine } from '@ui/audio/AudioEngine';
 
 export function SettingsScreen() {
   const t = useT();
@@ -44,6 +45,35 @@ export function SettingsScreen() {
             ))}
           </div>
           <div className="mt-1 text-xs text-gold-dim">{t('common.animSpeed.hint')}</div>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-sm mb-2">
+            <input type="checkbox" checked={settings.soundEnabled} onChange={(e) => updateSettings({ soundEnabled: e.target.checked })} />
+            {t('common.sound')}
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={settings.soundVolume}
+              disabled={!settings.soundEnabled}
+              onChange={(e) => updateSettings({ soundVolume: Number(e.target.value) })}
+              className="flex-1 disabled:opacity-30"
+            />
+            <button
+              onClick={() => {
+                audioEngine.unlock();
+                audioEngine.play('score');
+              }}
+              disabled={!settings.soundEnabled}
+              className="text-xs text-gold-dim underline disabled:opacity-30 flex-shrink-0"
+            >
+              {t('common.sound.test')}
+            </button>
+          </div>
         </div>
 
         <label className="flex items-center gap-2 text-sm">

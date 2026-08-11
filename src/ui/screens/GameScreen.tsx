@@ -14,6 +14,7 @@ import { HeroDetailModal } from '@ui/panels/HeroDetailModal';
 import { DecisionPanel } from '@ui/panels/DecisionPanel';
 import { LogPanel } from '@ui/panels/LogPanel';
 import { sceneImageUrl } from '@ui/common/assets';
+import { useGameAudio } from '@ui/audio/useGameAudio';
 
 type Detail = { kind: 'boss' } | { kind: 'hero'; playerId: number } | null;
 
@@ -23,6 +24,7 @@ export function GameScreen() {
   const setScreen = useAppStore((s) => s.setScreen);
   const [detail, setDetail] = useState<Detail>(null);
   useSessionVersion(session);
+  useGameAudio(session);
 
   if (!session) return null;
   const state = session.state;

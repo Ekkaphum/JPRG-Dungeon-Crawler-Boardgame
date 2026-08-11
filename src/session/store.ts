@@ -14,6 +14,7 @@ import {
   type Stats,
 } from './persistence';
 import type { Difficulty } from '@content/difficulty';
+import { audioEngine } from '@ui/audio/AudioEngine';
 
 export type Screen = 'menu' | 'setup' | 'game' | 'scoring' | 'allLose' | 'tutorial' | 'stats' | 'settings';
 
@@ -63,9 +64,13 @@ function randomSeed(): number {
   return Math.floor(Math.random() * 0xffffffff);
 }
 
+const initialSettings = loadSettings();
+audioEngine.enabled = initialSettings.soundEnabled;
+audioEngine.volume = initialSettings.soundVolume;
+
 export const useAppStore = create<AppState>((set, get) => ({
   screen: 'menu',
-  settings: loadSettings(),
+  settings: initialSettings,
   stats: loadStats(),
   hasSave: loadSaveFile() != null,
 
@@ -84,6 +89,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     saveSettings(s);
     set({ settings: s });
     if (patch.animDelayMs !== undefined) get().session?.setAnimSpeed(patch.animDelayMs);
+    if (patch.soundEnabled !== undefined) audioEngine.enabled = patch.soundEnabled;
+    if (patch.soundVolume !== undefined) audioEngine.volume = patch.soundVolume;
   },
 
   updatePlayer: (i, patch) => {
@@ -106,6 +113,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   startNewGame: () => {
+    // Must happen inside this real click handler, not later when a bot's sound first tries to
+    // play — browsers refuse to start audio outside a user gesture.
+    audioEngine.unlock();
     const { players, difficulty, seedText, draftMode, draftOrder } = get();
     const setup: NewGameSetup = {
       players: players.map((p) => ({ name: p.name || 'Player', kind: p.kind, botLevel: p.kind === 'bot' ? p.botLevel : undefined })),
@@ -124,6 +134,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   continueGame: () => {
+    audioEngine.unlock();
     const save = loadSaveFile();
     if (!save) return;
     const session = new GameSession(save.setup, save.seed, save.snapshot, get().settings.animDelayMs);

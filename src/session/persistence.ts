@@ -15,12 +15,16 @@ export interface Settings {
   lang: Lang;
   animDelayMs: number;
   showBotIntents: boolean;
+  soundEnabled: boolean;
+  soundVolume: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
   lang: 'th',
   animDelayMs: 1000,
   showBotIntents: false,
+  soundEnabled: true,
+  soundVolume: 0.5,
 };
 
 export interface SaveFile {
