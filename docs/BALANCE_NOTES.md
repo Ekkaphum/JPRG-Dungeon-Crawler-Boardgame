@@ -200,3 +200,100 @@ QuickShot) is a separate question from what this pass was scoped to — not touc
 Covered by `tests/scoreConditions.test.ts`, which had zero coverage of `onPlayerDealtDamage`,
 `onWeakPointOpened`, `onTrapTriggered`, or `onHealResolved` before this pass — none of the 12 score
 conditions' exact thresholds or point values were pinned by any test.
+
+---
+
+## Dax + Mira — a 6-character roster for 4 players (2026-08-11)
+
+A 4-player table drafting from exactly 4 characters has no real choice: whoever picks last just
+gets whatever's left, and GAME_DESIGN_v0_3_0.md §3.1 itself frames pick order as "สิ่งที่มีค่าจริง" (the
+thing that actually matters) — a framing that only holds if there's something to actually choose
+between. `runDraft()` (setup.ts) already iterates `CHAR_IDS` generically, so making the pool bigger
+than the table needed zero engine changes — every pick, including the last, is now a real decision
+among 3 remaining options.
+
+**Design constraint:** both new characters use only skill kinds the engine already treats
+generically (attack, attackRoll, attackMana, heal, buffParty, buffMana, buffCounter) — no new
+mechanic, no engine rule change. `attackGated`'s exact trigger (HP<=5) is hardcoded to Berserk
+specifically and wasn't reused.
+
+- **Dax (Duelist, 11 HP)** — Flurry (attack, 3-hit), Riposte (buffCounter, a lighter/cheaper parry
+  than Matt's Counter), Focus (attackRoll, a second weak-point opener alongside Kit's Quick Shot so
+  the party isn't dead in the water without Kit at the table).
+- **Mira (Elementalist, 9 HP)** — FrostBolt (attackMana, cheaper/lower-scaling than Vera's
+  Fireball), ArcaneWard (buffMana, matches Vera's ManaCharge numbers), MendingWind (heal, a notch
+  weaker/slower than Luna's Heal) — a "battle medic" that can cover for a missing healer or mage
+  without being strictly better than either specialist.
+
+**Portrait art:** no way to source painted portraits matching the original 4. `charSigils.ts`
+generates an SVG "sigil card" instead — a gradient panel in the class color with a simple geometric
+emblem (crossed blades for Dax, a frost shard for Mira), at the exact 480x720 aspect ratio of the
+real cards, encoded as a `data:` URI so every existing `charImageUrl()` call site works unchanged.
+Deliberately reads as its own design choice rather than a broken attempt at the painted style.
+
+### Real bugs this surfaced (not just new-character plumbing)
+
+Adding a second character that shares a skill *kind* with an existing one exposed three latent
+attribution bugs — each would have silently misattributed or dropped a real player's score/log
+entry, not just for Dax/Mira:
+
+1. **`onWeakPointOpened`** hardcoded `conditionId: 'kit1'` regardless of who opened it. Dax's Focus
+   resolves through the same generic attackRoll-success path as Kit's Quick Shot — his weak-point
+   opens would have scored as `kit1` (or, worse, been silently invisible to Dax's own UI, which
+   filters by character). Now looks up the condition by the opener's actual character.
+2. **`onHealResolved`** had the identical bug with `'luna1'` — Mira's Mending Wind vs Luna's Heal.
+3. **The counter-riposte code** (`dealDamageToFighterFromBoss`, skills.ts) always logged
+   `skillId: 'CounterAttack'`, regardless of which buffCounter skill actually fired. Dax's ripostes
+   would have shown as "Counter Attack" in the log/UI, and a Riposte-specific score condition
+   (dax2) would have been permanently unreachable. Now derived from the fighter's own kit.
+4. **`playerByChar(state, 'Luna')!.id`** in `onBattleEndScoring` assumed a player with charId
+   'Luna' always exists — true when the roster was fixed at exactly 4, false the instant Luna can
+   go undrafted. This one **would have crashed a real game** the moment the party won a battle
+   without Luna at the table and nobody died. Caught by a dedicated test before it shipped, then
+   confirmed safe by 3000 random-draft balance-sim games (which naturally exercise "Luna not
+   drafted" constantly) completing without a single exception.
+5. **Multi-hit attacks were hardcoded to `skillId === 'TwinShot'`** in both the engine
+   (`resolveFighterPending`, skills.ts) and the bot's value estimate (`estimateChoiceValue`,
+   heuristics.ts) — Dax's Flurry (also multi-hit) would have resolved as a single hit for 1/3 its
+   intended damage, and bots would have valued it the same way, never picking it over worse
+   alternatives. Both now key off whether `secondary` (hit count) is set at all, not the skill name.
+
+None of these were "new character" bugs in the sense of needing new code paths — they were always
+latent in the original 4-character implementation, just unreachable because there was only ever one
+character per skill kind. Worth remembering next time any skill kind gets a second user.
+
+### Balance: three tuning attempts on Mira, one kept
+
+3000-game sim, random draft (so not every character is in every game), score conditions/win only:
+
+| Metric | Matt | Kit | Vera | Luna | Dax | Mira |
+|---|---|---|---|---|---|---|
+| pts/win (first pass, original mira3) | 5.31 | 7.82 | 5.39 | 6.61 | 5.33 | **0.46** |
+
+Dax landed in a reasonable range immediately (his kit is structurally close to existing patterns).
+Mira did not — three things were tried, in order:
+
+1. **mira3 `>=2 mana banked` → `>=1`.** No real effect (0.01 → 0.05 fires/win). Root cause:
+   attackMana's value estimate always rewards spending *more* mana with nothing modeling a reason
+   to hold back, so bots almost never end a battle with any mana banked regardless of the bar —
+   this isn't Mira-specific, it's inherent to how any mana-spender bot behaves under the current
+   heuristic.
+2. **mira3 replaced entirely**, `>=N mana` → `never died this battle` (same shape as vera3, which
+   already performs well at ~49% of Vera's total). Fires 0.24/win — much better, but still far
+   below vera3's 1.30/win despite Mira having comparable HP (9 vs Vera's 8), pointing at a
+   defensive gap elsewhere in her kit.
+3. **ArcaneWard's damage reduction raised to match Vera's ManaCharge** (2/4 → 3/5), and
+   **MendingWind sped up to Luna's Heal's ⏱4** (from ⏱5, keeping a lower heal amount for
+   differentiation) since its slower speed was compounding with a smaller heal to make it
+   strictly worse in every comparison (0.06 fires/win).
+
+| Metric (after all three) | Matt | Kit | Vera | Luna | Dax | Mira |
+|---|---|---|---|---|---|---|
+| pts/win | 5.20 | 7.92 | 5.40 | 6.59 | 5.42 | **0.99** |
+
+Better (0.46 → 0.99) but still a clear outlier next to everyone else's 5-8 range. **Stopping here
+rather than continuing to chase numbers**: further gains would need either character-specific bot
+heuristics (comboSynergyBonus/scoreConditionBonus have dedicated logic for Matt/Kit/Vera/Luna, none
+for Dax/Mira — a meaningfully larger task than a content pass) or actual human playtesting, which
+is what this whole ruleset has been waiting on since M8. Flagging honestly rather than declaring
+Mira "balanced" when the data clearly says otherwise.

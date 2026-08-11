@@ -17,7 +17,11 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
   let value: number;
   switch (def.kind) {
     case 'attack': {
-      const hits = choice.skillId === 'TwinShot' ? (stats.secondary ?? 1) : 1;
+      // Multi-hit is driven by whether `secondary` (hit count) is set, not by which skill this is
+      // — matches the engine's own resolve logic (skills.ts). Was hardcoded to 'TwinShot'
+      // specifically, which would have made bots value Dax's Flurry (also multi-hit) at 1/3 of its
+      // real damage and never pick it over single-hit alternatives.
+      const hits = stats.secondary ?? 1;
       const armor = choice.skillId === 'Smite' ? 0 : battle.armor;
       value = Math.max(0, stats.primary! + buffAtk - armor) * hits;
       break;

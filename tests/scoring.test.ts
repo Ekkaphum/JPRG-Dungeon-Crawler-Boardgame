@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { prepareBattle, killFighter, reviveFighter, onBattleEndScoring, grantEndOfBattleRewards, determineWinner, currentTotalScore } from '@engine/index';
-import { fixedDraftState } from './testUtils';
+import { fixedDraftState, setPlayerCharacter } from './testUtils';
 
 function findFighter(state: ReturnType<typeof fixedDraftState>, charId: string) {
   const player = state.players.find((p) => p.charId === charId)!;
@@ -30,6 +30,20 @@ describe("Luna cond3 — 'no one ever died' (§5.4: revived still counts as havi
     const lunaScore = state.scoreLog.filter((e) => e.playerId === luna.playerId && e.conditionId === 'luna3');
     expect(lunaScore).toHaveLength(1);
     expect(lunaScore[0].points).toBe(3);
+  });
+
+  it('does not crash when Luna simply is not in the game (regression: playerByChar used to assume she always was)', () => {
+    // 6 characters for a 4-player table (2026-08-11) means any single character, Luna included,
+    // may go undrafted in a real game. onBattleEndScoring's luna3 check called
+    // `playerByChar(state, 'Luna')!.id` unconditionally — a party that wins without Luna at the
+    // table would have crashed the instant nobody died. Swap her out entirely and confirm the win
+    // still scores cleanly.
+    const state = fixedDraftState();
+    setPlayerCharacter(state, 3, 'Dax'); // player 3 was Luna
+    prepareBattle(state);
+    state.battle!.outcome = 'boss_defeated';
+    expect(() => onBattleEndScoring(state)).not.toThrow();
+    expect(state.scoreLog.some((e) => e.conditionId === 'luna3')).toBe(false);
   });
 });
 

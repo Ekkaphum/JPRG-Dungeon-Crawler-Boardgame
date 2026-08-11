@@ -1,7 +1,7 @@
 // Declare + resolve logic for all 12 adventurer skills. See docs/10-v0.3.0-rulings.md §5 for the
 // declare-immediate vs resolve-delayed split this file implements skill-by-skill.
 
-import { SKILLS, skillStats, type SkillId } from '@content/characters';
+import { CHARACTERS, SKILLS, skillStats, type SkillId } from '@content/characters';
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter } from './damage';
 import { onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
 import type { Choice, Fighter, GameState } from './types';
@@ -133,8 +133,12 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
 
   switch (def.kind) {
     case 'attack': {
-      if (skillId === 'TwinShot') {
-        for (let i = 0; i < (stats.secondary ?? 1); i++) {
+      // Multi-hit is driven by whether `secondary` (hit count) is set at all, not by which skill
+      // this is — was hardcoded to `skillId === 'TwinShot'` specifically, which silently made
+      // Dax's Flurry (also 'attack' kind, also has a secondary hit count) resolve as a single hit
+      // instead of 3. Slash/Smite have no `secondary`, so this is unchanged for them.
+      if (stats.secondary != null) {
+        for (let i = 0; i < stats.secondary; i++) {
           if (battle.outcome !== 'in_progress') break;
           dealAttack(stats.primary!, false);
         }
@@ -240,13 +244,18 @@ export function dealDamageToFighterFromBoss(state: GameState, fighter: Fighter, 
   const applied = applyDamageToFighter(state, fighter, rawDamage);
 
   if (counterDmg > 0 && battle.outcome === 'in_progress') {
+    // Each character has at most one buffCounter-kind skill in their kit — look up which one this
+    // fighter actually has (Matt's Counter Attack, Dax's Riposte, ...) instead of assuming Matt's.
+    // Previously hardcoded to 'CounterAttack' always, which would have mislabeled Dax's ripostes
+    // in the log/UI and made a Riposte-specific score condition unreachable.
+    const counterSkillId = CHARACTERS[fighter.charId].skills.find((sid) => SKILLS[sid].kind === 'buffCounter') ?? 'CounterAttack';
     const outgoing = computeOutgoingPlayerDamage(battle, counterDmg);
-    const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor: false, skillId: 'CounterAttack' });
-    onPlayerDealtDamage(state, fighter.playerId, 'CounterAttack', result.effective);
+    const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor: false, skillId: counterSkillId });
+    onPlayerDealtDamage(state, fighter.playerId, counterSkillId, result.effective);
     battle.log.push({
       t: 'RESOLVE_ATTACK',
       playerId: fighter.playerId,
-      skillId: 'CounterAttack',
+      skillId: counterSkillId,
       targetId: 'boss',
       dmg: result.effective,
       wasted: false,

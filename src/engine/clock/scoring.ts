@@ -7,8 +7,10 @@ import { scorePoints, type SkillId } from '@content/characters';
 import { pushScore, currentTotalScore } from './damage';
 import type { GameState, PlayerId } from './types';
 
-function playerByChar(state: GameState, charId: string): PlayerId {
-  return state.players.find((p) => p.charId === charId)!.id;
+// A 6-character roster drafted 4-at-a-table (2026-08-11) means any single character, Luna
+// included, may simply not be in a given game — this must never assume otherwise and throw.
+function playerByChar(state: GameState, charId: string): PlayerId | null {
+  return state.players.find((p) => p.charId === charId)?.id ?? null;
 }
 
 /** Matt cond1 (dmg>10), Vera cond1 (dmg>=15), Luna cond2 (blessed ally dmg>15), and both
@@ -26,24 +28,48 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
     pushScore(state, { playerId, conditionId: 'vera1', points: scorePoints('vera1') });
   }
   if (battle.partyBuff && effectiveDmg > 15) {
-    pushScore(state, { playerId: playerByChar(state, 'Luna'), conditionId: 'luna2', points: scorePoints('luna2') });
+    // Guarded rather than assumed safe: only Luna's own Blessing can set partyBuff, so this is
+    // unreachable when she isn't drafted in practice — but "unreachable in practice" is exactly
+    // how playerByChar's crash on a missing Luna slipped in undetected until Mira exposed it.
+    const lunaId = playerByChar(state, 'Luna');
+    if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna2', points: scorePoints('luna2') });
   }
   if (battle.finishedBy === playerId) {
     if (charId === 'Matt') pushScore(state, { playerId, conditionId: 'matt2', points: scorePoints('matt2') });
     if (charId === 'Vera' && skillId === 'Meteor') pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
   }
+  if (charId === 'Mira' && skillId === 'FrostBolt' && effectiveDmg > 10) {
+    pushScore(state, { playerId, conditionId: 'mira2', points: scorePoints('mira2') });
+  }
+  // Riposte's counter-strike used to always log as skillId 'CounterAttack' regardless of which
+  // buffCounter skill actually fired (see dealDamageToFighterFromBoss in skills.ts) — fixed
+  // alongside adding Dax, since a wrongly-attributed hit here would have made this condition
+  // unreachable rather than just cosmetically mislabeled.
+  if (charId === 'Dax' && skillId === 'Riposte' && effectiveDmg > 0) {
+    pushScore(state, { playerId, conditionId: 'dax2', points: scorePoints('dax2') });
+  }
 }
 
+/** Which character's weak-point-opener condition this is — Kit's Quick Shot and Dax's Focus both
+ *  resolve through the same generic attackRoll success path (skills.ts), so the condition to
+ *  credit has to be looked up by character rather than assumed. */
 export function onWeakPointOpened(state: GameState, playerId: PlayerId) {
-  pushScore(state, { playerId, conditionId: 'kit1', points: scorePoints('kit1') });
+  const charId = state.players.find((p) => p.id === playerId)!.charId;
+  const conditionId = charId === 'Kit' ? 'kit1' : charId === 'Dax' ? 'dax1' : null;
+  if (conditionId) pushScore(state, { playerId, conditionId, points: scorePoints(conditionId) });
 }
 
 export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
   pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2') });
 }
 
+/** Same character-lookup reasoning as onWeakPointOpened: Luna's Heal and Mira's Mending Wind both
+ *  resolve through the same generic heal-kind path. */
 export function onHealResolved(state: GameState, healerId: PlayerId, actualAmount: number) {
-  if (actualAmount >= 1) pushScore(state, { playerId: healerId, conditionId: 'luna1', points: scorePoints('luna1') });
+  if (actualAmount < 1) return;
+  const charId = state.players.find((p) => p.id === healerId)!.charId;
+  const conditionId = charId === 'Luna' ? 'luna1' : charId === 'Mira' ? 'mira1' : null;
+  if (conditionId) pushScore(state, { playerId: healerId, conditionId, points: scorePoints(conditionId) });
 }
 
 /** "Slot 3" end-of-battle conditions — only meaningful when the boss was actually defeated. */
@@ -62,10 +88,19 @@ export function onBattleEndScoring(state: GameState) {
     if (p.charId === 'Vera' && !f.everDiedThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'vera3', points: scorePoints('vera3') });
     }
+    if (p.charId === 'Dax' && f.alive && f.hp > f.maxHp / 2) {
+      pushScore(state, { playerId: p.id, conditionId: 'dax3', points: scorePoints('dax3') });
+    }
+    if (p.charId === 'Mira' && !f.everDiedThisBattle) {
+      pushScore(state, { playerId: p.id, conditionId: 'mira3', points: scorePoints('mira3') });
+    }
   }
   const noOneEverDied = battle.fighters.every((f) => !f.everDiedThisBattle);
   if (noOneEverDied) {
-    pushScore(state, { playerId: playerByChar(state, 'Luna'), conditionId: 'luna3', points: scorePoints('luna3') });
+    // This one WAS reachable with Luna undrafted (a full-party-survives battle needs nothing from
+    // her specifically) — playerByChar(state, 'Luna')!.id would throw here in a real game.
+    const lunaId = playerByChar(state, 'Luna');
+    if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna3', points: scorePoints('luna3') });
   }
 }
 

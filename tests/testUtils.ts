@@ -1,7 +1,7 @@
 import { createRNG, newGame, playGame, type Choice, type GameState, type NewGameSetup, type PendingDecision } from '@engine/index';
 import { createEasyBot } from '@bots/easy';
 import type { Agent } from '@bots/Agent';
-import { CHAR_IDS } from '@content/characters';
+import { CHAR_IDS, type CharId } from '@content/characters';
 
 /** Builds a 4-player game with a fixed, known Matt/Kit/Vera/Luna → player 0..3 assignment,
  *  bypassing the random draft so tests can address "Matt's fighter" deterministically. */
@@ -24,6 +24,15 @@ export function fixedDraftState(seed = 12345): GameState {
   });
   state.phase = 'BATTLE_INTRO';
   return state;
+}
+
+/** Swaps a player's character before prepareBattle() builds fighters off it — for testing Dax/Mira
+ *  (or any character) without needing a real 6-character draft. Must be called before
+ *  prepareBattle(), not after, or the fighter will still be built from the old character's stats. */
+export function setPlayerCharacter(state: GameState, playerId: number, charId: CharId) {
+  const player = state.players.find((p) => p.id === playerId)!;
+  player.charId = charId;
+  state.progress[playerId] = { playerId, charId, isLv2: {}, expOnCard: {}, bankedExp: 0 };
 }
 
 export function fourEasyBotSetup(): NewGameSetup {

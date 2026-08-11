@@ -2,8 +2,13 @@
 // Lv2 numbers are NOT in the source doc — see docs/10-v0.3.0-rulings.md §1 for the extrapolation
 // rule (~35-50% power bump) used to fill them in so the EXP/level system has real weight.
 
-export type CharId = 'Matt' | 'Kit' | 'Vera' | 'Luna';
-export const CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna'];
+// Dax/Mira (2026-08-11): a 4-player table drafting from exactly 4 characters has no real choice —
+// whoever picks last just gets whatever's left. Two extra characters make every pick, including
+// the last one, a genuine decision among 3 remaining options (GAME_DESIGN_v0_3_0.md §3.1's own
+// framing: "ลำดับการเลือกคือสิ่งที่มีค่าจริง"). runDraft() (setup.ts) already iterates CHAR_IDS
+// generically — no engine change was needed to make the pool bigger than the table.
+export type CharId = 'Matt' | 'Kit' | 'Vera' | 'Luna' | 'Dax' | 'Mira';
+export const CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna', 'Dax', 'Mira'];
 
 export type SkillId =
   | 'Slash'
@@ -17,7 +22,13 @@ export type SkillId =
   | 'ManaCharge'
   | 'Heal'
   | 'Blessing'
-  | 'Smite';
+  | 'Smite'
+  | 'Flurry'
+  | 'Riposte'
+  | 'Focus'
+  | 'FrostBolt'
+  | 'ArcaneWard'
+  | 'MendingWind';
 
 /** Which resolution family a skill belongs to — see docs/10-v0.3.0-rulings.md §5. */
 export type SkillKind =
@@ -171,6 +182,73 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     name: { th: 'Smite', en: 'Smite' },
     lv1: { time: 3, primary: 4 },
     lv2: { time: 3, primary: 6 },
+  },
+
+  // Dax — Duelist. Only uses skill kinds the engine already treats generically (attack,
+  // buffCounter, attackRoll) so no new mechanic had to be added — see the CharId comment above.
+  Flurry: {
+    id: 'Flurry',
+    charId: 'Dax',
+    kind: 'attack',
+    name: { th: 'Flurry', en: 'Flurry' },
+    // primary = damage per hit, secondary = hit count (same shape as Kit's Twin Shot)
+    lv1: { time: 5, primary: 3, secondary: 3 },
+    lv2: { time: 5, primary: 4, secondary: 3 },
+  },
+  Riposte: {
+    id: 'Riposte',
+    charId: 'Dax',
+    kind: 'buffCounter',
+    name: { th: 'Riposte', en: 'Riposte' },
+    // A lighter parry than Matt's Counter Attack: less damage reduction and a smaller riposte,
+    // but ⏱4 instead of ⏱5.
+    lv1: { time: 4, primary: 40, secondary: 8 },
+    lv2: { time: 4, primary: 45, secondary: 12 },
+  },
+  Focus: {
+    id: 'Focus',
+    charId: 'Dax',
+    kind: 'attackRoll',
+    name: { th: 'Focus', en: 'Focus' },
+    // A second weak-point opener alongside Kit's Quick Shot — ⏱4 (a slot slower) for slightly
+    // more base damage, so the party isn't dead in the water if Kit isn't at the table.
+    lv1: { time: 4, primary: 5, rollBaseTarget: 5 },
+    lv2: { time: 4, primary: 7, rollBaseTarget: 4 },
+  },
+
+  // Mira — Elementalist. A "battle medic": her own Heal is deliberately a notch weaker/slower than
+  // Luna's dedicated one, and her attack is a cheaper, lower-scaling Fireball — she can cover for a
+  // missing healer or a missing mage, but isn't strictly better than either specialist.
+  FrostBolt: {
+    id: 'FrostBolt',
+    charId: 'Mira',
+    kind: 'attackMana',
+    name: { th: 'Frost Bolt', en: 'Frost Bolt' },
+    lv1: { time: 4, primary: 4, secondary: 2 },
+    lv2: { time: 4, primary: 6, secondary: 2 },
+  },
+  ArcaneWard: {
+    id: 'ArcaneWard',
+    charId: 'Mira',
+    kind: 'buffMana',
+    name: { th: 'Arcane Ward', en: 'Arcane Ward' },
+    // primary = mana gained, secondary = incoming-damage reduction (flat). Reduction raised to
+    // match Vera's ManaCharge (2026-08-11): the original, weaker numbers made Mira noticeably more
+    // likely to die than Vera despite 1 more base HP — mira3 ("never died") fired at 0.24/win vs
+    // vera3's 1.30/win in a 3000-game sim. See docs/BALANCE_NOTES.md.
+    lv1: { time: 3, primary: 1, secondary: 3 },
+    lv2: { time: 3, primary: 1, secondary: 5 },
+  },
+  MendingWind: {
+    id: 'MendingWind',
+    charId: 'Mira',
+    kind: 'heal',
+    name: { th: 'Mending Wind', en: 'Mending Wind' },
+    // ⏱5 -> ⏱4 (2026-08-11): matching Luna's Heal speed while keeping a lower heal amount (5 vs 6)
+    // for differentiation — the slower ⏱ was compounding with the smaller amount to make this
+    // strictly worse in every comparison, so bots essentially never chose it (0.06 fires/win).
+    lv1: { time: 4, primary: 5 },
+    lv2: { time: 4, primary: 8 },
   },
 };
 
@@ -327,6 +405,80 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         points: 3,
         perOccurrence: false,
         desc: { th: 'จบยกบอสโดยไม่มีใครในวงตายเลย', en: 'End the battle with no party member ever dying' },
+      },
+    ],
+  },
+  Dax: {
+    id: 'Dax',
+    job: { th: 'Duelist', en: 'Duelist' },
+    hp: 11,
+    startSlot: 21,
+    reviveHp: 5,
+    skills: ['Flurry', 'Riposte', 'Focus'],
+    score: [
+      {
+        id: 'dax1',
+        charId: 'Dax',
+        slot: 1,
+        points: 1,
+        perOccurrence: true,
+        desc: { th: 'เปิดจุดอ่อนสำเร็จด้วย Focus', en: 'Successfully open a weak point with Focus' },
+      },
+      {
+        id: 'dax2',
+        charId: 'Dax',
+        slot: 2,
+        points: 1,
+        perOccurrence: true,
+        desc: { th: 'สวนกลับด้วย Riposte แล้วดาเมจเข้าจริง', en: 'A Riposte counter-strike lands real damage' },
+      },
+      {
+        id: 'dax3',
+        charId: 'Dax',
+        slot: 3,
+        points: 2,
+        perOccurrence: false,
+        desc: { th: 'จบยกบอสด้วย HP มากกว่าครึ่ง', en: 'End the battle above half HP' },
+      },
+    ],
+  },
+  Mira: {
+    id: 'Mira',
+    job: { th: 'Elementalist', en: 'Elementalist' },
+    hp: 9,
+    startSlot: 20,
+    reviveHp: 4,
+    skills: ['FrostBolt', 'ArcaneWard', 'MendingWind'],
+    score: [
+      {
+        id: 'mira1',
+        charId: 'Mira',
+        slot: 1,
+        points: 2,
+        perOccurrence: true,
+        desc: { th: 'ใช้ Mending Wind แล้วฟื้น HP ให้เพื่อนได้จริงอย่างน้อย 1 แต้ม', en: 'Mending Wind restores at least 1 HP to an injured ally' },
+      },
+      {
+        id: 'mira2',
+        charId: 'Mira',
+        slot: 2,
+        points: 1,
+        perOccurrence: true,
+        desc: { th: 'ทำ dmg ครั้งเดียวได้มากกว่า 10 ด้วย Frost Bolt', en: 'Deal more than 10 damage in one hit with Frost Bolt' },
+      },
+      {
+        id: 'mira3',
+        charId: 'Mira',
+        slot: 3,
+        // Replaced the original "end with mana banked" condition entirely (2026-08-11), after
+        // trying >=2 and >=1 mana thresholds both landed near 0.01-0.05 fires/win in a 3000-game
+        // sim: attackMana's value estimate always rewards spending more mana with nothing modeling
+        // a reason to hold back, so bots almost never end a battle with any banked regardless of
+        // the bar. Switched to survival, the same condition shape that already performs well for
+        // Vera (vera3, ~49% of her total) — Mira is nearly as fragile (9 HP vs Vera's 8).
+        points: 2,
+        perOccurrence: false,
+        desc: { th: 'จบยกบอสโดยไม่ตาย', en: 'End the battle without dying' },
       },
     ],
   },

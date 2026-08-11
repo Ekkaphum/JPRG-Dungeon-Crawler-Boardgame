@@ -51,7 +51,7 @@ async function main() {
   let wins = 0;
   const bossCleared: Partial<Record<BossId, number>> = {};
   const bossAttempts: Partial<Record<BossId, number>> = {};
-  const scoreByChar: Record<CharId, number[]> = { Matt: [], Kit: [], Vera: [], Luna: [] };
+  const scoreByChar: Record<CharId, number[]> = { Matt: [], Kit: [], Vera: [], Luna: [], Dax: [], Mira: [] };
   // Per-condition breakdown (all games, not just wins) — how often each of the 12 score
   // conditions actually fires and how many points it hands out in total, which the per-character
   // total above can't distinguish (e.g. a per-occurrence condition firing often vs. a rare

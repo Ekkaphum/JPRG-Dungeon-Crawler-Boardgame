@@ -34,15 +34,18 @@ function runAndRecordOrder(draftOrder: number[] | null, seed: number) {
 describe('draft order', () => {
   it('follows a chosen order exactly', () => {
     const { picked, state } = runAndRecordOrder([2, 0, 3, 1], 42);
-    // The last picker takes whatever is left, so only the first three are asked.
-    expect(picked).toEqual([2, 0, 3]);
+    // 6 characters for 4 players (2026-08-11) means nobody's pick is ever forced anymore — even
+    // the last player in the order is asked, choosing among whatever 3 are still left. Before this
+    // change, with exactly 4 characters, the 4th player would have been auto-assigned and never
+    // appear here.
+    expect(picked).toEqual([2, 0, 3, 1]);
     // Everyone still ends up with a distinct character.
     expect(new Set(state.players.map((p) => p.charId)).size).toBe(4);
   });
 
   it('honours the chosen order regardless of seed', () => {
     for (const seed of [1, 7, 999]) {
-      expect(runAndRecordOrder([3, 1, 0, 2], seed).picked).toEqual([3, 1, 0]);
+      expect(runAndRecordOrder([3, 1, 0, 2], seed).picked).toEqual([3, 1, 0, 2]);
     }
   });
 
@@ -50,6 +53,30 @@ describe('draft order', () => {
     const a = runAndRecordOrder(null, 12345).picked;
     const b = runAndRecordOrder(null, 12345).picked;
     expect(a).toEqual(b); // deterministic for a given seed
-    expect(new Set(a).size).toBe(3); // three distinct askers, fourth is implied
+    expect(new Set(a).size).toBe(4); // all four players are actually asked
+  });
+
+  it('leaves the 2 undrafted characters out of the game entirely', () => {
+    const { state } = runAndRecordOrder([0, 1, 2, 3], 7);
+    expect(new Set(state.players.map((p) => p.charId)).size).toBe(4);
+  });
+
+  it('gives the last player in the order a real choice, not a forced pick', () => {
+    // Regression guard for the whole point of the 6-character roster: with only 4 characters, the
+    // last picker's CHOOSE_CHARACTER decision never got yielded at all (runDraft's
+    // `available.length === 1` fast path auto-assigned it). Assert the decision the last player
+    // actually saw offered more than one option.
+    const state = newGame(setup([2, 0, 3, 1]), 42);
+    const rng = createRNG(42);
+    const gen = runDraft(state, rng);
+    let res = gen.next();
+    let lastDecisionOptions: number | null = null;
+    while (!res.done) {
+      const d: PendingDecision = res.value;
+      if (d.kind !== 'CHOOSE_CHARACTER') throw new Error('unexpected decision');
+      lastDecisionOptions = d.available.length;
+      res = gen.next({ kind: 'CHOOSE_CHARACTER', charId: d.available[0] });
+    }
+    expect(lastDecisionOptions).toBeGreaterThan(1);
   });
 });
