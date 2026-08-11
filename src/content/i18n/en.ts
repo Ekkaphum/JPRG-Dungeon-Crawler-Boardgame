@@ -73,6 +73,7 @@ export const en: Record<I18nKey, string> = {
   'decision.trapSlot': 'Place trap at slot',
   'decision.confirm': 'Confirm',
   'decision.lv2': 'Lv2',
+  'decision.tooSlow': 'may not land before the clock runs out',
 
   'detail.statuses': 'Active statuses',
   'detail.moves': 'All moves (d6)',

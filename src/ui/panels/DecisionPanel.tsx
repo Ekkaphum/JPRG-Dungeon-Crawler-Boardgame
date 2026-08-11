@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { Choice, GameState, PendingDecision, SkillId } from '@engine/index';
+import { applySomnivarTax, type Choice, type GameState, type PendingDecision, type SkillId } from '@engine/index';
 import { CHARACTERS, CHAR_IDS, SKILLS, skillStats } from '@content/characters';
+import { landSlotDisplay } from '@content/eventText';
 import { useT } from '@content/i18n/useT';
 import { useAppStore } from '@session/store';
 import type { GameSession } from '@session/GameSession';
@@ -111,6 +112,12 @@ function DeclareActionPanel({
             const disabled =
               (sid === 'Berserk' && fighter.hp > 5) || (SKILLS[sid].kind === 'trap' && decision.options.trapSlots.length === 0);
             const stats = skillStats(sid, isLv2(sid));
+            // Same landing slot the boss's own pending-move readout and the party stat bar already
+            // show for things already declared — surfacing it here too lets a player line their
+            // pick up against what's already on the board before committing to it, instead of only
+            // finding out where they landed after the fact.
+            const landedSlot = battle.marker - applySomnivarTax(state, stats.time);
+            const tooSlow = landedSlot < 0;
             return (
               <button
                 key={sid}
@@ -129,7 +136,10 @@ function DeclareActionPanel({
                 <div className="text-sm">
                   {SKILLS[sid].name[lang]} {isLv2(sid) && <span className="text-gold-bright">{t('decision.lv2')}</span>}
                 </div>
-                <div className="text-[10px] text-gold-dim">⏱{stats.time}</div>
+                <div className={`text-[10px] ${tooSlow ? 'text-boss' : 'text-gold-dim'}`}>
+                  ⏱{stats.time} → {t('game.willLandAt', { n: landSlotDisplay(landedSlot) })}
+                  {tooSlow && ` (${t('decision.tooSlow')})`}
+                </div>
               </button>
             );
           })}

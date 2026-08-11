@@ -71,6 +71,7 @@ export const th = {
   'decision.trapSlot': 'วางกับดักที่ช่องไหน',
   'decision.confirm': 'ยืนยัน',
   'decision.lv2': 'Lv2',
+  'decision.tooSlow': 'อาจไม่ทันสิ้นยก',
 
   'detail.statuses': 'สถานะที่ติดอยู่ตอนนี้',
   'detail.moves': 'ท่าทั้งหมด (ทอย d6)',
