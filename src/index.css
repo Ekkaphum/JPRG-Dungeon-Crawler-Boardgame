@@ -82,6 +82,24 @@ html, body, #root {
 }
 .action-flash { animation: action-flash 1.4s ease-out forwards; }
 
+@keyframes victory-glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+.victory-glow {
+  background: radial-gradient(ellipse at 50% 35%, rgba(255,224,150,0.6) 0%, rgba(240,210,122,0.22) 40%, transparent 70%);
+  animation: victory-glow-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes defeat-vignette-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0.9; }
+}
+.defeat-vignette {
+  background: radial-gradient(ellipse at 50% 45%, transparent 25%, rgba(20,4,4,0.55) 65%, rgba(8,2,2,0.88) 100%);
+  animation: defeat-vignette-pulse 4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
