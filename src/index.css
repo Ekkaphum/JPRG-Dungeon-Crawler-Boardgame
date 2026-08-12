@@ -46,6 +46,150 @@ html, body, #root {
 
 .gold-text { color: var(--gold); }
 
+.menu-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background-color: #080b11;
+  background-image: url('/assets/board/menu-clock-cathedral.webp');
+  background-position: center;
+  background-size: cover;
+}
+
+.menu-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(4, 9, 16, 0.24) 0%, rgba(4, 8, 14, 0.55) 52%, rgba(2, 4, 8, 0.92) 100%),
+    linear-gradient(180deg, rgba(2, 6, 12, 0.08) 0%, rgba(4, 6, 10, 0.42) 72%, rgba(2, 3, 6, 0.76) 100%);
+}
+
+.menu-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 7%, rgba(148, 195, 230, 0.15), transparent 19%),
+    radial-gradient(ellipse at 50% 94%, rgba(192, 137, 55, 0.1), transparent 38%);
+  box-shadow: inset 0 0 130px 35px rgba(0, 0, 0, 0.58);
+}
+
+.menu-sanctum {
+  border: 1px solid rgba(212, 169, 74, 0.48);
+  border-radius: 2px;
+  background:
+    linear-gradient(180deg, rgba(7, 13, 22, 0.82), rgba(8, 10, 16, 0.91)),
+    radial-gradient(circle at 50% 0%, rgba(72, 112, 145, 0.2), transparent 45%);
+  box-shadow:
+    0 0 0 1px rgba(7, 9, 14, 0.88),
+    0 0 0 2px rgba(212, 169, 74, 0.18),
+    0 24px 70px rgba(0, 0, 0, 0.72),
+    inset 0 0 54px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.menu-sanctum::before,
+.menu-sanctum::after {
+  content: '◆';
+  position: absolute;
+  left: 50%;
+  color: var(--gold-dim);
+  font-size: 0.65rem;
+  transform: translateX(-50%) rotate(45deg);
+  text-shadow: 0 0 10px rgba(212, 169, 74, 0.55);
+}
+.menu-sanctum::before { top: -0.42rem; }
+.menu-sanctum::after { bottom: -0.42rem; }
+
+.menu-moon-sigil {
+  display: grid;
+  place-items: center;
+  width: 3.2rem;
+  height: 3.2rem;
+  margin: 0 auto 0.65rem;
+  border: 1px solid rgba(212, 169, 74, 0.55);
+  border-radius: 50%;
+  color: var(--gold-bright);
+  background: radial-gradient(circle, rgba(74, 117, 155, 0.25), rgba(8, 12, 20, 0.68) 70%);
+  box-shadow: 0 0 24px rgba(89, 139, 180, 0.2), inset 0 0 12px rgba(212, 169, 74, 0.13);
+  font-size: 1.6rem;
+}
+
+.menu-kicker {
+  color: #9eb1c0;
+  font-size: 0.63rem;
+  letter-spacing: 0.34em;
+}
+
+.menu-title {
+  color: var(--gold-bright);
+  line-height: 1.05;
+  margin-top: 0.4rem;
+  text-shadow: 0 2px 1px #251806, 0 0 16px rgba(212, 169, 74, 0.38), 0 5px 24px rgba(0, 0, 0, 0.9);
+}
+
+.menu-subtitle {
+  color: #c9c5b8;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95);
+}
+
+.menu-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+  color: var(--gold-dim);
+  font-size: 0.52rem;
+}
+.menu-divider::before,
+.menu-divider::after {
+  content: '';
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, rgba(212, 169, 74, 0.7));
+}
+.menu-divider::after { transform: scaleX(-1); }
+
+.menu-button {
+  display: grid;
+  grid-template-columns: 1.3rem 1fr 1.3rem;
+  align-items: center;
+  width: 100%;
+  border: 1px solid rgba(138, 111, 47, 0.82);
+  border-radius: 2px;
+  color: #e2dccb;
+  background: linear-gradient(180deg, rgba(25, 32, 44, 0.84), rgba(10, 14, 22, 0.9));
+  box-shadow: inset 0 0 0 1px rgba(240, 210, 122, 0.05), 0 4px 14px rgba(0, 0, 0, 0.32);
+  transition: color 180ms ease, border-color 180ms ease, transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.menu-button > span:first-child,
+.menu-button > span:last-child { color: rgba(212, 169, 74, 0.48); font-size: 0.65rem; }
+.menu-button:hover,
+.menu-button:focus-visible {
+  color: var(--gold-bright);
+  border-color: var(--gold);
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(57, 50, 34, 0.76), rgba(18, 20, 25, 0.94));
+  box-shadow: 0 0 18px rgba(212, 169, 74, 0.16), inset 0 0 14px rgba(212, 169, 74, 0.07);
+  outline: none;
+}
+.menu-button-primary {
+  color: #f4df9b;
+  border-color: rgba(212, 169, 74, 0.95);
+  background: linear-gradient(180deg, rgba(76, 61, 31, 0.86), rgba(29, 25, 19, 0.94));
+}
+
+@media (max-height: 690px) {
+  .menu-sanctum { padding-top: 1.35rem; padding-bottom: 1.35rem; }
+  .menu-sanctum > div:first-child { margin-bottom: 1.2rem; }
+  .menu-moon-sigil { width: 2.55rem; height: 2.55rem; font-size: 1.25rem; }
+  .menu-button { padding-top: 0.55rem; padding-bottom: 0.55rem; }
+}
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--bg-deep); }
 ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 6px; }

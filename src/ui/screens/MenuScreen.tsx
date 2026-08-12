@@ -8,27 +8,38 @@ export function MenuScreen() {
   const continueGame = useAppStore((s) => s.continueGame);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-8 p-6">
-      <div className="text-center">
-        <h1 className="text-4xl font-display gold-text tracking-widest">{t('app.title')}</h1>
-        <p className="text-gold-dim mt-2">{t('menu.subtitle')}</p>
-      </div>
+    <main className="menu-hero min-h-screen flex items-center justify-center p-5 sm:p-8">
+      <div className="menu-atmosphere" aria-hidden="true" />
 
-      <div className="flex flex-col gap-3 w-full max-w-xs">
-        <MenuButton onClick={() => setScreen('setup')}>{t('menu.newGame')}</MenuButton>
-        {hasSave && <MenuButton onClick={continueGame}>{t('menu.continue')}</MenuButton>}
-        <MenuButton onClick={() => setScreen('tutorial')}>{t('menu.tutorial')}</MenuButton>
-        <MenuButton onClick={() => setScreen('stats')}>{t('menu.stats')}</MenuButton>
-        <MenuButton onClick={() => setScreen('settings')}>{t('menu.settings')}</MenuButton>
-      </div>
-    </div>
+      <section className="menu-sanctum relative z-10 w-full max-w-md px-6 py-8 sm:px-10 sm:py-10">
+        <div className="text-center mb-8">
+          <div className="menu-moon-sigil" aria-hidden="true">
+            <span>☾</span>
+          </div>
+          <p className="menu-kicker font-display">THE CLOCK OF DOOM</p>
+          <h1 className="menu-title text-4xl sm:text-5xl font-display tracking-widest">{t('app.title')}</h1>
+          <div className="menu-divider" aria-hidden="true"><span>◆</span></div>
+          <p className="menu-subtitle mt-3">{t('menu.subtitle')}</p>
+        </div>
+
+        <div className="flex flex-col gap-3 w-full">
+          <MenuButton primary onClick={() => setScreen('setup')}>{t('menu.newGame')}</MenuButton>
+          {hasSave && <MenuButton onClick={continueGame}>{t('menu.continue')}</MenuButton>}
+          <MenuButton onClick={() => setScreen('tutorial')}>{t('menu.tutorial')}</MenuButton>
+          <MenuButton onClick={() => setScreen('stats')}>{t('menu.stats')}</MenuButton>
+          <MenuButton onClick={() => setScreen('settings')}>{t('menu.settings')}</MenuButton>
+        </div>
+      </section>
+    </main>
   );
 }
 
-function MenuButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function MenuButton({ children, onClick, primary = false }: { children: React.ReactNode; onClick: () => void; primary?: boolean }) {
   return (
-    <button onClick={onClick} className="gold-frame rounded-lg py-3 text-lg font-display hover:bg-gold/10 transition-colors">
-      {children}
+    <button onClick={onClick} className={`menu-button ${primary ? 'menu-button-primary' : ''} py-3 text-lg font-display`}>
+      <span aria-hidden="true">◇</span>
+      <span>{children}</span>
+      <span aria-hidden="true">◇</span>
     </button>
   );
 }
