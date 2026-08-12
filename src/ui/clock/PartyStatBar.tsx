@@ -21,7 +21,7 @@ export function PartyStatBar({
   onSelect?: (playerId: number) => void;
 }) {
   return (
-    <div className="gold-frame rounded-lg px-3 py-1.5 h-full flex flex-col justify-center">
+    <div className="party-player-board gold-frame rounded-lg px-3 py-1.5 h-full flex flex-col justify-center">
       {state.players.map((p) => (
         <HeroRow key={p.id} state={state} battle={battle} playerId={p.id} scoreOf={scoreOf} onSelect={onSelect} />
       ))}
@@ -53,14 +53,14 @@ function HeroRow({
   return (
     <button
       onClick={() => onSelect?.(playerId)}
-      className={`w-full text-left flex items-center gap-2 py-1 border-b border-gold-dim/15 last:border-0 hover:bg-gold/10 rounded transition-colors ${
+      className={`party-player-row w-full text-left flex items-center gap-2 py-1 border-b border-gold-dim/15 last:border-0 hover:bg-gold/10 rounded transition-colors ${
         f.alive ? '' : 'opacity-45'
       }`}
     >
       <img
         src={charImageUrl(p.charId)}
         alt={p.charId}
-        className="w-7 h-7 object-cover object-top rounded flex-shrink-0"
+        className="party-mini-card w-7 h-7 object-cover object-top rounded flex-shrink-0"
         style={{ boxShadow: `0 0 0 1.5px ${CLASS_COLOR[p.charId]}` }}
         draggable={false}
       />

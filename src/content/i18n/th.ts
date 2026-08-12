@@ -7,6 +7,11 @@ export const th = {
   'menu.stats': 'สถิติ',
   'menu.settings': 'ตั้งค่า',
   'menu.subtitle': 'ปราบบอส 3 ตัวก่อนนาฬิกาถึงเที่ยงคืน — ทุกคนช่วยกัน แต่มีผู้ชนะเพียงคนเดียว',
+  'menu.visualMode': 'รูปแบบภาพ',
+  'menu.visualMode.classic': 'โหมดปกติ',
+  'menu.visualMode.classicHint': 'สนามต่อสู้แบบดิจิทัลดั้งเดิม',
+  'menu.visualMode.tabletop': 'โหมดบอร์ดเกม',
+  'menu.visualMode.tabletopHint': 'การ์ด กระดาน และโทเคนบนโต๊ะ',
 
 
   'setup.title': 'ตั้งค่าเกม',

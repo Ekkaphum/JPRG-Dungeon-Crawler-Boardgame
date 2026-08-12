@@ -14,7 +14,7 @@ export function LogPanel({ log }: { log: ClockLogEvent[] }) {
   }, [lines.length]);
 
   return (
-    <div ref={scrollRef} className="gold-frame rounded-lg p-2 h-full overflow-y-auto text-[11px] font-mono leading-relaxed">
+    <div ref={scrollRef} className="battle-log-board gold-frame rounded-lg p-2 h-full overflow-y-auto text-[11px] font-mono leading-relaxed">
       {lines.length === 0 && <div className="text-gold-dim">{t('log.empty')}</div>}
       {lines.slice(-300).map((l, i) => (
         <div key={i} className="text-gold-dim/90 border-b border-white/5 py-0.5">

@@ -22,6 +22,7 @@ export function GameScreen() {
   const t = useT();
   const session = useAppStore((s) => s.session);
   const setScreen = useAppStore((s) => s.setScreen);
+  const visualMode = useAppStore((s) => s.settings.visualMode);
   const [detail, setDetail] = useState<Detail>(null);
   useSessionVersion(session);
   useGameAudio(session);
@@ -40,8 +41,8 @@ export function GameScreen() {
   return (
     // Locked to the viewport on desktop so the action buttons are always reachable without
     // scrolling; the stage is the only flexible row and gives up height to the fixed panels.
-    <div className="md:h-screen md:overflow-hidden flex flex-col gap-2 p-2">
-      <div className="flex items-center justify-between flex-shrink-0">
+    <div className={`game-screen visual-${visualMode} md:h-screen md:overflow-hidden flex flex-col gap-2 p-2`}>
+      <div className="game-topbar flex items-center justify-between flex-shrink-0">
         <div className="text-sm gold-text font-display">{t('game.bossOf', { i: state.bossIndex + 1 })}</div>
         <div className="flex gap-2">
           <button onClick={() => setScreen('settings')} className="text-xs text-gold-dim underline">
@@ -68,13 +69,13 @@ export function GameScreen() {
         <>
           {/* Battle stage — the only row that flexes. */}
           <div
-            className="relative w-full flex-1 min-h-[190px] rounded-lg overflow-hidden gold-frame flex-shrink"
+            className="battle-stage relative w-full flex-1 min-h-[190px] rounded-lg overflow-hidden gold-frame flex-shrink"
             // Sizing must be inline: `.gold-frame` uses the `background` shorthand, which resets
             // background-size/position and would otherwise beat the bg-cover/bg-center utilities,
             // leaving the backdrop pinned at natural size in the top-left corner.
             style={{ backgroundImage: `url(${sceneImageUrl()})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
           >
-            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/35" />
+            <div className="battle-stage-shade absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/35" />
 
             <div className="absolute inset-0 flex items-stretch p-2 gap-2">
               <div className="w-[38%] sm:w-[34%] h-full">
@@ -89,18 +90,18 @@ export function GameScreen() {
             <ActionFlash flash={session.actionFlash} bossId={shown.bossId} />
           </div>
 
-          <div className="flex-shrink-0">
+          <div className="timeline-dock flex-shrink-0">
             <TimelineBar state={state} battle={shown} />
           </div>
 
-          <div className="flex-shrink-0">
+          <div className="banner-dock flex-shrink-0">
             <ActionBanner state={state} event={session.currentEvent} />
           </div>
 
           {/* Bottom battle bar: commands · party stats · log, all on one row so nothing needs
               scrolling to reach. */}
-          <div className="flex-shrink-0 flex flex-col md:flex-row gap-2 md:h-[170px]">
-            <div className="md:w-[34%] md:h-full md:overflow-y-auto">
+          <div className="battle-console flex-shrink-0 flex flex-col md:flex-row gap-2 md:h-[170px]">
+            <div className="command-dock md:w-[34%] md:h-full md:overflow-y-auto">
               {pending && !expInPopup ? (
                 isHumanTurn ? (
                   <DecisionPanel state={state} decision={pending} session={session} />
@@ -113,10 +114,10 @@ export function GameScreen() {
                 <div className="gold-frame rounded-lg h-full min-h-[60px]" />
               )}
             </div>
-            <div className="md:w-[38%] md:h-full">
+            <div className="party-dock md:w-[38%] md:h-full">
               <PartyStatBar state={state} battle={shown} scoreOf={(id) => session.displayScoreFor(id)} onSelect={(id) => setDetail({ kind: 'hero', playerId: id })} />
             </div>
-            <div className="flex-1 h-[120px] md:h-full">
+            <div className="log-dock flex-1 h-[120px] md:h-full">
               <LogPanel log={session.visibleLog} />
             </div>
           </div>

@@ -17,7 +17,7 @@ function ChooseCharacterPanel({ decision, session }: { decision: Extract<Pending
   const lang = useAppStore((s) => s.settings.lang);
   const player = session.state.players.find((p) => p.id === decision.playerId)!;
   return (
-    <div className="gold-frame rounded-lg p-3">
+    <div className="decision-board gold-frame rounded-lg p-3">
       <div className="font-display gold-text mb-2">
         {t('draft.title')} — {player.name}
       </div>
@@ -43,7 +43,7 @@ function PlaceExpPanel({ state, decision, session }: { state: GameState; decisio
   const player = state.players.find((p) => p.id === decision.playerId)!;
 
   return (
-    <div className="gold-frame rounded-lg p-3">
+    <div className="decision-board gold-frame rounded-lg p-3">
       <div className="font-display gold-text mb-1">
         {t('game.expPlacement.title')} — {player.name}
       </div>
@@ -101,7 +101,7 @@ function DeclareActionPanel({
   const skillKind = skillId ? SKILLS[skillId].kind : null;
 
   return (
-    <div className="gold-frame rounded-lg p-3">
+    <div className="decision-board gold-frame rounded-lg p-3">
       <div className="font-display gold-text mb-2">{t('decision.declareTitle', { name: player.name })}</div>
 
       {!skillId && (
@@ -133,7 +133,7 @@ function DeclareActionPanel({
                     setSkillId(sid);
                   }
                 }}
-                className="gold-frame rounded-lg px-3 py-2 hover:bg-gold/10 disabled:opacity-30 text-left"
+                className="skill-card gold-frame rounded-lg px-3 py-2 hover:bg-gold/10 disabled:opacity-30 text-left"
               >
                 <div className="text-sm">
                   {SKILLS[sid].name[lang]} {isLv2(sid) && <span className="text-gold-bright">{t('decision.lv2')}</span>}

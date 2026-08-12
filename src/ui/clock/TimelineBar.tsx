@@ -58,13 +58,13 @@ export function TimelineBar({ state, battle }: { state: GameState; battle: Battl
   }
 
   return (
-    <div className="gold-frame rounded-lg px-4 pt-1 pb-0.5">
+    <div className="timeline-board gold-frame rounded-lg px-4 pt-1 pb-0.5">
       <div className="flex items-center justify-between text-[10px] text-gold-dim">
         <span className="gold-text font-display text-[11px]">{t('game.clock')}</span>
         <span>{t('game.marker', { n: battle.marker })}</span>
       </div>
 
-      <div className="relative h-[64px]">
+      <div className="timeline-track relative h-[64px]">
         {/* track */}
         <div className="absolute left-0 right-0 bottom-[22px] h-[3px] bg-black/50 rounded-full overflow-hidden">
           <div className="h-full bg-gold-dim/70 transition-all duration-300" style={{ width: `${pctOf(battle.marker)}%` }} />
@@ -75,7 +75,7 @@ export function TimelineBar({ state, battle }: { state: GameState; battle: Battl
           const isTrap = battle.traps.some((tr) => tr.slot === slot);
           const passed = slot > battle.marker;
           return (
-            <div key={slot} className="absolute" style={{ left: `${pctOf(slot)}%`, bottom: '16px', transform: 'translateX(-50%)' }}>
+            <div key={slot} className="timeline-slot absolute" style={{ left: `${pctOf(slot)}%`, bottom: '16px', transform: 'translateX(-50%)' }}>
               <div
                 className="rounded-full"
                 style={{
@@ -114,7 +114,7 @@ export function TimelineBar({ state, battle }: { state: GameState; battle: Battl
             title={p.label}
           >
             <div
-              className="rounded-full flex items-center justify-center font-bold text-[8px] border border-black/60"
+              className={`timeline-pawn ${p.isBoss ? 'boss-pawn' : 'hero-pawn'} rounded-full flex items-center justify-center font-bold text-[8px] border border-black/60`}
               style={{ width: p.isBoss ? 19 : 16, height: p.isBoss ? 19 : 16, background: p.color, color: '#0b0e14' }}
             >
               {p.label}

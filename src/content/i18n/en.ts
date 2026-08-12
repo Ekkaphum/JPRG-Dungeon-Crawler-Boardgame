@@ -9,6 +9,11 @@ export const en: Record<I18nKey, string> = {
   'menu.stats': 'Stats',
   'menu.settings': 'Settings',
   'menu.subtitle': 'Defeat 3 bosses before the clock hits midnight — everyone helps, but only one of you wins',
+  'menu.visualMode': 'Visual style',
+  'menu.visualMode.classic': 'Classic mode',
+  'menu.visualMode.classicHint': 'The original digital battle screen',
+  'menu.visualMode.tabletop': 'Board game mode',
+  'menu.visualMode.tabletopHint': 'Cards, boards, and tokens on the table',
 
 
   'setup.title': 'Game Setup',

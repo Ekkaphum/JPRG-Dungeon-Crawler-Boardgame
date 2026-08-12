@@ -19,7 +19,7 @@ export function ActionBanner({ state, event }: { state: GameState; event: ClockL
       : 'gold-text';
 
   return (
-    <div className="gold-frame rounded-lg px-4 py-2 min-h-[46px] flex items-center justify-center">
+    <div className="action-banner-board gold-frame rounded-lg px-4 py-2 min-h-[46px] flex items-center justify-center">
       {text ? (
         // key on the event identity so the pop-in animation replays for each new line
         <div key={`${state.bossIndex}-${text}`} className={`pop-in text-center text-sm font-display ${tone}`}>

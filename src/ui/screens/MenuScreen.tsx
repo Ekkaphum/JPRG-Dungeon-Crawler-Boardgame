@@ -6,6 +6,8 @@ export function MenuScreen() {
   const setScreen = useAppStore((s) => s.setScreen);
   const hasSave = useAppStore((s) => s.hasSave);
   const continueGame = useAppStore((s) => s.continueGame);
+  const visualMode = useAppStore((s) => s.settings.visualMode);
+  const updateSettings = useAppStore((s) => s.updateSettings);
 
   return (
     <main className="menu-hero min-h-screen flex items-center justify-center p-5 sm:p-8">
@@ -22,6 +24,26 @@ export function MenuScreen() {
           <p className="menu-subtitle mt-3">{t('menu.subtitle')}</p>
         </div>
 
+        <div className="visual-mode-picker mb-5" aria-label={t('menu.visualMode')}>
+          <div className="visual-mode-heading">{t('menu.visualMode')}</div>
+          <div className="visual-mode-options">
+            <VisualModeButton
+              selected={visualMode === 'classic'}
+              icon="✦"
+              label={t('menu.visualMode.classic')}
+              hint={t('menu.visualMode.classicHint')}
+              onClick={() => updateSettings({ visualMode: 'classic' })}
+            />
+            <VisualModeButton
+              selected={visualMode === 'tabletop'}
+              icon="♟"
+              label={t('menu.visualMode.tabletop')}
+              hint={t('menu.visualMode.tabletopHint')}
+              onClick={() => updateSettings({ visualMode: 'tabletop' })}
+            />
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3 w-full">
           <MenuButton primary onClick={() => setScreen('setup')}>{t('menu.newGame')}</MenuButton>
           {hasSave && <MenuButton onClick={continueGame}>{t('menu.continue')}</MenuButton>}
@@ -31,6 +53,28 @@ export function MenuScreen() {
         </div>
       </section>
     </main>
+  );
+}
+
+function VisualModeButton({
+  selected,
+  icon,
+  label,
+  hint,
+  onClick,
+}: {
+  selected: boolean;
+  icon: string;
+  label: string;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={selected} className="visual-mode-option">
+      <span className="visual-mode-icon" aria-hidden="true">{icon}</span>
+      <span><strong>{label}</strong><small>{hint}</small></span>
+      <span className="visual-mode-check" aria-hidden="true">{selected ? '◆' : '◇'}</span>
+    </button>
   );
 }
 

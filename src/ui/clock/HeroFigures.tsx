@@ -23,7 +23,7 @@ export function HeroFigures({
 }) {
   const offsets = ['5%', '14%', '2%', '11%'];
   return (
-    <div className="flex flex-col items-end justify-center h-full w-full gap-0.5">
+    <div className="hero-figures flex flex-col items-end justify-center h-full w-full gap-0.5">
       {state.players.map((p, i) => {
         const f = battle.fighters.find((x) => x.playerId === p.id)!;
         const mine = popups.filter((pop) => pop.target === p.id);
@@ -33,14 +33,14 @@ export function HeroFigures({
             key={p.id}
             onClick={() => onSelect?.(p.id)}
             title={p.name}
-            className="relative flex-1 min-h-0 w-full flex flex-col items-end justify-end group cursor-pointer"
+            className="hero-figure relative flex-1 min-h-0 w-full flex flex-col items-end justify-end group cursor-pointer"
             style={{ paddingRight: offsets[i % offsets.length] }}
           >
             <img
               src={charImageUrl(p.charId)}
               alt={p.charId}
               draggable={false}
-              className="flex-1 min-h-0 w-auto max-w-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)] group-hover:brightness-125 transition"
+              className="hero-art flex-1 min-h-0 w-auto max-w-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)] group-hover:brightness-125 transition"
               style={{
                 WebkitMaskImage: EDGE_FADE,
                 maskImage: EDGE_FADE,
@@ -49,7 +49,7 @@ export function HeroFigures({
               }}
             />
             {/* HP tag under the figure, with status pills sitting to the left of the name. */}
-            <div className="w-[132px] max-w-full bg-black/75 rounded px-1 py-[2px] border border-gold-dim/40">
+            <div className="hero-hp-plate w-[132px] max-w-full bg-black/75 rounded px-1 py-[2px] border border-gold-dim/40">
               <div className="flex items-center gap-1 leading-none">
                 <StatusBadges statuses={heroStatuses(battle, f)} />
                 <span className="text-[9px] gold-text truncate">{p.name}</span>

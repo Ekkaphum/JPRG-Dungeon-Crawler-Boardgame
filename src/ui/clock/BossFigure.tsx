@@ -21,15 +21,15 @@ export function BossFigure({ battle, popups = [], onSelect }: { battle: BattleSt
   const move = battle.bossPending ? def.moves.find((m) => m.key === battle.bossPending!.moveKey) : null;
 
   return (
-    <button onClick={onSelect} className="relative w-full h-full flex flex-col items-center justify-end group cursor-pointer" title={def.name[lang]}>
+    <button onClick={onSelect} className="boss-figure relative w-full h-full flex flex-col items-center justify-end group cursor-pointer" title={def.name[lang]}>
       <img
         src={bossImageUrl(battle.bossId)}
         alt={def.name.th}
         draggable={false}
-        className="flex-1 min-h-0 w-auto max-w-full drop-shadow-[0_12px_20px_rgba(0,0,0,0.7)] group-hover:brightness-125 transition"
+        className="boss-art flex-1 min-h-0 w-auto max-w-full drop-shadow-[0_12px_20px_rgba(0,0,0,0.7)] group-hover:brightness-125 transition"
         style={{ WebkitMaskImage: EDGE_FADE, maskImage: EDGE_FADE }}
       />
-      <div className="w-[92%] max-w-[260px] gold-frame rounded px-2 py-1 bg-black/75 flex-shrink-0">
+      <div className="boss-hp-plate w-[92%] max-w-[260px] gold-frame rounded px-2 py-1 bg-black/75 flex-shrink-0">
         <div className="flex items-center gap-1">
           <StatusBadges statuses={bossStatuses(battle)} />
           <span className="font-display gold-text text-xs leading-tight truncate">{def.name[lang]}</span>

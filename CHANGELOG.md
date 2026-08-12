@@ -4,6 +4,7 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-12
 
+- **Add selectable tabletop visual mode** — added a persisted Classic/Board Game visual-style picker to the main menu. Board Game mode keeps the existing engine and interactions intact while restyling the battle screen as a premium physical tabletop setup: felt-and-walnut table surface, framed arena board, boss standee/card slot, hero card wells, wooden clock pawns, action cards, player board, and boss action log. Added Thai/English labels, a generated tabletop background asset, responsive presentation rules, and verified a full menu → setup → draft → action flow in the browser.
 - **Commit dev server launch config, gitignore local Claude settings** (`147ae31`) — `.claude/launch.json` (shared dev-server config, used by the Browser-preview tool) is now tracked; `.claude/settings.local.json` (per-user permission allowlist) is gitignored since it's personal, not project, config.
 - **Backfill CHANGELOG.md details for earlier commits** (`bf29660`) — filled in the one-line-only entries below with a summary of what changed and why, pulled from each commit's own message body.
 - **Add CHANGELOG.md** (`3b0f8d0`) — this file. Human-readable, dated log of commits so contributors (human or Claude Code) can see what changed without reading `git log` directly.

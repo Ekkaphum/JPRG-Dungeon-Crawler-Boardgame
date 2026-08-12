@@ -17,6 +17,7 @@ export interface Settings {
   showBotIntents: boolean;
   soundEnabled: boolean;
   soundVolume: number;
+  visualMode: 'classic' | 'tabletop';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -25,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   showBotIntents: false,
   soundEnabled: true,
   soundVolume: 0.5,
+  visualMode: 'classic',
 };
 
 export interface SaveFile {
@@ -72,6 +74,9 @@ export function loadSettings(): Settings {
   // Saved settings predating the numeric delay carry a string speed name — fall back to default.
   if (!ANIM_DELAY_OPTIONS.includes(s.animDelayMs as (typeof ANIM_DELAY_OPTIONS)[number])) {
     s.animDelayMs = DEFAULT_SETTINGS.animDelayMs;
+  }
+  if (s.visualMode !== 'classic' && s.visualMode !== 'tabletop') {
+    s.visualMode = DEFAULT_SETTINGS.visualMode;
   }
   return s;
 }
