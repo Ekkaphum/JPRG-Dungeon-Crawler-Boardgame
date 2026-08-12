@@ -30,12 +30,16 @@ describe('clock walk — ordering and stacking (GAME_DESIGN_v0_3_0.md §4.1)', (
     await driveBattle(state, 1, defaultChooser);
 
     const battle = state.battle!;
-    const declaresAt22 = battle.log.filter((e) => e.t === 'DECLARE' && e.slot === 22);
-    expect(declaresAt22.length).toBeGreaterThanOrEqual(2);
-    // Luna (player index 3) and the boss both start at slot 22 — Luna must declare first.
-    const lunaId = state.players.find((p) => p.charId === 'Luna')!.id;
-    const order = declaresAt22.map((e) => (e as Extract<typeof e, { t: 'DECLARE' }>).playerId);
-    expect(order.indexOf(lunaId)).toBeLessThan(order.indexOf('boss'));
+    // Every hero and the boss all start at slot 23 (2026-08-13 equal-start rebalance) — all 5
+    // pawns stack there on turn 1.
+    const declaresAt23 = battle.log.filter((e) => e.t === 'DECLARE' && e.slot === 23);
+    expect(declaresAt23.length).toBeGreaterThanOrEqual(5);
+    // §4.1: ties always resolve player-before-boss — every player declare must precede the boss's.
+    const order = declaresAt23.map((e) => (e as Extract<typeof e, { t: 'DECLARE' }>).playerId);
+    const bossIdx = order.indexOf('boss');
+    for (const p of state.players) {
+      expect(order.indexOf(p.id)).toBeLessThan(bossIdx);
+    }
   });
 
   it('the marker only moves downward and the battle ends when it would go below 0', async () => {
@@ -66,10 +70,12 @@ describe('clock walk — ordering and stacking (GAME_DESIGN_v0_3_0.md §4.1)', (
     prepareBattle(state);
     const rng = createRNG(3);
     const gen = runClockBattle(state, rng);
-    const first = gen.next(); // marker walks down to 23 (Kit) — Kit's very first visit
+    // marker walks down to 23, where every hero stacks (equal-start, 2026-08-13) — Matt
+    // (stackSeq 0, drafted first in fixedDraftState) is the first to declare.
+    const first = gen.next();
     expect(first.done).toBe(false);
     const decision = first.value as Extract<PendingDecision, { kind: 'DECLARE_ACTION' }>;
-    expect(decision.options.charId).toBe('Kit');
+    expect(decision.options.charId).toBe('Matt');
     // No RESOLVE_* events should exist yet — only the first DECLARE.
     const resolves = state.battle!.log.filter((e) => e.t.startsWith('RESOLVE_'));
     expect(resolves.length).toBe(0);

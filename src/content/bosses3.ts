@@ -29,8 +29,10 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: 'Ragorath',
     name: { th: 'Ragorath, the Bloodhorn', en: 'Ragorath, the Bloodhorn' },
     sin: { th: 'โทสะ', en: 'Wrath' },
-    hp: 76,
-    startSlot: 22,
+    // hp 76 -> 91, startSlot 22 -> 23 (2026-08-13): compensates for the equal-start change (every
+    // hero now starts at slot 23 instead of a staggered 20-23) — see docs/BALANCE_NOTES.md.
+    hp: 91,
+    startSlot: 23,
     armor: 0,
     moves: [
       {
@@ -60,8 +62,9 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: 'Somnivar',
     name: { th: 'Somnivar, the Eternal Sleeper', en: 'Somnivar, the Eternal Sleeper' },
     sin: { th: 'เกียจคร้าน', en: 'Sloth' },
-    hp: 80,
-    startSlot: 22,
+    // hp 80 -> 96, startSlot 22 -> 23 (2026-08-13): see Ragorath's note above.
+    hp: 96,
+    startSlot: 23,
     armor: 0,
     moves: [
       {
@@ -91,8 +94,9 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: 'Aurelius',
     name: { th: 'Aurelius, the Crowned Colossus', en: 'Aurelius, the Crowned Colossus' },
     sin: { th: 'อหังการ', en: 'Pride' },
-    hp: 88,
-    startSlot: 22,
+    // hp 88 -> 106, startSlot 22 -> 23 (2026-08-13): see Ragorath's note above.
+    hp: 106,
+    startSlot: 23,
     armor: 2,
     moves: [
       {

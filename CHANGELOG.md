@@ -2,7 +2,18 @@
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
-## 2026-08-12
+## 2026-08-13
+
+- **v0.4.3 — equal-start rebalance: fix low action counts, realign hero speed, toughen Vera** — not yet committed; full rationale, rejected alternatives, and sim data in `docs/BALANCE_NOTES.md` ("Equal-start rebalance — 2026-08-13"), full rule-text update in `docs/GAME_DESIGN.md` (marked v0.4.3 throughout). Starting problem: staggered hero start slots (20/22/23) meant real (resolved) actions per player per battle averaged only ~3.3, with a quarter of player-battles getting ≤2 — too few to feel the dice ladder or cross-player combos land more than once. Changes, all in `src/content/characters.ts` / `src/content/bosses3.ts` / `src/engine/clock/scoring.ts`:
+  - All 4 heroes + all 3 bosses now start at clock slot 23 (was Matt/Vera 20, Kit 23, Luna 22, boss 22) — no engine change needed, §4.1's existing player-before-boss tiebreak handles the new stacking.
+  - Boss HP +20% across the board (Ragorath 76→91, Somnivar 80→96, Aurelius 88→106) to compensate for the stronger, more synchronized party the equal start produces — swept +15/20/25%, +20% was the point where action count actually grew without win rate collapsing.
+  - ⏱ realignment to match the stated character concept (Kit fastest, Matt/Luna medium, Vera slowest): Counter Attack ⏱5→4, Twin Shot ⏱5→4, Smite ⏱3→4 (dmg 4→6, lv2 6→8). Quick Shot and all of Vera's skills deliberately left untouched — see BALANCE_NOTES for why (Quick Shot ⏱2 was tried and reverted for making Kit's score run away; ManaCharge and Fireball changes were tried and reverted for other reasons).
+  - Hero HP: Vera 8→11 (revive 4→6), Kit 12→13 (revive 6→7), Luna 12→13 (revive 6→7) — Vera specifically was dying to nearly every boss's hardest single hit even with her shield active.
+  - `vera1` score condition threshold 15→14 damage (a fully-charged Fireball now qualifies on its own). `vera2` broadened from "Last Shot with Meteor" to "Last Shot with any skill," points cut 4→3.
+  - Result (`npm run balance -- 2000`): win rate 43.8%→57.3%, boss clears 89/76/44%→89/83/57%, real actions/player ~3.3→~3.9, Vera deaths/battle ~0.50→~0.37-0.42.
+  - **Known open issues, not fixed this pass** (all detailed in BALANCE_NOTES): Vera still wins ~43% of games (should be ~25%) and the cause hasn't been isolated yet; Somnivar's ⏱5+ tax now only catches 2 of the 4 skills it used to (Twin Shot/Counter moved to ⏱4); Luna's 3 skills are now all ⏱4 with no internal fast/slow choice.
+  - Updated `tests/clockWalk.test.ts` (stacking order at the new shared start slot) and `tests/scoreConditions.test.ts` (new vera1/vera2 numbers) to match — `npm test` passes 146/146, `npm run typecheck` clean.
+
 
 - **Add selectable tabletop visual mode** — added a persisted Classic/Board Game visual-style picker to the main menu. Board Game mode keeps the existing engine and interactions intact while restyling the battle screen as a premium physical tabletop setup: felt-and-walnut table surface, framed arena board, boss standee/card slot, hero card wells, wooden clock pawns, action cards, player board, and boss action log. Added Thai/English labels, a generated tabletop background asset, responsive presentation rules, and verified a full menu → setup → draft → action flow in the browser.
 - **Commit dev server launch config, gitignore local Claude settings** (`147ae31`) — `.claude/launch.json` (shared dev-server config, used by the Browser-preview tool) is now tracked; `.claude/settings.local.json` (per-user permission allowlist) is gitignored since it's personal, not project, config.

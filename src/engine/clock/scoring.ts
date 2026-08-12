@@ -13,7 +13,7 @@ function playerByChar(state: GameState, charId: string): PlayerId | null {
   return state.players.find((p) => p.charId === charId)?.id ?? null;
 }
 
-/** Matt cond1 (dmg>10), Vera cond1 (dmg>=15), Luna cond2 (blessed ally dmg>15), and both
+/** Matt cond1 (dmg>10), Vera cond1 (dmg>=14), Luna cond2 (blessed ally dmg>15), and both
  *  characters' "Last Shot" bonuses — called right after any player-sourced hit on the boss
  *  resolves (not for trap damage, which has no attributable "player action"). Point values live in
  *  @content/characters (scorePoints()) — this is only the trigger logic, not the numbers. */
@@ -24,7 +24,7 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   if (charId === 'Matt' && effectiveDmg > 10) {
     pushScore(state, { playerId, conditionId: 'matt1', points: scorePoints('matt1') });
   }
-  if (charId === 'Vera' && effectiveDmg >= 15) {
+  if (charId === 'Vera' && effectiveDmg >= 14) {
     pushScore(state, { playerId, conditionId: 'vera1', points: scorePoints('vera1') });
   }
   if (battle.partyBuff && effectiveDmg > 15) {
@@ -36,7 +36,8 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   }
   if (battle.finishedBy === playerId) {
     if (charId === 'Matt') pushScore(state, { playerId, conditionId: 'matt2', points: scorePoints('matt2') });
-    if (charId === 'Vera' && skillId === 'Meteor') pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
+    // No longer Meteor-only (2026-08-13) — see the note on vera2 in @content/characters.
+    if (charId === 'Vera') pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
   }
   if (charId === 'Mira' && skillId === 'FrostBolt' && effectiveDmg > 10) {
     pushScore(state, { playerId, conditionId: 'mira2', points: scorePoints('mira2') });

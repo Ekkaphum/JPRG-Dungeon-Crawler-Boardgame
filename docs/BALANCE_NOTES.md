@@ -297,3 +297,147 @@ heuristics (comboSynergyBonus/scoreConditionBonus have dedicated logic for Matt/
 for Dax/Mira — a meaningfully larger task than a content pass) or actual human playtesting, which
 is what this whole ruleset has been waiting on since M8. Flagging honestly rather than declaring
 Mira "balanced" when the data clearly says otherwise.
+
+---
+
+## Equal-start rebalance — 2026-08-13 (v0.4.3: action-count fix, ⏱ realignment, Vera durability, score conditions)
+
+Starting problem: staggered hero start slots (Matt/Vera 20, Luna 22, Kit 23) meant each pawn got a
+different number of real (resolved) actions per battle, and the total was low across the board —
+measured at **~3.3 real actions/player/battle** (declares − 1, since a battle's first declare never
+resolves — §4.3), with **25% of player-battles getting ≤2 real actions**. Too little to feel the
+dice ladder (§5.2) or cross-player combos (§4.4) land more than once, if at all.
+
+### False starts, ruled out by sim before landing on the final approach
+
+- **Lowering ⏱ across the board** (all skill times ×0.7 or −1) makes it *worse*, not better: a
+  stronger party kills the boss faster, shortening the battle and cutting actions further (3.3 →
+  2.6-2.7 real actions). Action count is capped by battle *duration*, not by per-skill cost alone.
+- **Boss HP alone** (⏱ unchanged) plateaus at ~4.4 real actions no matter how high — the 24-slot
+  clock is a hard ceiling regardless of how tanky the boss is.
+- **An initial equal-start sim run showed a spurious 100% win rate at unchanged boss HP** — traced
+  to a bug in the *scratch test script*, not the game: it placed the boss pawn on slot 24, but
+  `runClockBattle()` in `src/engine/clock/walk.ts` decrements the marker as its first statement
+  (`battle.marker -= 1`), so slot 24 is never visited and the boss never acted. The real engine
+  behavior (all pawns including the boss at slot 23, ties resolve player-before-boss per §4.1) needs
+  much less HP compensation than that broken run suggested.
+- **Boss declaring one tick before the party** (players at 22, boss at 23) was tried on the theory
+  that it preserves §4.4's "read the boss, then decide" pattern. Sim showed it's *much* harder (win
+  17.5% vs. 42.8% for equal placement) — not adopted.
+
+### Final change set (v0.4.3), verified with `npm run balance -- 2000`
+
+| | before | after |
+|---|---|---|
+| Win rate | 43.8% | **57.3%** |
+| Ragorath / Somnivar / Aurelius clear | 89% / 76% / 44% | **89% / 83% / 57%** |
+| Real actions/player/battle | 3.3 | **~3.9** (measured in scratch sim; `balance.ts` doesn't report this directly) |
+| Vera deaths/battle | 0.50 | **~0.37-0.42** (scratch sim; boss-HP% sweep) |
+| Score spread (max − min avg total, won games) | 0.6-0.7 | **~2.9** ⚠️ regression, see Known Issues |
+
+Changes, each layered and re-verified in combination (not just standalone):
+
+1. **All 4 heroes start at slot 23** (`src/content/characters.ts`), boss also starts at slot 23
+   (`src/content/bosses3.ts`) — was Matt/Vera 20, Kit 23, Luna 22, boss 22. No engine change needed:
+   §4.1's existing player-before-boss tiebreak (`resolveOrderCompare` in `walk.ts`) already does the
+   right thing once everyone shares a slot.
+2. **Boss HP +20%** on all three bosses (Ragorath 76→91, Somnivar 80→96, Aurelius 88→106) —
+   compensates for the stronger, more synchronized party the equal start produces. +15% and +25%
+   were also swept; +20% was chosen over +15% because it still measurably grew the action count
+   (+15% landed back at baseline's 3.3, no net gain) and over +25% because win rate dropped too far
+   (43%, no better than the pre-change baseline the user wanted to move away from).
+3. **⏱ realignment** to match the stated character concept (Kit fastest, Matt/Luna medium, Vera
+   slowest) — measured by declares/battle *excluding* non-attacking skills (ManaCharge/ArcaneWard),
+   per the user's framing that a skill producing no effect of its own shouldn't count as "acting":
+   - Matt: Counter Attack ⏱5→4 (undoes v0.4.2's ⏱3→5 bump, which had made Matt the *slowest* of the
+     four — the opposite of "medium speed, attack-leaning" per concept).
+   - Kit: Twin Shot ⏱5→4. **Quick Shot was NOT changed** — an earlier attempt at ⏱3→2 was tested and
+     reverted (see "Rejected" below).
+   - Luna: Smite ⏱3→4, damage 4→6 (lv2 6→8) — raised alongside the ⏱ bump so it stays worth casting.
+   - Vera: **left untouched** (Fireball ⏱3, Meteor ⏱7, ManaCharge ⏱2) — see rationale below.
+   - Result (⏱ avg excluding ManaCharge): Kit 3.67 < Luna 4.00 < Matt 4.33 < Vera 5.00 (Fireball+Meteor
+     only) — matches the concept order without touching a single Vera number.
+4. **Hero HP**: Vera 8→11 (revive 4→6), Kit 12→13 (revive 6→7), Luna 12→13 (revive 6→7). Matt
+   untouched — his HP is load-bearing for Berserk's `HP≤5` gate and matt3's `HP<5` score condition.
+   Targeted at Vera specifically: at 8 HP she died to nearly every boss's single hardest hit even
+   with ManaCharge's −3 reduction active (Ragorath Frenzy 10+Rage, Somnivar Nightmare 11, Aurelius
+   Procession 12 — all lethal from full HP regardless of the shield). At 11 HP, ManaCharge's
+   reduction actually matters for the first time. Measured death rate 0.50 → 0.37-0.42/battle
+   (varies with the final boss-HP%; see the two-step process below).
+5. **vera1 threshold 15 → 14 damage.** A fully-charged 3-mana Fireball (5 base + 3×3 = 14, unchanged)
+   now qualifies on its own instead of needing Meteor or an ally buff. Confirmed near-zero balance
+   impact — this exact threshold change (15→13, more aggressive than 15→14) was tried standalone on
+   2026-08-11 and reverted for being negligible either way (14-16% share regardless); re-confirmed
+   on today's code before relying on it again.
+6. **vera2 broadened from "Last Shot with Meteor" to "Last Shot with any skill," points cut 4→3.**
+   This exact broadening (Meteor-only → Fireball-or-Meteor, since those are Vera's only two attack
+   skills) was tried standalone on 2026-08-11 and reverted for overshooting Vera to the highest
+   scorer even after halving the point premium (9.4-9.9 vs. baseline 8.6). **Re-tested on today's
+   code before landing it this time — the standalone result reproduces exactly**: fire rate
+   0.30→0.71/win, Vera 8.6→9.8, spread 0.6→2.0, even at 4 points. Points 4→3 helps some (Vera 9.8→
+   ~9.4 in isolated testing) but the real driver of the overshoot turned out to be something else —
+   see Known Issues below. Landed anyway as part of this larger pass per explicit user direction;
+   **flagged as still-open, not resolved**.
+
+### Rejected during this pass
+
+- **Quick Shot ⏱3→2, damage 4→3** (attempted to make Kit unambiguously fastest by his numbers, not
+  just by the "acting only" framing). Sim showed this makes Kit's score run away: kit1 ("weak point
+  opened") and kit3 ("attacked 5+ times") both scale directly with attack frequency, so firing twice
+  as often nearly doubled both — Kit's total went from in-range (~8.5) to **11.6 pts/win, clear
+  outlier**. Lowering vera2's points (tested down to 1) did not fix this, because Kit was the actual
+  outlier, not Vera — see Known Issues. **Quick Shot reverted to its shipped ⏱3/dmg4.**
+- **Boss made easier on purpose** (bossHP as low as −15% of the *already +20%'d* baseline, i.e. well
+  below the original numbers), on the theory that a near-guaranteed win would shift the table's
+  focus from "beat the boss" to "beat each other." Measured the opposite: at 98.9% win rate, **Vera
+  won 64% of games and Kit won 2%** — worse fairness than at any harder setting tested. Cause: Kit's
+  and Matt's score conditions are attack-count-gated (kit3 needs 5+ hits; matt2/vera2 are one-shot
+  Last-Shot bonuses that don't care how short the battle was), so a fast kill starves the
+  count-gated conditions while leaving the length-independent ones untouched. **Do not make bosses
+  easier without first decoupling score conditions from battle length** — see Known Issues.
+- **ManaCharge ⏱2→4** (an earlier attempt to slow Vera down structurally). Reverted per user
+  feedback: ManaCharge produces no effect of its own (no damage, no heal, no party buff — just mana
+  + a self-shield), so its low ⏱ cost is thematically correct and shouldn't be read as "Vera acts
+  fast." The "acting only" declare count (excluding ManaCharge/ArcaneWard) already ranks her
+  slowest without touching this number.
+- **Fireball ⏱3→4 with a damage buff** (5→7 base). Would have let Fireball's fully-charged hit (16
+  dmg at the proposed numbers) both exceed the old vera1 threshold on its own *and* out-efficiency
+  Meteor per-⏱ (16/⏱4 = 4.0 vs. Meteor's 22/⏱7 = 3.14) — undermining Meteor's reason to exist.
+  Reverted before landing; vera1's threshold was lowered to 14 instead, which lets the *unbuffed*
+  Fireball reach the same design goal (a fully-charged basic attack means something) without the
+  side effect.
+
+### Known issues — explicitly not resolved this pass
+
+1. **Vera still wins too often.** Win-share sim (bossHP+20%, the shipped config): Matt 20%, Kit 17%,
+   **Vera 43%**, Luna 20% — should be ~25% each if fair. Score spread 0.6-0.7 → **2.9-3.3** across
+   every boss-HP level tested (+15/20/25%), meaning the equal-start change itself (not boss HP) is
+   the driver — Vera benefited most from moving to slot 23 since she started furthest back (20)
+   before. Lowering vera2's points (tested 4→3→2→1) barely moves her total and **never closes the
+   spread**, confirming vera2 isn't the real cause; vera3 ("never died," now firing more often
+   thanks to her HP buff) is the more likely candidate but wasn't isolated and tested this pass.
+2. **Somnivar's ⏱5+ tax lost half its reach.** The tax (`applySomnivarTax()`,
+   `src/engine/clock/skills.ts`) used to catch Berserk, Twin Shot, Counter Attack, and Meteor.
+   Twin Shot and Counter Attack both moved to ⏱4 in this pass (see change #3 above) and now dodge
+   it — only Berserk and Meteor still get taxed. Somnivar's "forces you into small actions" identity
+   (§9) is measurably weaker. Fix would be lowering the tax threshold to ⏱4+ in
+   `applySomnivarTax()`, not yet tested.
+3. **Luna's three skills are now all ⏱4** (Heal/Blessing already were; Smite moved 3→4 this pass) —
+   no internal fast/slow choice within her own kit anymore. Bot-play damage output stays very low
+   (~2/battle vs. everyone else's 20-38) because Blessing dominates her declares; unclear whether
+   this is a real design gap or just medium-bot heuristics not modeling Smite's payoff — needs human
+   playtesting to distinguish (same caveat as every bot-only number in this file).
+4. **Easier bosses make the score race *less* fair, not more**, because half the score conditions
+   are attack-count-gated and half are length-independent (see "Rejected" above). If boss difficulty
+   is revisited in either direction, re-run the win-share-by-character check, not just win rate.
+
+### Process note for future sim work in this repo
+
+Two of this session's sim runs produced actively misleading numbers before the real result was
+found: a scratch script placing a pawn on a clock slot that `runClockBattle()`'s decrement-first
+loop never visits (silently makes that pawn never act — no error, just wrong data), and reusing a
+"tried and reverted" change without re-testing on current code (the codebase had moved since
+2026-08-11; re-running confirmed the old finding still held, but that had to be checked, not
+assumed). Sanity-check scratch harnesses against a known invariant (e.g., "the boss should declare
+at least once per battle") before trusting their output, and re-verify old BALANCE_NOTES.md findings
+on current code rather than citing them cold.

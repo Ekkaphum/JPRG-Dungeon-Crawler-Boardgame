@@ -16,7 +16,7 @@ function findFighter(state: ReturnType<typeof fixedDraftState>, charId: string) 
 describe('scorePoints — single source of truth for condition values', () => {
   it('reads the point value straight off the character definition', () => {
     expect(scorePoints('vera1')).toBe(1);
-    expect(scorePoints('vera2')).toBe(4);
+    expect(scorePoints('vera2')).toBe(3);
     expect(scorePoints('luna1')).toBe(3);
     expect(scorePoints('matt2')).toBe(3);
   });
@@ -40,15 +40,17 @@ describe('onPlayerDealtDamage — matt1/vera1 damage thresholds', () => {
     expect(entry?.points).toBe(1);
   });
 
-  it('vera1 fires at >=15, not at 14', () => {
+  it('vera1 fires at >=14, not at 13', () => {
+    // Threshold lowered 15 -> 14 (2026-08-13) so a fully-charged Fireball (max 14 dmg, unchanged)
+    // qualifies on its own — see docs/BALANCE_NOTES.md.
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
 
-    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 14);
+    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 13);
     expect(state.scoreLog.some((e) => e.conditionId === 'vera1')).toBe(false);
 
-    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 15);
+    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 14);
     expect(state.scoreLog.some((e) => e.conditionId === 'vera1')).toBe(true);
   });
 
@@ -96,22 +98,22 @@ describe('onPlayerDealtDamage — Last Shot bonuses (matt2/vera2)', () => {
 
     onPlayerDealtDamage(state, vera.playerId, 'Meteor', 20);
     const entry = state.scoreLog.find((e) => e.conditionId === 'vera2');
-    expect(entry?.points).toBe(4);
+    expect(entry?.points).toBe(3);
   });
 
-  it('vera2 does NOT fire for a Fireball Last Shot — Meteor-specific by design', () => {
-    // Tried broadening this to Fireball-or-Meteor on 2026-08-11 and reverted: Fireball+Meteor is
-    // *all* of Vera's attack options, so broadening made this structurally identical to matt2 ("any
-    // skill lands the kill") while still paying a premium for it — balance sim showed her total
-    // overshooting to the highest of all four characters even after the premium was cut. Meteor-only
-    // is the correct behavior; see docs/BALANCE_NOTES.md for the full data.
+  it('vera2 fires for a Fireball Last Shot too — broadened from Meteor-only (2026-08-13)', () => {
+    // Broadened to any skill and points cut 4 -> 3 to compensate, as part of the larger
+    // equal-start/HP/⏱ rebalance pass — see docs/BALANCE_NOTES.md. The identical broadening was
+    // tried and reverted standalone on 2026-08-11 for overshooting Vera's total; re-verify against
+    // the other three characters' totals after any further change to this condition.
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
     state.battle!.finishedBy = vera.playerId;
 
     onPlayerDealtDamage(state, vera.playerId, 'Fireball', 20);
-    expect(state.scoreLog.some((e) => e.conditionId === 'vera2')).toBe(false);
+    const entry = state.scoreLog.find((e) => e.conditionId === 'vera2');
+    expect(entry?.points).toBe(3);
   });
 
   it('neither Last Shot bonus fires for whoever did NOT land the killing blow', () => {

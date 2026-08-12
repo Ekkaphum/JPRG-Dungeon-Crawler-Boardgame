@@ -108,8 +108,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     kind: 'buffCounter',
     name: { th: 'Counter Attack', en: 'Counter Attack' },
     // primary = incoming-damage reduction %, secondary = counter-strike damage
-    lv1: { time: 5, primary: 50, secondary: 12 },
-    lv2: { time: 5, primary: 50, secondary: 17 },
+    // ⏱5 -> 4 (2026-08-13): part of the equal-start speed realignment — see docs/BALANCE_NOTES.md.
+    lv1: { time: 4, primary: 50, secondary: 12 },
+    lv2: { time: 4, primary: 50, secondary: 17 },
   },
   QuickShot: {
     id: 'QuickShot',
@@ -135,8 +136,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     kind: 'attack',
     name: { th: 'Twin Shot', en: 'Twin Shot' },
     // primary = damage per hit, secondary = hit count
-    lv1: { time: 5, primary: 4, secondary: 2 },
-    lv2: { time: 5, primary: 6, secondary: 2 },
+    // ⏱5 -> 4 (2026-08-13): part of the equal-start speed realignment — see docs/BALANCE_NOTES.md.
+    lv1: { time: 4, primary: 4, secondary: 2 },
+    lv2: { time: 4, primary: 6, secondary: 2 },
   },
   Fireball: {
     id: 'Fireball',
@@ -186,8 +188,10 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     charId: 'Luna',
     kind: 'attack',
     name: { th: 'Smite', en: 'Smite' },
-    lv1: { time: 3, primary: 4 },
-    lv2: { time: 3, primary: 6 },
+    // ⏱3 dmg4 -> ⏱4 dmg6 (2026-08-13): part of the equal-start speed realignment — see
+    // docs/BALANCE_NOTES.md. Damage raised alongside the ⏱ increase so it stays worth casting.
+    lv1: { time: 4, primary: 6 },
+    lv2: { time: 4, primary: 8 },
   },
 
   // Dax — Duelist. Only uses skill kinds the engine already treats generically (attack,
@@ -263,7 +267,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     id: 'Matt',
     job: { th: 'Knight', en: 'Knight' },
     hp: 16,
-    startSlot: 20,
+    startSlot: 23,
     reviveHp: 8,
     skills: ['Slash', 'Berserk', 'CounterAttack'],
     score: [
@@ -296,9 +300,9 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
   Kit: {
     id: 'Kit',
     job: { th: 'Hunter', en: 'Hunter' },
-    hp: 12,
+    hp: 13,
     startSlot: 23,
-    reviveHp: 6,
+    reviveHp: 7,
     skills: ['QuickShot', 'SetTrap', 'TwinShot'],
     score: [
       {
@@ -330,9 +334,9 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
   Vera: {
     id: 'Vera',
     job: { th: 'Wizard', en: 'Wizard' },
-    hp: 8,
-    startSlot: 20,
-    reviveHp: 4,
+    hp: 11,
+    startSlot: 23,
+    reviveHp: 6,
     skills: ['Fireball', 'Meteor', 'ManaCharge'],
     score: [
       {
@@ -341,23 +345,24 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         slot: 1,
         points: 1,
         perOccurrence: true,
-        // Tried 15 -> 13 on 2026-08-11, reverted: see the note on vera2 below — the pre-existing
-        // numbers turned out not to need fixing. docs/BALANCE_NOTES.md has the full before/after.
-        desc: { th: 'ทำ dmg ครั้งเดียวได้ 15 ขึ้นไป', en: 'Deal 15+ damage in one hit' },
+        // 15 -> 14 (2026-08-13): lets a fully-charged Fireball (max 14 dmg, unchanged) qualify on
+        // its own instead of only Meteor/buffed hits — see docs/BALANCE_NOTES.md. Confirmed
+        // near-zero balance impact by sim (this exact threshold was tried as 15->13 on 2026-08-11
+        // and reverted for being negligible either way).
+        desc: { th: 'ทำ dmg ครั้งเดียวได้ 14 ขึ้นไป', en: 'Deal 14+ damage in one hit' },
       },
       {
         id: 'vera2',
         charId: 'Vera',
         slot: 2,
-        points: 4,
+        points: 3,
         perOccurrence: false,
-        // Tried broadening to Fireball-or-Meteor on 2026-08-11, reverted. Pre-item-3-cooperation-fix
-        // data made Vera look under-scored (my read of the code before any sim existed), but by the
-        // time this was tested she was already the 2nd-highest scorer (8.6, next to Kit's 8.9) — the
-        // broadened version overshot to *highest* (9.4-9.9) even after halving its point premium.
-        // Reverted rather than kept "close enough": the actual outlier is Luna alone (7.5), not
-        // Vera — see luna1 below and docs/BALANCE_NOTES.md for the full data.
-        desc: { th: 'ตี Last Shot ปราบบอสด้วย Meteor', en: 'Land the Last Shot with Meteor' },
+        // Broadened from Meteor-only to any of Vera's skills, and points cut 4 -> 3 to compensate
+        // (2026-08-13). The identical broadening was tried and reverted on 2026-08-11 (see prior
+        // note in git history) because it overshot Vera to the highest scorer at 3-4pts. Landing
+        // it this time only as part of the larger equal-start/HP/⏱ rebalance pass — re-verify
+        // Vera's total against the other three after any further change. docs/BALANCE_NOTES.md.
+        desc: { th: 'เป็นคนตี Last Shot ปราบบอส', en: 'Land the Last Shot that defeats the boss' },
       },
       {
         id: 'vera3',
@@ -372,9 +377,9 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
   Luna: {
     id: 'Luna',
     job: { th: 'Cleric', en: 'Cleric' },
-    hp: 12,
-    startSlot: 22,
-    reviveHp: 6,
+    hp: 13,
+    startSlot: 23,
+    reviveHp: 7,
     skills: ['Heal', 'Blessing', 'Smite'],
     score: [
       {
