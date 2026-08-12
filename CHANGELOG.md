@@ -4,6 +4,9 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-12
 
+- **Commit dev server launch config, gitignore local Claude settings** (`147ae31`) — `.claude/launch.json` (shared dev-server config, used by the Browser-preview tool) is now tracked; `.claude/settings.local.json` (per-user permission allowlist) is gitignored since it's personal, not project, config.
+- **Backfill CHANGELOG.md details for earlier commits** (`bf29660`) — filled in the one-line-only entries below with a summary of what changed and why, pulled from each commit's own message body.
+- **Add CHANGELOG.md** (`3b0f8d0`) — this file. Human-readable, dated log of commits so contributors (human or Claude Code) can see what changed without reading `git log` directly.
 - **Redesign main menu with fantasy clock cathedral** (`b4ff1b8`) — new "clock cathedral" background art and a full visual rework of the main menu (sanctum card, moon sigil, kicker/divider text, restyled buttons with a primary "New Game" state). UI-only, no gameplay logic changed.
 - **Tighten Heal scoring and action validation** (`d3ac061`) — Luna may Heal herself and restore HP normally, but self-healing does not award her `luna1` “heal a friend” score. Heal can only target someone alive at declaration time; if that legal target dies before the delayed Heal resolves, the action still fizzles and is wasted under §5.5. Mana spending is now validated at the engine boundary as a whole number from 0–3 that cannot exceed the caster's current mana, rejecting negative, fractional, `NaN`, and over-cap values.
 - **Set Trap: roll before it does anything, not damage-then-roll-for-bonus** (`24304f8`) — fixed roll ordering so the trap's roll happens before its effects instead of after damage.
