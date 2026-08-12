@@ -150,7 +150,8 @@ describe('per-occurrence conditions — kit1/kit2/luna1', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
-    onHealResolved(state, luna.playerId, 1);
+    const matt = findFighter(state, 'Matt');
+    onHealResolved(state, luna.playerId, matt.playerId, 1);
     expect(state.scoreLog.find((e) => e.conditionId === 'luna1')?.points).toBe(3);
   });
 
@@ -158,7 +159,16 @@ describe('per-occurrence conditions — kit1/kit2/luna1', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
-    onHealResolved(state, luna.playerId, 0);
+    const matt = findFighter(state, 'Matt');
+    onHealResolved(state, luna.playerId, matt.playerId, 0);
+    expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
+  });
+
+  it('luna1 does not fire when Luna heals herself, even when HP is restored', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const luna = findFighter(state, 'Luna');
+    onHealResolved(state, luna.playerId, luna.playerId, 6);
     expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
   });
 });

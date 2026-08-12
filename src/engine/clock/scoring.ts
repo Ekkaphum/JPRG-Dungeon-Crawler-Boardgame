@@ -65,9 +65,12 @@ export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
 
 /** Same character-lookup reasoning as onWeakPointOpened: Luna's Heal and Mira's Mending Wind both
  *  resolve through the same generic heal-kind path. */
-export function onHealResolved(state: GameState, healerId: PlayerId, actualAmount: number) {
+export function onHealResolved(state: GameState, healerId: PlayerId, targetId: PlayerId, actualAmount: number) {
   if (actualAmount < 1) return;
   const charId = state.players.find((p) => p.id === healerId)!.charId;
+  // Luna's condition explicitly says “heal a friend”: self-healing is legal and restores HP, but
+  // does not award luna1. Mira's separate condition does not contain that restriction.
+  if (charId === 'Luna' && targetId === healerId) return;
   const conditionId = charId === 'Luna' ? 'luna1' : charId === 'Mira' ? 'mira1' : null;
   if (conditionId) pushScore(state, { playerId: healerId, conditionId, points: scorePoints(conditionId) });
 }

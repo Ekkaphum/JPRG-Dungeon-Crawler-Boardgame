@@ -72,12 +72,15 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   }
   if (def.kind === 'attackMana') {
     const spent = choice.manaSpent ?? 0;
-    if (spent < 0 || spent > fighter.mana) {
+    if (!Number.isInteger(spent) || spent < 0 || spent > 3 || spent > fighter.mana) {
       throw new Error(`illegal mana spend ${spent} for player ${fighter.playerId} (has ${fighter.mana})`);
     }
   }
-  if (def.kind === 'heal' && !battle.fighters.some((f) => f.playerId === choice.targetPlayerId)) {
-    throw new Error(`illegal Heal target ${choice.targetPlayerId} for player ${fighter.playerId}`);
+  if (def.kind === 'heal') {
+    const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+    if (!target || !target.alive) {
+      throw new Error(`illegal Heal target ${choice.targetPlayerId} for player ${fighter.playerId} (target must be alive when declared)`);
+    }
   }
   if (def.kind === 'attackGated' && fighter.hp > ATTACK_GATED_HP_THRESHOLD) {
     throw new Error(`${skillId} requires HP<=${ATTACK_GATED_HP_THRESHOLD} to declare (player ${fighter.playerId} has ${fighter.hp} HP)`);
@@ -206,7 +209,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       } else {
         const amount = healFighter(target, stats.primary!);
         battle.log.push({ t: 'RESOLVE_HEAL', playerId: fighter.playerId, targetId: target.playerId, amount, wasted: false });
-        onHealResolved(state, fighter.playerId, amount);
+        onHealResolved(state, fighter.playerId, target.playerId, amount);
       }
       break;
     }

@@ -253,14 +253,19 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     expect(() => declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Meteor' as never })).toThrow(/does not belong to Kit/);
   });
 
-  it('rejects mana spend outside [0, fighter.mana]', () => {
+  it('rejects mana spend unless it is a finite integer in [0, 3] and affordable', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
     vera.mana = 1;
     expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 2 })).toThrow(/illegal mana spend/);
     expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: -1 })).toThrow(/illegal mana spend/);
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0.5 })).toThrow(/illegal mana spend/);
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: Number.NaN })).toThrow(/illegal mana spend/);
+    vera.mana = 99;
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 4 })).toThrow(/illegal mana spend/);
     // Within bounds still works.
+    vera.mana = 1;
     expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 1 })).not.toThrow();
   });
 
@@ -271,6 +276,17 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: 999 })).toThrow(/illegal Heal target/);
     const matt = findFighter(state, 'Matt');
     expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId })).not.toThrow();
+  });
+
+  it('rejects a Heal aimed at someone already dead when declared', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const luna = findFighter(state, 'Luna');
+    const matt = findFighter(state, 'Matt');
+    killFighter(state, matt);
+    expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId })).toThrow(
+      /target must be alive when declared/
+    );
   });
 
   it('rejects Berserk declared above its HP<=5 gate', () => {

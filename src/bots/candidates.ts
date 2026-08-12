@@ -19,6 +19,8 @@ export function declareCandidates(state: GameState, decision: Extract<PendingDec
     if (skillId === 'Berserk' && fighter.hp > 5) continue;
 
     if (def.kind === 'heal') {
+      // A living target is required at declare time. If that target dies while Heal is pending,
+      // resolution still fizzles normally under §5.5.
       const aliveTargets = battle.fighters.filter((f) => f.alive);
       for (const t of aliveTargets) out.push({ kind: 'DECLARE_ACTION', skillId, targetPlayerId: t.playerId });
     } else if (def.kind === 'attackMana') {

@@ -107,7 +107,7 @@ describe('Mira score conditions', () => {
     prepareBattle(state);
     const mira = findFighter(state, 3);
 
-    onHealResolved(state, mira.playerId, 1);
+    onHealResolved(state, mira.playerId, mira.playerId, 1);
 
     expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
     const entry = state.scoreLog.find((e) => e.conditionId === 'mira1');
@@ -119,7 +119,8 @@ describe('Mira score conditions', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 3);
-    onHealResolved(state, luna.playerId, 1);
+    const ally = findFighter(state, 0);
+    onHealResolved(state, luna.playerId, ally.playerId, 1);
     expect(state.scoreLog.find((e) => e.conditionId === 'luna1')?.playerId).toBe(luna.playerId);
   });
 
