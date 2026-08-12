@@ -244,20 +244,26 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
   if (here.length === 0) return;
   battle.traps = battle.traps.filter((t) => t.slot !== battle.marker);
   for (const trap of here) {
+    if (battle.outcome !== 'in_progress') break;
     if (battle.bossSlot !== battle.marker) {
       battle.log.push({ t: 'RESOLVE_TRAP_EXPIRE', slot: trap.slot });
       continue;
     }
+
+    // The boss stopping on the trap only springs it — whether it actually cuts is a roll now, same
+    // escalating ladder as Quick Shot's weak point (5+, easier by 1 each miss, 5th attempt auto-
+    // succeeds). A miss means no damage AND no cancel — the trap fired too weakly to do either.
+    const owner = battle.fighters.find((f) => f.playerId === trap.ownerId)!;
+    const success = rollLadder(state, owner, 'SetTrap', 'SetTrap trigger', rng);
+    if (!success) {
+      battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: 0, ownerId: trap.ownerId });
+      continue;
+    }
+
     const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'SetTrap', countsAsAttack: false });
     onTrapTriggered(state, trap.ownerId);
     battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
-
-    // Cancelling the boss's declared move is a dice check now, not automatic. Same escalating
-    // ladder as the weak point, so a party that keeps landing traps gets there eventually.
-    const owner = battle.fighters.find((f) => f.playerId === trap.ownerId);
-    if (owner && battle.bossPending && battle.outcome === 'in_progress') {
-      if (rollLadder(state, owner, 'SetTrap', 'Trap cancel', rng)) battle.bossPending = null;
-    }
+    if (battle.bossPending && battle.outcome === 'in_progress') battle.bossPending = null;
   }
 }
 

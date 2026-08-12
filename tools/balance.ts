@@ -67,7 +67,8 @@ async function main() {
   const declares: Record<string, number> = {};
   const dmgBySkill: Record<string, number> = {};
   const hitsBySkill: Record<string, number> = {};
-  let trapTriggers = 0;
+  let trapSprung = 0; // boss stood on it, roll attempted (hit or miss)
+  let trapHits = 0; // roll succeeded — actually dealt damage
   let trapExpires = 0;
   const rolls: Record<string, { tries: number; ok: number }> = {};
   let bossMoves = 0;
@@ -116,7 +117,8 @@ async function main() {
           conditionPoints[ev.entry.conditionId] = (conditionPoints[ev.entry.conditionId] ?? 0) + ev.entry.points;
         }
         if (ev.t === 'RESOLVE_TRAP_TRIGGER') {
-          trapTriggers++;
+          trapSprung++;
+          if (ev.dmg > 0) trapHits++;
           dmgBySkill.SetTrap = (dmgBySkill.SetTrap ?? 0) + ev.dmg;
         }
         if (ev.t === 'RESOLVE_TRAP_EXPIRE') trapExpires++;
@@ -177,7 +179,10 @@ async function main() {
   }
 
   const trapArmed = declares.SetTrap ?? 0;
-  console.log(`\ntrap: armed ${trapArmed}, triggered ${trapTriggers} (${pct(trapTriggers, trapArmed)}%), wasted ${trapExpires}`);
+  console.log(
+    `\ntrap: armed ${trapArmed}, sprung ${trapSprung} (${pct(trapSprung, trapArmed)}%), ` +
+      `hit ${trapHits} (${pct(trapHits, trapSprung)}% of sprung), expired unsprung ${trapExpires}`
+  );
   console.log(`counter windows: ${counterPerWindow.length}, avg ripostes each ${mean(counterPerWindow).toFixed(2)}`);
   const multi = counterPerWindow.filter((n) => n >= 2).length;
   const zero = counterPerWindow.filter((n) => n === 0).length;

@@ -131,7 +131,7 @@ describe('Vera mana — paid immediately at declare, never refunded (§5.1/§8)'
 });
 
 describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact stop', () => {
-  it('deals damage and cancels the boss pending action when the boss stops on it', () => {
+  it('rolls first: a miss deals no damage and does not cancel the boss pending action', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
@@ -144,15 +144,37 @@ describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact s
     state.battle!.bossSlot = 10;
     state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
     const bossHpBefore = state.battle!.bossHp;
-    processTrapsAtMarker(state, createRNG(1));
-    expect(state.battle!.bossHp).toBe(bossHpBefore - 4);
+    // A die below the 5+ starting target is a miss — the trap springs (slot vacated) but does
+    // nothing else: no damage, no cancel.
+    processTrapsAtMarker(state, { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>);
+    expect(state.battle!.bossHp).toBe(bossHpBefore);
     expect(state.battle!.traps).toHaveLength(0);
-    // The cancel is a dice check now, so it either fired or bumped the ladder for next time.
-    const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'Trap cancel');
-    expect(roll).toBeDefined();
+    expect(state.battle!.bossPending).not.toBeNull();
+    const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'SetTrap trigger');
+    expect(roll && roll.t === 'ROLL' && roll.success).toBe(false);
+    const trigger = state.battle!.log.find((e) => e.t === 'RESOLVE_TRAP_TRIGGER');
+    expect(trigger && trigger.t === 'RESOLVE_TRAP_TRIGGER' && trigger.dmg).toBe(0);
   });
 
-  it('cancels the boss move only when the ladder roll passes, and eases the target after a miss', () => {
+  it('deals damage and cancels the boss pending action only when the roll passes', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 13;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
+    state.battle!.marker = 10;
+    state.battle!.bossSlot = 10;
+    state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
+    const bossHpBefore = state.battle!.bossHp;
+    processTrapsAtMarker(state, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
+    expect(state.battle!.bossHp).toBe(bossHpBefore - 4);
+    expect(state.battle!.traps).toHaveLength(0);
+    expect(state.battle!.bossPending).toBeNull();
+    const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'SetTrap trigger');
+    expect(roll && roll.t === 'ROLL' && roll.success).toBe(true);
+  });
+
+  it('eases the roll target after a miss, same escalating ladder as Quick Shot', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
@@ -165,7 +187,7 @@ describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact s
       state.battle!.bossSlot = 10;
       state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
       processTrapsAtMarker(state, rng);
-      return state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'Trap cancel').at(-1)!;
+      return state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SetTrap trigger').at(-1)!;
     };
 
     // Force a miss: a die below the 5+ starting target leaves the move standing.
@@ -174,11 +196,13 @@ describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact s
     expect(miss.t === 'ROLL' && miss.success).toBe(false);
     expect(state.battle!.bossPending).not.toBeNull();
 
-    // Next attempt is one easier, and a passing roll wipes the declared move.
-    const hit = armAndTrigger({ ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
+    // Next attempt is one easier, and a passing roll both deals damage and wipes the declared move.
+    const bossHpBeforeSecond = state.battle!.bossHp;
+    const hit = armAndTrigger({ ...createRNG(1), int: () => 4 } as ReturnType<typeof createRNG>);
     expect(hit.t === 'ROLL' && hit.target).toBe(4);
     expect(hit.t === 'ROLL' && hit.success).toBe(true);
     expect(state.battle!.bossPending).toBeNull();
+    expect(state.battle!.bossHp).toBe(bossHpBeforeSecond - 4);
     expect(kit.rollAttempt.SetTrap).toBe(0); // reset on success
   });
 

@@ -41,7 +41,9 @@ export function describeEvent(ev: ClockLogEvent): string | null {
     case 'RESOLVE_BUFF':
       return `P${ev.playerId} ${skillLabel(ev.skillId)} หมดอายุ`;
     case 'RESOLVE_TRAP_TRIGGER':
-      return `🪤 กับดักช่อง ${ev.slot} ทำงาน (P${ev.ownerId}) → บอส -${ev.dmg}`;
+      return ev.dmg > 0
+        ? `🪤 กับดักช่อง ${ev.slot} ทำงาน (P${ev.ownerId}) → บอส -${ev.dmg}`
+        : `🪤 กับดักช่อง ${ev.slot} สปริงไม่เข้า (P${ev.ownerId}) — เสียฟรี`;
     case 'RESOLVE_TRAP_EXPIRE':
       return `🪤 กับดักช่อง ${ev.slot} หมดอายุ`;
     case 'ROLL':

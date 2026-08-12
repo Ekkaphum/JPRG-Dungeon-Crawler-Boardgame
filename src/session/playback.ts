@@ -294,7 +294,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
     case 'RESOLVE_TRAP_TRIGGER':
       b.bossHp = Math.max(0, b.bossHp - ev.dmg);
       b.traps = b.traps.filter((t) => t.slot !== ev.slot);
-      b.bossPending = null;
+      if (ev.dmg > 0) b.bossPending = null; // a failed roll (dmg 0) neither hurts nor cancels
       break;
 
     case 'RESOLVE_TRAP_EXPIRE':
