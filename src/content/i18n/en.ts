@@ -84,6 +84,7 @@ export const en: Record<I18nKey, string> = {
 
   'result.win': '{boss} defeated',
   'result.lose': 'Out of time',
+  'result.losePartyWiped': 'Everyone died at once',
   'result.winTag': '🏆 Victory!',
   'result.loseTag': '☠ Defeat',
   'result.lastShot': 'Last Shot',
@@ -102,6 +103,7 @@ export const en: Record<I18nKey, string> = {
 
   'allLose.title': 'Party Wipe',
   'allLose.message': 'The clock hit midnight before the boss died — the run ends here, everyone loses together, no advancing to the next boss',
+  'allLose.messagePartyWiped': 'Everyone in the party died at once — the run ends here immediately, even with time left and some of you still waiting to revive',
   'allLose.progress': '{n}/3 bosses defeated',
 
   'summary.bossHpLeft': 'Boss HP remaining',

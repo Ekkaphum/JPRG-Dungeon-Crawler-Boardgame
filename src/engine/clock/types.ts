@@ -110,7 +110,7 @@ export type ClockLogEvent =
   | { t: 'REVIVE'; playerId: PlayerId; atSlot: number; hp: number }
   | { t: 'SCORE'; entry: ScoreEntry }
   | { t: 'MARKER_TICK'; marker: number }
-  | { t: 'BATTLE_END'; outcome: 'boss_defeated' | 'clock_ran_out'; finishedBy: PlayerId | null; expGranted: number };
+  | { t: 'BATTLE_END'; outcome: 'boss_defeated' | 'clock_ran_out' | 'party_wiped'; finishedBy: PlayerId | null; expGranted: number };
 
 export interface BattleState {
   bossId: BossId;
@@ -130,7 +130,7 @@ export interface BattleState {
   finishedBySkill: SkillId | null;
   nextStackSeq: number;
   log: ClockLogEvent[];
-  outcome: 'in_progress' | 'boss_defeated' | 'clock_ran_out';
+  outcome: 'in_progress' | 'boss_defeated' | 'clock_ran_out' | 'party_wiped';
 }
 
 export interface GameState {
@@ -149,6 +149,12 @@ export interface GameState {
   /** Cross-battle death tally per player, purely for end-of-game stats (§8's per-battle "everDied"
    *  flag resets every battle and isn't enough to report a whole game's death count). */
   deathCounts: Partial<Record<PlayerId, number>>;
+  /** Cross-battle count of who actually landed the killing blow on a boss — the §1 tie-break reads
+   *  this directly instead of counting `matt2`/`vera2` score entries, which only exist for Matt's
+   *  and Vera-via-Meteor's own point conditions and miss every other character's (and every other
+   *  Vera skill's) Last Shot entirely. `battle.finishedBy` itself resets to null every new battle
+   *  (prepareBattle), so it has to be tallied here the instant each battle ends. */
+  lastShotCounts: Partial<Record<PlayerId, number>>;
   pending: PendingDecision | null;
   gameOver:
     | { outcome: 'win'; totals: Record<PlayerId, number>; winnerId: PlayerId; tieBreak: 'points' | 'lastShots' | 'hp' | 'none' }

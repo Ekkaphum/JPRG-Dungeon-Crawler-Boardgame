@@ -36,6 +36,7 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
     battle: null,
     scoreLog: [],
     deathCounts: {},
+    lastShotCounts: {},
     pending: null,
     gameOver: null,
   };

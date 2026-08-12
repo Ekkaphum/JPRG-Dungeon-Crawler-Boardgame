@@ -61,7 +61,7 @@ export class GameSession {
   /** Set when a battle finishes and held until the player acknowledges the result popup. Stays up
    *  afterwards so the level-up step can render inside the same popup. */
   battleResult: {
-    outcome: 'boss_defeated' | 'clock_ran_out';
+    outcome: 'boss_defeated' | 'clock_ran_out' | 'party_wiped';
     bossId: BossId;
     finishedBy: PlayerId | null;
     markerLeft: number;

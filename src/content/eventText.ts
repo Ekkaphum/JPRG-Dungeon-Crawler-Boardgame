@@ -6,12 +6,13 @@ function skillLabel(id: string): string {
   return id === 'BossMove' ? 'Boss' : SKILLS[id as keyof typeof SKILLS]?.name.th ?? id;
 }
 
-/** A declared action's landing slot can fall below 0 if it's declared with little clock left —
- *  the clock hits 0 and the battle ends before the marker would ever reach it, so it silently
- *  never resolves (by design, not a bug). Showing a raw negative number there just reads as
- *  broken, so every UI spot that displays a landing slot routes through this instead. */
+/** A declared action's landing slot can be 0 or negative if it's declared with little clock left —
+ *  the battle ends the instant the marker reaches slot 0 (before anything there resolves — see
+ *  walk.ts), so anything landing at 0 or below silently never resolves (by design, not a bug).
+ *  Showing a raw non-positive number there just reads as broken, so every UI spot that displays a
+ *  landing slot routes through this instead. */
 export function landSlotDisplay(n: number): string {
-  return n < 0 ? '—' : String(n);
+  return n <= 0 ? '—' : String(n);
 }
 
 function who(id: number | 'boss'): string {
@@ -56,9 +57,8 @@ export function describeEvent(ev: ClockLogEvent): string | null {
     case 'BATTLE_START':
       return `⚔️ เริ่มยก: ${ev.bossId} (HP ${ev.hp})`;
     case 'BATTLE_END':
-      return ev.outcome === 'boss_defeated'
-        ? `🏆 ปราบบอสสำเร็จ! ${ev.finishedBy != null ? `(Last Shot: P${ev.finishedBy})` : ''}`
-        : `☠ นาฬิกาถึง 0 — บอสรอด`;
+      if (ev.outcome === 'boss_defeated') return `🏆 ปราบบอสสำเร็จ! ${ev.finishedBy != null ? `(Last Shot: P${ev.finishedBy})` : ''}`;
+      return ev.outcome === 'party_wiped' ? `☠ ทุกคนตายพร้อมกัน — บอสรอด` : `☠ นาฬิกาถึง 0 — บอสรอด`;
     default:
       return null;
   }

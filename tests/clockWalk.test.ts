@@ -56,8 +56,9 @@ describe('clock walk — ordering and stacking (GAME_DESIGN_v0_3_0.md §4.1)', (
       expect(m).toBeLessThanOrEqual(lastMarker);
       lastMarker = m;
     }
-    expect(state.battle!.marker).toBeGreaterThanOrEqual(-1);
-    expect(['boss_defeated', 'clock_ran_out']).toContain(state.battle!.outcome);
+    // Slot 0 is dead ground (§4.2 fix) — the clock stops there, it never goes negative.
+    expect(state.battle!.marker).toBeGreaterThanOrEqual(0);
+    expect(['boss_defeated', 'clock_ran_out', 'party_wiped']).toContain(state.battle!.outcome);
   });
 
   it("a pawn's first visit only declares — nothing resolves (§4.3)", async () => {

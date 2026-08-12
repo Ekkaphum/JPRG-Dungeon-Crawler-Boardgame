@@ -26,11 +26,12 @@ export function BattleResultModal({
   const result = session.battleResult!;
   const def = BOSSES[result.bossId];
   const won = result.outcome === 'boss_defeated';
+  const partyWiped = result.outcome === 'party_wiped';
   const reward = Math.floor(result.markerLeft / 2);
   const killer = result.finishedBy != null ? state.players.find((p) => p.id === result.finishedBy) : null;
 
   return (
-    <Modal title={won ? t('result.win', { boss: def.name[lang] }) : t('result.lose')} onClose={() => {}}>
+    <Modal title={won ? t('result.win', { boss: def.name[lang] }) : t(partyWiped ? 'result.losePartyWiped' : 'result.lose')} onClose={() => {}}>
       <div className="flex gap-3">
         <img
           src={bossImageUrl(result.bossId)}
@@ -57,7 +58,7 @@ export function BattleResultModal({
               </div>
             </>
           ) : (
-            <div className="text-xs text-gold-dim mt-2 leading-snug">{t('allLose.message')}</div>
+            <div className="text-xs text-gold-dim mt-2 leading-snug">{t(partyWiped ? 'allLose.messagePartyWiped' : 'allLose.message')}</div>
           )}
         </div>
       </div>

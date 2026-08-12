@@ -31,21 +31,23 @@ function runAndRecordOrder(draftOrder: number[] | null, seed: number) {
   return { picked, state };
 }
 
+// Dax and Mira are temporarily disabled (2026-08-12, see the comment above CHAR_IDS in
+// characters.ts) — CHAR_IDS is back to exactly 4 for now, so runDraft's `available.length === 1`
+// fast path auto-assigns the last picker again and never yields them a CHOOSE_CHARACTER decision.
+// These tests reflect that current 4-character behavior; the 6-character variants (last picker
+// gets a real choice) should be restored once Dax/Mira are re-enabled.
 describe('draft order', () => {
   it('follows a chosen order exactly', () => {
     const { picked, state } = runAndRecordOrder([2, 0, 3, 1], 42);
-    // 6 characters for 4 players (2026-08-11) means nobody's pick is ever forced anymore — even
-    // the last player in the order is asked, choosing among whatever 3 are still left. Before this
-    // change, with exactly 4 characters, the 4th player would have been auto-assigned and never
-    // appear here.
-    expect(picked).toEqual([2, 0, 3, 1]);
+    // Only the first 3 pickers are actually asked — the 4th player is auto-assigned whatever's left.
+    expect(picked).toEqual([2, 0, 3]);
     // Everyone still ends up with a distinct character.
     expect(new Set(state.players.map((p) => p.charId)).size).toBe(4);
   });
 
   it('honours the chosen order regardless of seed', () => {
     for (const seed of [1, 7, 999]) {
-      expect(runAndRecordOrder([3, 1, 0, 2], seed).picked).toEqual([3, 1, 0, 2]);
+      expect(runAndRecordOrder([3, 1, 0, 2], seed).picked).toEqual([3, 1, 0]);
     }
   });
 
@@ -53,30 +55,28 @@ describe('draft order', () => {
     const a = runAndRecordOrder(null, 12345).picked;
     const b = runAndRecordOrder(null, 12345).picked;
     expect(a).toEqual(b); // deterministic for a given seed
-    expect(new Set(a).size).toBe(4); // all four players are actually asked
+    expect(new Set(a).size).toBe(3); // the 4th player is auto-assigned, never asked
   });
 
-  it('leaves the 2 undrafted characters out of the game entirely', () => {
+  it('leaves no characters undrafted — the full 4-character roster is used', () => {
     const { state } = runAndRecordOrder([0, 1, 2, 3], 7);
     expect(new Set(state.players.map((p) => p.charId)).size).toBe(4);
   });
 
-  it('gives the last player in the order a real choice, not a forced pick', () => {
-    // Regression guard for the whole point of the 6-character roster: with only 4 characters, the
-    // last picker's CHOOSE_CHARACTER decision never got yielded at all (runDraft's
-    // `available.length === 1` fast path auto-assigned it). Assert the decision the last player
-    // actually saw offered more than one option.
+  it('auto-assigns the last player in the order without asking (4-character roster)', () => {
     const state = newGame(setup([2, 0, 3, 1]), 42);
     const rng = createRNG(42);
     const gen = runDraft(state, rng);
     let res = gen.next();
-    let lastDecisionOptions: number | null = null;
+    let decisionCount = 0;
     while (!res.done) {
       const d: PendingDecision = res.value;
       if (d.kind !== 'CHOOSE_CHARACTER') throw new Error('unexpected decision');
-      lastDecisionOptions = d.available.length;
+      decisionCount += 1;
       res = gen.next({ kind: 'CHOOSE_CHARACTER', charId: d.available[0] });
     }
-    expect(lastDecisionOptions).toBeGreaterThan(1);
+    // Player 1 (last in the order) never gets asked — only 3 decisions for 4 players.
+    expect(decisionCount).toBe(3);
+    expect(state.players.find((p) => p.id === 1)!.charId).toBeTruthy();
   });
 });

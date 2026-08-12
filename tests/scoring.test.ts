@@ -112,9 +112,11 @@ describe('winner determination — points → Last Shots → HP (§1)', () => {
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
     const kit = findFighter(state, 'Kit');
-    // Equal 4-point totals, but only Matt's includes a Last Shot (matt2) entry.
+    // Equal 4-point totals, but only Matt actually landed a Last Shot — tallied in
+    // state.lastShotCounts (off battle.finishedBy), not by scanning scoreLog for matt2/vera2.
     state.scoreLog.push({ playerId: matt.playerId, conditionId: 'matt1', points: 1, atSlot: 10, bossId: 'Ragorath' });
     state.scoreLog.push({ playerId: matt.playerId, conditionId: 'matt2', points: 3, atSlot: 10, bossId: 'Ragorath' });
+    state.lastShotCounts[matt.playerId] = 1;
     for (let i = 0; i < 4; i++) {
       state.scoreLog.push({ playerId: kit.playerId, conditionId: 'kit1', points: 1, atSlot: 10, bossId: 'Ragorath' });
     }

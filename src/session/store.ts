@@ -169,11 +169,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       const p = state.players.find((pl) => pl.id === Number(playerIdStr));
       if (p) stats.charDeaths[p.charId] = (stats.charDeaths[p.charId] ?? 0) + (count ?? 0);
     }
-    for (const entry of state.scoreLog) {
-      if (entry.conditionId === 'matt2' || entry.conditionId === 'vera2') {
-        const p = state.players.find((pl) => pl.id === entry.playerId);
-        if (p) stats.charLastShots[p.charId] = (stats.charLastShots[p.charId] ?? 0) + 1;
-      }
+    // state.lastShotCounts is tallied straight off battle.finishedBy at the end of every battle
+    // (walk.ts) — every character's kill counts here, not just Matt's and Vera's-via-Meteor's own
+    // point conditions (matt2/vera2), which used to be the only source for this stat and silently
+    // undercounted Kit, Luna, Dax, Mira, and Vera's other skills.
+    for (const [playerIdStr, count] of Object.entries(state.lastShotCounts)) {
+      const p = state.players.find((pl) => pl.id === Number(playerIdStr));
+      if (p) stats.charLastShots[p.charId] = (stats.charLastShots[p.charId] ?? 0) + (count ?? 0);
     }
 
     saveStats(stats);

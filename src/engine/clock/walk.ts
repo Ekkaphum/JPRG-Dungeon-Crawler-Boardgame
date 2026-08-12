@@ -9,6 +9,34 @@ import { reviveFighter } from './damage';
 import { onBattleEndScoring } from './scoring';
 import type { Choice, DeclareOptions, Fighter, GameState, PendingDecision } from './types';
 
+/** Who resolves first when two pawns share a clock slot. GAME_DESIGN_v0_3_0.md §4.1: "หมากซ้อนช่อง
+ *  เดียวกันได้ — วางก่อนอยู่ล่างกอง = เล่นก่อน · เสมอกันในกอง → ผู้เล่นเล่นก่อนบอสเสมอ" (stacked pawns —
+ *  placed first = bottom of the stack = resolves first; tied → the player always goes before the
+ *  boss). "Tied" here isn't a near-miss on stackSeq — a player vs. the boss is *never* ordered by
+ *  arrival time at all, only by stackSeq among players when several of them share a slot. Exported
+ *  so the walk loop and TimelineBar's visual stacking read the same rule instead of two that can
+ *  drift (this used to be a bare `a.stackSeq - b.stackSeq` sort — since bossStackSeq is drawn from
+ *  the same global counter as every player's, a boss that re-declared and landed on a slot before a
+ *  player later stacked onto it would get a *lower* stackSeq and wrongly resolve first). */
+export function resolveOrderCompare(a: { stackSeq: number; isBoss?: boolean }, b: { stackSeq: number; isBoss?: boolean }): number {
+  if (!!a.isBoss !== !!b.isBoss) return a.isBoss ? 1 : -1;
+  return a.stackSeq - b.stackSeq;
+}
+
+/** Resolves a fighter's previous declare (if any) then asks for a new one — the one full "visit"
+ *  a player pawn gets whenever the marker reaches its slot. Pulled out so both the tick's normal
+ *  queue and the post-boss-move sweep below (§4.1 fix, item 7) share the exact same visit logic. */
+function* resolvePlayerVisit(state: GameState, f: Fighter, rng: RNG): Generator<PendingDecision, void, Choice> {
+  const battle = state.battle!;
+  resolveFighterPending(state, f, rng);
+  if (battle.outcome !== 'in_progress') return;
+  if (!f.alive) return;
+  const options = buildDeclareOptions(state, f);
+  const choice = yield { kind: 'DECLARE_ACTION', playerId: f.playerId, options };
+  if (choice.kind !== 'DECLARE_ACTION') throw new Error(`expected DECLARE_ACTION for player ${f.playerId}`);
+  declareSkill(state, f, choice);
+}
+
 function buildDeclareOptions(state: GameState, fighter: Fighter): DeclareOptions {
   const battle = state.battle!;
   const occupied = new Set<number>();
@@ -38,7 +66,14 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
 
   while (true) {
     battle.marker -= 1;
-    if (battle.marker < 0) {
+    if (battle.marker <= 0) {
+      // GAME_DESIGN_v0_3_0.md §1/§4.2: "นาฬิกาถึงช่อง 0 โดยบอสยังไม่ตาย" / "มาร์กเกอร์ถึง 0 → บอสชนะ"
+      // — reaching slot 0 with the boss still alive ends the battle immediately. Slot 0 is never
+      // itself playable: no traps, revives, or declared actions resolve there. Previously this only
+      // triggered once the marker went *negative* (`< 0`), so a killing blow, trap trigger, or
+      // revive landing exactly at slot 0 still counted — reaching 0 was survivable, contradicting
+      // "ถึงช่อง 0" reading as "arrives at 0", not "passes 0".
+      battle.log.push({ t: 'MARKER_TICK', marker: 0 });
       battle.outcome = 'clock_ran_out';
       battle.log.push({ t: 'BATTLE_END', outcome: 'clock_ran_out', finishedBy: null, expGranted: 0 });
       return;
@@ -52,14 +87,15 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
       if (!f.alive && f.reviveAtSlot === battle.marker) reviveFighter(state, f);
     }
 
-    type QueueItem = { stackSeq: number; kind: 'player' | 'boss'; fighter?: Fighter };
+    type QueueItem = { stackSeq: number; kind: 'player' | 'boss'; isBoss?: boolean; fighter?: Fighter };
     const queue: QueueItem[] = [];
     for (const f of battle.fighters) {
       if (f.alive && f.slot === battle.marker) queue.push({ stackSeq: f.stackSeq, kind: 'player', fighter: f });
     }
-    if (battle.bossSlot === battle.marker) queue.push({ stackSeq: battle.bossStackSeq, kind: 'boss' });
-    queue.sort((a, b) => a.stackSeq - b.stackSeq);
+    if (battle.bossSlot === battle.marker) queue.push({ stackSeq: battle.bossStackSeq, kind: 'boss', isBoss: true });
+    queue.sort(resolveOrderCompare);
 
+    const visitedThisTick = new Set<number>();
     for (const entry of queue) {
       if (battle.outcome !== 'in_progress') break;
 
@@ -72,20 +108,31 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
 
       const f = entry.fighter!;
       if (!f.alive) continue;
-      resolveFighterPending(state, f, rng);
-      if (battle.outcome !== 'in_progress') break;
-      if (!f.alive) continue;
+      visitedThisTick.add(f.playerId);
+      yield* resolvePlayerVisit(state, f, rng);
+    }
 
-      const options = buildDeclareOptions(state, f);
-      const choice = yield { kind: 'DECLARE_ACTION', playerId: f.playerId, options };
-      if (choice.kind !== 'DECLARE_ACTION') throw new Error(`expected DECLARE_ACTION for player ${f.playerId}`);
-      declareSkill(state, f, choice);
+    // The boss always resolves last within this tick's queue (player-before-boss, item 3), so a
+    // Somnivar move that shifts pawns can only land someone new onto battle.marker *after* the
+    // queue above was already frozen. Left unhandled, that pawn would sit exactly on a marker
+    // value the clock has already finished with and never revisit — stuck for the rest of the
+    // battle. Sweep for that case and give any such pawn its visit this same tick instead.
+    if (battle.outcome === 'in_progress') {
+      for (const f of battle.fighters) {
+        if (battle.outcome !== 'in_progress') break;
+        if (!f.alive || f.slot !== battle.marker || visitedThisTick.has(f.playerId)) continue;
+        visitedThisTick.add(f.playerId);
+        yield* resolvePlayerVisit(state, f, rng);
+      }
     }
   }
 
   if (battle.outcome === 'boss_defeated') {
     onBattleEndScoring(state);
     battle.log.push({ t: 'BATTLE_END', outcome: 'boss_defeated', finishedBy: battle.finishedBy, expGranted: 0 });
+    if (battle.finishedBy !== null) {
+      state.lastShotCounts[battle.finishedBy] = (state.lastShotCounts[battle.finishedBy] ?? 0) + 1;
+    }
   }
 }
 

@@ -117,7 +117,9 @@ function DeclareActionPanel({
             // pick up against what's already on the board before committing to it, instead of only
             // finding out where they landed after the fact.
             const landedSlot = battle.marker - applySomnivarTax(state, stats.time);
-            const tooSlow = landedSlot < 0;
+            // <=0, not <0: slot 0 itself is never playable (the battle ends the instant the marker
+            // reaches it, before anything there resolves).
+            const tooSlow = landedSlot <= 0;
             return (
               <button
                 key={sid}

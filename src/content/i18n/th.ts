@@ -82,6 +82,7 @@ export const th = {
 
   'result.win': 'ปราบ {boss} สำเร็จ',
   'result.lose': 'หมดเวลา',
+  'result.losePartyWiped': 'ทุกคนตายพร้อมกัน',
   'result.winTag': '🏆 ชนะ!',
   'result.loseTag': '☠ แพ้',
   'result.lastShot': 'ผู้ปิดฉาก',
@@ -100,6 +101,7 @@ export const th = {
 
   'allLose.title': 'แพ้ทั้งวง',
   'allLose.message': 'นาฬิกาถึงเที่ยงคืนก่อนบอสจะตาย — จบเกมทันที ทุกคนแพ้ร่วมกัน ไม่ได้ไปต่อบอสตัวถัดไป',
+  'allLose.messagePartyWiped': 'ทุกคนในวงตายพร้อมกันหมด — จบเกมทันที แม้จะยังมีเวลาเหลือและบางคนรอฟื้นอยู่ก็ตาม',
   'allLose.progress': 'ปราบไปได้ {n}/3 ตัว',
 
   'summary.bossHpLeft': 'HP บอสที่เหลือ',

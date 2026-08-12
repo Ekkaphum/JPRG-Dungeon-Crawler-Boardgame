@@ -13,6 +13,10 @@ export function AllLoseScreen() {
   const over = session?.state.gameOver;
   const failedAt = over?.outcome === 'allLose' ? over.bossId : null;
   const cleared = session ? session.state.bossIndex : 0;
+  // state.gameOver only records "allLose" + which boss, not why — the battle itself (still held on
+  // state.battle after the game ends) carries the actual outcome, same pattern failedAt already
+  // relies on above.
+  const partyWiped = session?.state.battle?.outcome === 'party_wiped';
   // The boss that beat the party makes a more dramatic backdrop than the neutral arena.
   const backdrop = failedAt ? bossImageUrl(failedAt) : sceneImageUrl();
 
@@ -40,7 +44,7 @@ export function AllLoseScreen() {
           </div>
         )}
 
-        <p className="text-gold-dim max-w-md text-center text-sm">{t('allLose.message')}</p>
+        <p className="text-gold-dim max-w-md text-center text-sm">{t(partyWiped ? 'allLose.messagePartyWiped' : 'allLose.message')}</p>
 
         {session && <BattleSummaryPanel state={session.state} tone="lose" />}
 

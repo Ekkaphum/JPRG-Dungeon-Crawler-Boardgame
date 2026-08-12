@@ -1,4 +1,4 @@
-import type { BattleState, GameState } from '@engine/index';
+import { resolveOrderCompare, type BattleState, type GameState } from '@engine/index';
 import { CLASS_COLOR } from '@content/charColors';
 import { useT } from '@content/i18n/useT';
 
@@ -42,7 +42,9 @@ export function TimelineBar({ state, battle }: { state: GameState; battle: Battl
     pawns.push({ key: 'boss', slot: battle.bossSlot, stackSeq: battle.bossStackSeq, label: '☠', color: '#c0392b', isBoss: true });
   }
 
-  // Pawns sharing a slot stack upward, earliest-placed nearest the track (it resolves first).
+  // Pawns sharing a slot stack upward, earliest-to-resolve nearest the track — same rule the walk
+  // loop itself uses (resolveOrderCompare), so this can never show a stack order that contradicts
+  // what actually happens when the marker gets there.
   const stackIndex = new Map<string, number>();
   const bySlot = new Map<number, Pawn[]>();
   for (const p of pawns) {
@@ -51,7 +53,7 @@ export function TimelineBar({ state, battle }: { state: GameState; battle: Battl
     bySlot.set(p.slot, arr);
   }
   for (const arr of bySlot.values()) {
-    arr.sort((a, b) => a.stackSeq - b.stackSeq);
+    arr.sort(resolveOrderCompare);
     arr.forEach((p, i) => stackIndex.set(p.key, i));
   }
 

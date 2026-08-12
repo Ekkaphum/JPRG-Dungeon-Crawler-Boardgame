@@ -48,7 +48,10 @@ export function* playGame(state: GameState, rng: RNG): Generator<PendingDecision
     yield* runClockBattle(state, rng);
     state.phase = 'BATTLE_END';
 
-    if (state.battle!.outcome === 'clock_ran_out') {
+    // Anything other than a clean kill (clock running out, or the whole party down at once) ends
+    // the run immediately — checked as "not boss_defeated" rather than enumerating every losing
+    // outcome so a future one can't slip past this the way party_wiped almost did.
+    if (state.battle!.outcome !== 'boss_defeated') {
       state.phase = 'ALL_LOSE';
       state.gameOver = { outcome: 'allLose', bossId: state.battle!.bossId };
       return state;

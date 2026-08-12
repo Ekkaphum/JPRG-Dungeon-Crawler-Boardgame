@@ -2,13 +2,19 @@
 // Lv2 numbers are NOT in the source doc — see docs/10-v0.3.0-rulings.md §1 for the extrapolation
 // rule (~35-50% power bump) used to fill them in so the EXP/level system has real weight.
 
-// Dax/Mira (2026-08-11): a 4-player table drafting from exactly 4 characters has no real choice —
-// whoever picks last just gets whatever's left. Two extra characters make every pick, including
-// the last one, a genuine decision among 3 remaining options (GAME_DESIGN_v0_3_0.md §3.1's own
-// framing: "ลำดับการเลือกคือสิ่งที่มีค่าจริง"). runDraft() (setup.ts) already iterates CHAR_IDS
-// generically — no engine change was needed to make the pool bigger than the table.
+// Dax/Mira (2026-08-11): added to make the draft pool bigger than the table so the last pick is
+// never forced. Temporarily disabled (2026-08-12) — GAME_DESIGN.md/README still describe a
+// 4-character roster (4 character sheets, 12 skill cards, Aurelius's armor-break combo analysis
+// assuming Kit+Luna+Vera are all at the table), and having them silently draftable contradicted
+// that document. Their data/skills/score conditions and all engine support stay in place — this is
+// the only line that needs to change to re-enable them once the docs are updated to match, or a
+// content pass reconciles the two. See docs/BALANCE_NOTES.md.
 export type CharId = 'Matt' | 'Kit' | 'Vera' | 'Luna' | 'Dax' | 'Mira';
-export const CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna', 'Dax', 'Mira'];
+export const CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna'];
+/** Full roster including disabled characters — for anything that must enumerate every CharId
+ *  regardless of draft availability (Record<CharId,...> exhaustiveness, tests). Never use this for
+ *  the draft pool itself; that's CHAR_IDS above. */
+export const ALL_CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna', 'Dax', 'Mira'];
 
 export type SkillId =
   | 'Slash'
@@ -497,7 +503,10 @@ export function skillStats(id: SkillId, isLv2: boolean): SkillLevelStats {
  *  change it here. (Doesn't cover 'timeBonus', which isn't a personal condition — it's computed
  *  dynamically from the clock's remaining slots and split equally among all four players.) */
 export function scorePoints(conditionId: string): number {
-  for (const charId of CHAR_IDS) {
+  // ALL_CHAR_IDS, not CHAR_IDS: this must keep resolving Dax/Mira's own condition ids even while
+  // they're excluded from the draft pool, since their content/tests still exist independently of
+  // whether the pool offers them.
+  for (const charId of ALL_CHAR_IDS) {
     const c = CHARACTERS[charId].score.find((s) => s.id === conditionId);
     if (c) return c.points;
   }

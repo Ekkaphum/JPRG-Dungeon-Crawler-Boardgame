@@ -137,9 +137,13 @@ export function determineWinner(state: GameState): FinalScores {
   const totals: Record<PlayerId, number> = {};
   for (const p of state.players) totals[p.id] = currentTotalScore(state, p.id);
 
+  // §1: "จำนวนครั้งที่ตี Last Shot" — every character's kill counts, not just Matt's and
+  // Vera's-via-Meteor's own point conditions (matt2/vera2), which only fire for a subset of Last
+  // Shots and miss Kit, Luna, Dax, Mira, and Vera's other skills entirely. state.lastShotCounts is
+  // tallied directly off battle.finishedBy at the end of every battle (walk.ts) for exactly this.
   const lastShotCounts: Record<PlayerId, number> = {};
   for (const p of state.players) {
-    lastShotCounts[p.id] = state.scoreLog.filter((e) => e.playerId === p.id && (e.conditionId === 'matt2' || e.conditionId === 'vera2')).length;
+    lastShotCounts[p.id] = state.lastShotCounts[p.id] ?? 0;
   }
 
   const finalHp: Record<PlayerId, number> = {};

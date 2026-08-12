@@ -11,6 +11,11 @@ function isLv2(state: GameState, fighter: Fighter, skillId: SkillId): boolean {
   return !!state.progress[fighter.playerId]?.isLv2[skillId];
 }
 
+/** Berserk's declare-time gate (GAME_DESIGN.md: "ใช้ได้เฉพาะตอนประกาศแล้ว HP ≤ 5" — Berserk requires
+ *  HP≤5 *at the moment it's declared*). Shared with the identical re-check at resolve (HP may have
+ *  changed by then, e.g. a well-meaning Luna heal) so the two thresholds can never drift apart. */
+const ATTACK_GATED_HP_THRESHOLD = 5;
+
 /** Somnivar's "มนตร์ง่วงงุน" tax: player-declared skills with base ⏱ >= 5 walk 2 extra slots. */
 export function applySomnivarTax(state: GameState, baseTime: number): number {
   if (state.battle!.bossId === 'Somnivar' && baseTime >= 5) return baseTime + 2;
@@ -28,7 +33,10 @@ export function legalTrapSlots(state: GameState, fighter: Fighter): number[] {
   const battle = state.battle!;
   const trapTime = applySomnivarTax(state, skillStats('SetTrap', isLv2(state, fighter, 'SetTrap')).time);
   const slots: number[] = [];
-  for (let s = battle.marker - 1; s > battle.marker - trapTime && s >= 0; s--) {
+  // s > 0, not s >= 0: slot 0 is never playable (the walk loop ends the battle the instant the
+  // marker reaches it, before processing anything there — see walk.ts) so a trap armed on it could
+  // never trigger.
+  for (let s = battle.marker - 1; s > battle.marker - trapTime && s > 0; s--) {
     if (!battle.traps.some((t) => t.slot === s)) slots.push(s);
   }
   return slots;
@@ -53,6 +61,28 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   const battle = state.battle!;
   const skillId = choice.skillId;
   const def = SKILLS[skillId];
+
+  // Validated at the engine boundary rather than trusted from the caller — the UI already builds
+  // legal choices, but a bot or a hand-built Choice bypasses that entirely. Without this, the
+  // engine would let a player declare a skill they don't own, overspend mana they don't have, aim
+  // Heal at nobody, or fire Berserk above its HP gate (see legalTrapSlots above for the same
+  // reasoning already applied to Set Trap).
+  if (def.charId !== fighter.charId) {
+    throw new Error(`${skillId} does not belong to ${fighter.charId} (player ${fighter.playerId} declared it)`);
+  }
+  if (def.kind === 'attackMana') {
+    const spent = choice.manaSpent ?? 0;
+    if (spent < 0 || spent > fighter.mana) {
+      throw new Error(`illegal mana spend ${spent} for player ${fighter.playerId} (has ${fighter.mana})`);
+    }
+  }
+  if (def.kind === 'heal' && !battle.fighters.some((f) => f.playerId === choice.targetPlayerId)) {
+    throw new Error(`illegal Heal target ${choice.targetPlayerId} for player ${fighter.playerId}`);
+  }
+  if (def.kind === 'attackGated' && fighter.hp > ATTACK_GATED_HP_THRESHOLD) {
+    throw new Error(`${skillId} requires HP<=${ATTACK_GATED_HP_THRESHOLD} to declare (player ${fighter.playerId} has ${fighter.hp} HP)`);
+  }
+
   const stats = skillStats(skillId, isLv2(state, fighter, skillId));
   const time = applySomnivarTax(state, stats.time);
   const landedAtSlot = battle.marker - time;
@@ -149,7 +179,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
     }
     case 'attackGated': {
       // Berserk: HP<=5 condition re-checked at resolve — may have been healed away in the interim.
-      if (fighter.hp <= 5) {
+      if (fighter.hp <= ATTACK_GATED_HP_THRESHOLD) {
         dealAttack(stats.primary!, false);
       } else {
         battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: 'boss', dmg: 0, wasted: true });
@@ -218,7 +248,7 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
       battle.log.push({ t: 'RESOLVE_TRAP_EXPIRE', slot: trap.slot });
       continue;
     }
-    const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'SetTrap' });
+    const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'SetTrap', countsAsAttack: false });
     onTrapTriggered(state, trap.ownerId);
     battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
 
@@ -231,35 +261,50 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
   }
 }
 
-/** Damage landing on a player fighter from the boss — the single funnel, so Counter's riposte and
- *  Blessing's flat reduction apply uniformly.
- *
- *  Counter now strikes back the moment each hit lands, once per hit, instead of banking one strike
- *  for the fighter's next turn. It fires even on a lethal hit: the alternative lets the boss's
- *  biggest attacks — precisely what Counter exists to punish — dodge the riposte by killing first. */
-export function dealDamageToFighterFromBoss(state: GameState, fighter: Fighter, rawDamage: number): number {
-  const battle = state.battle!;
+/** Applies incoming boss damage to a player fighter (Blessing's flat reduction, mana/counter
+ *  shields, HP floor, death) but does *not* resolve any triggered counter-strike — it only reports
+ *  how much counter damage is now queued. Single-target hits resolve that queue immediately via
+ *  `dealDamageToFighterFromBoss` below; AoE hits (bossAI.ts) apply every target's damage first and
+ *  resolve counters only once the whole wave has landed — see `resolveQueuedCounter`. */
+export function applyBossDamageToFighter(state: GameState, fighter: Fighter, rawDamage: number): { applied: number; counterDmg: number } {
   // Read before applying: dying clears the shield.
   const counterDmg = fighter.shield?.kind === 'counter' ? fighter.shield.counterDmg ?? 0 : 0;
   const applied = applyDamageToFighter(state, fighter, rawDamage);
+  return { applied, counterDmg };
+}
 
-  if (counterDmg > 0 && battle.outcome === 'in_progress') {
-    // Each character has at most one buffCounter-kind skill in their kit — look up which one this
-    // fighter actually has (Matt's Counter Attack, Dax's Riposte, ...) instead of assuming Matt's.
-    // Previously hardcoded to 'CounterAttack' always, which would have mislabeled Dax's ripostes
-    // in the log/UI and made a Riposte-specific score condition unreachable.
-    const counterSkillId = CHARACTERS[fighter.charId].skills.find((sid) => SKILLS[sid].kind === 'buffCounter') ?? 'CounterAttack';
-    const outgoing = computeOutgoingPlayerDamage(battle, counterDmg);
-    const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor: false, skillId: counterSkillId });
-    onPlayerDealtDamage(state, fighter.playerId, counterSkillId, result.effective);
-    battle.log.push({
-      t: 'RESOLVE_ATTACK',
-      playerId: fighter.playerId,
-      skillId: counterSkillId,
-      targetId: 'boss',
-      dmg: result.effective,
-      wasted: false,
-    });
-  }
+/** Resolves one fighter's counter-strike queued by `applyBossDamageToFighter` above, against the
+ *  boss. Fires even if the fighter has since died on the same hit — Counter exists to punish the
+ *  boss's biggest attacks, which are exactly the ones that might kill the fighter landing it. */
+export function resolveQueuedCounter(state: GameState, fighter: Fighter, counterDmg: number) {
+  const battle = state.battle!;
+  if (counterDmg <= 0 || battle.outcome !== 'in_progress') return;
+  // Each character has at most one buffCounter-kind skill in their kit — look up which one this
+  // fighter actually has (Matt's Counter Attack, Dax's Riposte, ...) instead of assuming Matt's.
+  // Previously hardcoded to 'CounterAttack' always, which would have mislabeled Dax's ripostes in
+  // the log/UI and made a Riposte-specific score condition unreachable.
+  const counterSkillId = CHARACTERS[fighter.charId].skills.find((sid) => SKILLS[sid].kind === 'buffCounter') ?? 'CounterAttack';
+  const outgoing = computeOutgoingPlayerDamage(battle, counterDmg);
+  const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor: false, skillId: counterSkillId });
+  onPlayerDealtDamage(state, fighter.playerId, counterSkillId, result.effective);
+  battle.log.push({
+    t: 'RESOLVE_ATTACK',
+    playerId: fighter.playerId,
+    skillId: counterSkillId,
+    targetId: 'boss',
+    dmg: result.effective,
+    wasted: false,
+  });
+}
+
+/** Damage landing on a player fighter from a single-target boss move — the common case, where
+ *  "apply then immediately resolve the counter" is correct because there's only ever one target.
+ *  AoE moves (bossAI.ts) use applyBossDamageToFighter + resolveQueuedCounter directly instead, so
+ *  every target takes the hit before any counter fires — see GAME_DESIGN_v0_3_0.md's Counter
+ *  interaction: an AoE hits everyone as if simultaneously, so a Counter it triggers can't retroactively
+ *  make the boss "already dead" for targets later in the same wave. */
+export function dealDamageToFighterFromBoss(state: GameState, fighter: Fighter, rawDamage: number): number {
+  const { applied, counterDmg } = applyBossDamageToFighter(state, fighter, rawDamage);
+  resolveQueuedCounter(state, fighter, counterDmg);
   return applied;
 }

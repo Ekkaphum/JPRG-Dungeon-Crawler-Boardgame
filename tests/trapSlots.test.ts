@@ -35,13 +35,13 @@ describe('Set Trap legal slots (§v0.4.2)', () => {
     expect(legalTrapSlots(state, kit)).toEqual([19, 17]);
   });
 
-  it('never returns a slot below 0', () => {
+  it('never returns slot 0 or below — slot 0 is dead ground, nothing can trigger there', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     state.battle!.marker = 2;
     const kit = kitFighter(state);
 
-    expect(legalTrapSlots(state, kit)).toEqual([1, 0]);
+    expect(legalTrapSlots(state, kit)).toEqual([1]);
   });
 
   it('arms the trap when the slot is inside the window', () => {

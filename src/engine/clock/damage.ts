@@ -26,7 +26,7 @@ export function applyDamageToBoss(
   state: GameState,
   attackerId: number,
   dmg: number,
-  opts: { ignoresArmor: boolean; skillId: SkillId }
+  opts: { ignoresArmor: boolean; skillId: SkillId; countsAsAttack?: boolean }
 ): BossDamageResult {
   const battle = state.battle!;
   const effective = Math.max(0, opts.ignoresArmor ? dmg : dmg - battle.armor);
@@ -40,8 +40,14 @@ export function applyDamageToBoss(
     armorBroke = true;
   }
 
-  const fighter = battle.fighters.find((f) => f.playerId === attackerId);
-  if (fighter) fighter.attackCountThisBattle += 1;
+  // Set Trap's own trigger passes countsAsAttack:false — kit3 ("attacked the boss 5+ times") means
+  // Quick Shot swings specifically, not trap detonations. GAME_DESIGN_v0_3_0.md's own worked
+  // example treats them as separate budgets ("วางกับดัก 2 ครั้ง... Quick Shot ได้พอดี 5 ครั้ง" — 2 traps
+  // placed, *then* exactly 5 Quick Shots fit in what's left — the traps aren't among the 5).
+  if (opts.countsAsAttack ?? true) {
+    const fighter = battle.fighters.find((f) => f.playerId === attackerId);
+    if (fighter) fighter.attackCountThisBattle += 1;
+  }
 
   if (battle.bossHp <= 0 && battle.finishedBy === null) {
     battle.finishedBy = attackerId;
@@ -99,6 +105,16 @@ export function killFighter(state: GameState, fighter: Fighter) {
     fighter.stackSeq = battle.nextStackSeq++;
   }
   battle.log.push({ t: 'DEATH', playerId: fighter.playerId, atSlot: battle.marker, reviveAtSlot: fighter.reviveAtSlot });
+
+  // GAME_DESIGN_v0_3_0.md §1: "☠ แพ้ทั้งวง | ... หรือ ผู้เล่นตายหมดพร้อมกัน" — everyone down at once
+  // ends the battle immediately, regardless of anyone's revival timer. Checked right here, the one
+  // choke point every death passes through (applyDamageToFighter above), so an AoE that kills the
+  // last survivor mid-resolution catches it the instant it happens rather than waiting for a tick
+  // boundary that revival timers could otherwise let the party quietly play through.
+  if (battle.outcome === 'in_progress' && battle.fighters.every((f) => !f.alive)) {
+    battle.outcome = 'party_wiped';
+    battle.log.push({ t: 'BATTLE_END', outcome: 'party_wiped', finishedBy: null, expGranted: 0 });
+  }
 }
 
 export function reviveFighter(state: GameState, fighter: Fighter) {
