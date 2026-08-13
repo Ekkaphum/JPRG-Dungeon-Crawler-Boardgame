@@ -72,10 +72,10 @@ blind and 0 of them ever triggered, which would have made every trap number abov
 
 ## Set Trap slot validation — 2026-08-11 (bug fix, no content change)
 
-The ⏱-window restriction from the v0.4.2 redesign was computed in two places. Bots read the correct
+The ⏱-window restriction from the v0.3.0.2 redesign was computed in two places. Bots read the correct
 list (`options.trapSlots`), but the human decision panel offered `options.emptySlotsBelowMarker` —
 *every* free slot below the marker — and `declareSkill` never validated what it was handed. Human
-players could therefore arm traps anywhere on the clock, which is exactly the power v0.4.2 removed.
+players could therefore arm traps anywhere on the clock, which is exactly the power v0.3.0.2 removed.
 
 The window is now computed once in `legalTrapSlots()` (`src/engine/clock/skills.ts`), consumed by
 both `buildDeclareOptions()` and the UI, and enforced in `declareSkill()`, which throws on anything
@@ -300,7 +300,7 @@ Mira "balanced" when the data clearly says otherwise.
 
 ---
 
-## Equal-start rebalance — 2026-08-13 (v0.4.3: action-count fix, ⏱ realignment, Vera durability, score conditions)
+## Equal-start rebalance — 2026-08-13 (v0.3.1: action-count fix, ⏱ realignment, Vera durability, score conditions)
 
 Starting problem: staggered hero start slots (Matt/Vera 20, Luna 22, Kit 23) meant each pawn got a
 different number of real (resolved) actions per battle, and the total was low across the board —
@@ -325,7 +325,7 @@ dice ladder (§5.2) or cross-player combos (§4.4) land more than once, if at al
   that it preserves §4.4's "read the boss, then decide" pattern. Sim showed it's *much* harder (win
   17.5% vs. 42.8% for equal placement) — not adopted.
 
-### Final change set (v0.4.3), verified with `npm run balance -- 2000`
+### Final change set (v0.3.1), verified with `npm run balance -- 2000`
 
 | | before | after |
 |---|---|---|
@@ -349,7 +349,7 @@ Changes, each layered and re-verified in combination (not just standalone):
 3. **⏱ realignment** to match the stated character concept (Kit fastest, Matt/Luna medium, Vera
    slowest) — measured by declares/battle *excluding* non-attacking skills (ManaCharge/ArcaneWard),
    per the user's framing that a skill producing no effect of its own shouldn't count as "acting":
-   - Matt: Counter Attack ⏱5→4 (undoes v0.4.2's ⏱3→5 bump, which had made Matt the *slowest* of the
+   - Matt: Counter Attack ⏱5→4 (undoes v0.3.0.2's ⏱3→5 bump, which had made Matt the *slowest* of the
      four — the opposite of "medium speed, attack-leaning" per concept).
    - Kit: Twin Shot ⏱5→4. **Quick Shot was NOT changed** — an earlier attempt at ⏱3→2 was tested and
      reverted (see "Rejected" below).

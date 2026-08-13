@@ -24,7 +24,7 @@ export function applySomnivarTax(state: GameState, baseTime: number): number {
 
 /** Slots Set Trap may legally be armed on: strictly inside the skill's own ⏱ window (so the trap is
  *  a read of where the boss stops next, not a snipe anywhere on the clock — the whole point of the
- *  v0.4.2 redesign), at or above slot 0, and not already holding another trap.
+ *  v0.3.0.2 redesign), at or above slot 0, and not already holding another trap.
  *
  *  Single source of truth on purpose: buildDeclareOptions() offers exactly this list to the UI and
  *  the bots, and declareSkill() below rejects anything outside it. Computing it in two places is
@@ -114,7 +114,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       break;
     case 'trap': {
       // Validated rather than trusted: the choice comes from a UI or a bot, and an out-of-window
-      // slot would silently hand that player the pre-v0.4.2 "arm it anywhere" power.
+      // slot would silently hand that player the pre-v0.3.0.2 "arm it anywhere" power.
       const legal = legalTrapSlots(state, fighter);
       if (choice.trapSlot == null || !legal.includes(choice.trapSlot)) {
         throw new Error(

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { prepareBattle, declareSkill, legalTrapSlots, runClockBattle, createRNG } from '@engine/index';
 import { fixedDraftState } from './testUtils';
 
-// Set Trap was redesigned in v0.4.2 so it can only be armed *inside the skill's own ⏱ window* —
+// Set Trap was redesigned in v0.3.0.2 so it can only be armed *inside the skill's own ⏱ window* —
 // a read of where the boss stops next rather than a snipe anywhere on the clock. The window was
 // computed in two places, and the human UI used the wrong list (every empty slot below the marker),
 // so players could arm traps anywhere while bots played by the rules. These tests pin the rule to
@@ -13,7 +13,7 @@ function kitFighter(state: ReturnType<typeof fixedDraftState>) {
   return state.battle!.fighters.find((f) => f.playerId === player.id)!;
 }
 
-describe('Set Trap legal slots (§v0.4.2)', () => {
+describe('Set Trap legal slots (§v0.3.0.2)', () => {
   it('offers only slots inside the skill\'s own ⏱ window', () => {
     const state = fixedDraftState();
     prepareBattle(state);
