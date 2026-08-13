@@ -441,3 +441,119 @@ loop never visits (silently makes that pawn never act — no error, just wrong d
 assumed). Sanity-check scratch harnesses against a known invariant (e.g., "the boss should declare
 at least once per battle") before trusting their output, and re-verify old BALANCE_NOTES.md findings
 on current code rather than citing them cold.
+
+---
+
+## Role template + Matt rework — 2026-08-13 (v0.3.2: ①②③ skill structure, Berserk folded into Slash, new Guard)
+
+User-directed structural pass. The premise (GAME_DESIGN.md §8.0): every character's three skills
+should fill the same three roles — ① attack, ② support (never a direct attack), ③ signature — so a
+player can read any other player's sheet by position instead of by reading nine cards. Checking the
+existing roster against it found the template already described **3 of the 4 characters exactly**,
+with zero number changes: Kit (TwinShot/QuickShot/SetTrap), Vera (Fireball/ManaCharge/Meteor), Luna
+(Smite/Blessing/Heal). Only Matt broke it — Slash *and* Berserk both sit in slot ①, leaving slot ②
+empty. So the whole content change is one character.
+
+### What shipped
+
+1. **Berserk folded into Slash** as a damage tier (`attackGated` re-defined: `primary` = normal
+   damage, `secondary` = damage while HP ≤ 5, still checked at *resolve*). The declare-time gate is
+   gone — Slash is always legal. A Luna heal arriving mid-flight now *downgrades* the hit 11 → 6
+   instead of wasting the action outright. Rationale and the §5.5 knock-on in docs/RULINGS.md §7.1.
+   - Supporting datum: pre-change sim had Berserk declared **425 times out of ~20,000 Matt turns**,
+     for **2.22 damage per declare** against a printed 11 — roughly **80% of declared Berserks were
+     being wasted**. It was very nearly a dead card already.
+   - Slash's `secondary` must stay > 10 forever: `matt1` scores "more than 10 damage in one hit".
+     Pinned by a test.
+2. **Guard** — new skill, new `SkillKind`, Matt's slot ②. ⏱5. Redirects all damage aimed at one ally
+   onto Matt, reduced by 4, and gives that ally +3 attack, until Matt's next turn. State lives on
+   `battle.guard` (same shape as `partyBuff`: read from the ward's side, lifetime owned by the
+   guardian). Full edge-case rulings in docs/RULINGS.md §7.2.
+3. **`skills` arrays reordered** to ①②③ on all six characters. This is cosmetic to the engine but
+   does shift bot tie-breaks slightly, so a small sim delta is expected independent of the content.
+4. **`bossMoveTargets()` extracted** (`bossAI.ts`) — the boss's target selection is now one function
+   that both the boss resolvers and the bots' Guard heuristic read. Deliberately *not* duplicated
+   into the bot: the Set Trap slot bug (see 2026-08-11 above) came from exactly that pattern.
+
+### The two findings that forced Guard's final shape
+
+Guard v1 was a pure redirect — no mitigation, no buff. It dropped win rate **57.3% → 16.7%**. Fixing
+it exposed two things worth keeping written down, because both generalize past this one card:
+
+**1. Redirecting damage is not reducing damage.** It concentrates the same total onto one 16 HP body
+instead of spreading it across four pools, so it *killed Matt more often than it saved anyone*:
+`luna3` ("nobody died") fell 0.94 → 0.54 fires/game and total boss damage dealt went **up**
+(165,402 → 169,498 over 2000 games). A redirect has to carry mitigation or it is a net loss.
+
+**2. A slot-② skill that produces no damage cannot pay its own ⏱ in this ruleset.** §10's budget
+gives the party ~105-110 usable damage against 91-106 HP bosses — there is no slack for pure
+mitigation. Every *other* character's slot ② feeds the damage economy (Quick Shot attacks while
+opening the weak point, Blessing multiplies the party, ManaCharge banks damage for later). Matt's
+was the only one producing nothing, which cost the party ~11 damage/battle it does not have. The
++3 ward buff is what makes the card viable, and it states the Knight fantasy mechanically: the ally
+you are covering can swing freely.
+
+### Measured, layer by layer (`npm run balance`, 2000 games each unless noted)
+
+| Guard version | Win rate | Note |
+|---|---|---|
+| v0.3.1 baseline (no Guard) | **57.3%** | Matt = Slash + Berserk + Counter |
+| pure redirect | 16.7% | luna3 0.94→0.54, boss damage *rose*, Guard declared on 45% of Matt's turns |
+| + bot valuation lowered | 25.1% | still 32% usage |
+| + damage reduction 4 | 28.8% | luna3 back to 0.74, boss damage −11% |
+| + ward attack buff 3 | 44.8% | Guard now pays its ⏱ — but crowds out Counter Attack (3,332 → 699 declares) |
+| + bot guards only to prevent a **death**, not a hit | **53.9%** | usage down to a situational 17% |
+| **final, 3000 games** | **54.4%** | shipped |
+
+Also tried and rejected: **ward buff 2 instead of 3** — moved Vera only 12.3 → 11.9 pts/win while
+costing 2.4pp of win rate. Not worth it; Vera's dominance is not a Guard problem (see below).
+
+### Final vs. v0.3.1
+
+| | v0.3.1 | v0.3.2 |
+|---|---|---|
+| Win rate | 57.3% | **54.4%** |
+| Ragorath / Somnivar / Aurelius | 89 / 83 / 57% | **92 / 77 / 54%** |
+| Aurelius armor broke ≥1× | 39.6% | **60.4%** |
+| Hits ≥25 dmg (combo proxy) | 20 | **263** |
+| Matt / Kit / Vera / Luna pts/win | 7.5 / 8.7 / 10.4 / 9.0 | 6.9 / 9.6 / 12.3 / 9.9 |
+
+**Reading this.** The ~3pp win-rate drop is the *price of the design*, not a regression to fix: Matt
+traded an attack card for a support card, so the party has less raw damage on purpose. It is still
+well above the pre-v0.3.1 baseline of 43.8%. The numbers that improved are the ones §8/§9 have been
+asking about since M8 — armor breaks and stacked-combo hits both jumped sharply, because Guard's
+ward buff pushes hits over Aurelius's >12-post-armor threshold that previously only Vera and a fully
+buffed Matt could clear.
+
+**Somnivar's 83 → 77% is intended.** Guard at ⏱5 lands in the ⏱≥5 bracket Somnivar taxes — exactly
+the bracket Berserk vacated by being folded into Slash's ⏱4. The tax still catches two cards, and it
+now catches a card Matt wants to use *reactively*, which is a sharper version of Somnivar's
+"forces you into small actions" identity than taxing a card he rarely declared. Known Issue #2 from
+the v0.3.1 pass is partially addressed by this, not worsened.
+
+### Known issues — explicitly not resolved this pass
+
+1. **Vera's lead got worse, and Guard is not the cause.** Score spread (won games) 2.9 → **5.4**:
+   Vera 10.4 → 12.3, Matt 7.5 → 6.9. Guard's +3 lands hardest on her because her hits are the
+   biggest and `vera1` is a *threshold* condition (">= 14"), so +3 tips more Fireballs over the bar.
+   But lowering the buff barely moved her (tested above), which points back at the same root the
+   v0.3.1 pass flagged and did not isolate: `vera3` and her threshold conditions, not any one buff.
+   **Fix Vera's score conditions, not Guard.**
+2. **Matt's score conditions were written for a two-attack Matt.** `matt1` (>10 damage) and `matt2`
+   (Last Shot) both measure attacking, and he now has one attack card — `matt2` fell 0.75 → 0.61
+   fires/game. Every other character has a condition rewarding their slot-② role (kit1 weak point,
+   luna1/luna2 heal and Blessing); Matt has none for Guard. By §8.0's own logic he should. Left
+   alone deliberately — that is a scoring-system change, not a skill change, and it should be
+   designed against human playtest data rather than bot data.
+3. **Counter Attack is used far less** (3,332 → 1,720 declares) now that Matt has a second defensive
+   option. Damage per declare is unchanged (5.38 → 5.05), so the card is as good as it was; it is
+   simply sharing the defensive slot. Worth watching that slot ② does not permanently overshadow
+   slot ③ — if it does, that is the template failing on its own terms.
+4. **Guard may blunt Aurelius's catch-up mechanic.** "Procession" targets the score leader; Matt can
+   now stand in front of them every time, which is the opposite of §9's "the better you help, the
+   more you become the target". Not observed as a problem in sim, but sim bots do not play the
+   score race the way a real table does. Logged as §11 risk #9 with two prepared levers (1 use per
+   battle, or a cap on absorbed damage).
+
+All of these are bot numbers. Nothing here has been in front of a human table yet — the same caveat
+that applies to every figure in this file.

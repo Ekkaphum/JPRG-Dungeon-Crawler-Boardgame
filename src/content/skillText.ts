@@ -11,9 +11,11 @@ export function skillBriefText(skillId: SkillId, isLv2: boolean, lang: Lang): st
 
   switch (skillId) {
     case 'Slash':
-      return th ? `โจมตีบอส ${p}` : `${p} damage to the boss`;
-    case 'Berserk':
-      return th ? `HP ≤ 5 เท่านั้น · โจมตี ${p}` : `Only at HP ≤ 5 · ${p} damage`;
+      return th ? `โจมตีบอส ${p} · ถ้า HP ≤ 5 เป็น ${q}` : `${p} damage to the boss · ${q} while at HP ≤ 5`;
+    case 'Guard':
+      return th
+        ? `รับดาเมจแทนเพื่อน 1 คน (ลดลง ${p}) · เขาโจมตี +${q}`
+        : `Take one ally's damage (reduced by ${p}) · they attack +${q}`;
     case 'CounterAttack':
       return th ? `ลดดาเมจที่เข้า ${p}% · โดนตีสวนกลับทันที ${q} ทุกครั้ง` : `Take ${p}% less · riposte ${q} instantly on every hit`;
     case 'QuickShot':
@@ -50,11 +52,13 @@ export function skillEffectText(skillId: SkillId, isLv2: boolean, lang: Lang): s
 
   switch (skillId) {
     case 'Slash':
-      return th ? `โจมตีบอส ${p} ดาเมจ` : `Deal ${p} damage to the boss.`;
-    case 'Berserk':
       return th
-        ? `ใช้ได้เมื่อ HP ≤ 5 · โจมตีบอส ${p} ดาเมจ — ถ้าตอนรับผล HP เกิน 5 แล้ว แอคชันนี้เสียฟรี`
-        : `Only while HP ≤ 5 · deal ${p} damage — if your HP is above 5 when it resolves, the action is wasted.`;
+        ? `โจมตีบอส ${p} ดาเมจ — ถ้าตอนรับผล HP ของคุณ ≤ 5 จะเป็น ${q} ดาเมจแทน (เช็คตอนรับผล ไม่ใช่ตอนประกาศ: ถ้ามีคนฮีลคุณขึ้นเกิน 5 ก่อน หมัดนี้จะกลับไปเป็น ${p})`
+        : `Deal ${p} damage to the boss — or ${q} if your HP is ${'≤'} 5 when it resolves (checked on resolve, not on declare: an ally healing you back above 5 first drops it to ${p}).`;
+    case 'Guard':
+      return th
+        ? `ทันทีที่ประกาศ: เลือกเพื่อน 1 คน (ไม่ใช่ตัวเอง) จนถึงเทิร์นหน้าของคุณ — ดาเมจทั้งหมดที่เขาจะได้รับ มาเข้าคุณแทนโดยลดลง ${p} และเขาโจมตีแรงขึ้น +${q} · ท่าที่ตีทุกคน (AoE) คุณจะกินทั้งของตัวเองและของเขา`
+        : `On declare: pick one ally (never yourself) until your next turn — all damage aimed at them lands on you instead, reduced by ${p}, and they attack for +${q}. Against a move that hits everyone you take both your share and theirs.`;
     case 'CounterAttack':
       return th
         ? `ทันทีที่ประกาศ: ดาเมจที่เข้าลด ${p}% · ทุกครั้งที่โดนตีระหว่างนั้น สวนกลับบอส ${q} ทันที (โดนกี่ครั้งก็สวนกี่ครั้ง แม้ดาเมจที่เข้าจะเหลือ 0) · พอถึงตาตัวเองรอบหน้าแค่หมดฤทธิ์ ไม่ตีซ้ำ`

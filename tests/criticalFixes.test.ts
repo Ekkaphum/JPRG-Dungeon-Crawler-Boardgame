@@ -289,14 +289,20 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     );
   });
 
-  it('rejects Berserk declared above its HP<=5 gate', () => {
+  it('rejects a Guard aimed at the caster themselves', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
-    matt.hp = 10;
-    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Berserk' })).toThrow(/requires HP<=5/);
-    matt.hp = 5;
-    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Berserk' })).not.toThrow();
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: matt.playerId })).toThrow(
+      /different, living ally/
+    );
+  });
+
+  it('rejects a Guard with no target at all', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard' })).toThrow(/different, living ally/);
   });
 });
 

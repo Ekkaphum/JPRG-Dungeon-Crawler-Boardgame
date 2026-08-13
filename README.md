@@ -1,4 +1,4 @@
-# MoonRage Dungeon — "นาฬิกาแห่งหายนะ" (v0.3.1)
+# MoonRage Dungeon — "นาฬิกาแห่งหายนะ" (v0.3.2)
 
 เกมกระดานกึ่งร่วมมือสำหรับ 4 คน ที่แยกออกมาจากโปรเจกต์เดิมให้เป็น **โปรเจกต์เดี่ยวสมบูรณ์ในตัวเอง**
 มีแต่โค้ด/เอกสารของกติกา "นาฬิกา 24 ช่อง + ประกาศแอคชันล่วงหน้า" เท่านั้น (ตัดเวอร์ชันเก่า 0.1.0/0.2.0
@@ -24,7 +24,7 @@ npm run dev        # http://localhost:5173 — แก้โค้ดแล้ว
 ```
 
 ```bash
-npm test                  # เทสทั้งหมด — clock walk/stacking, สกิล 12 ใบ, บอส 3 ตัว, คะแนน/EXP, full-game smoke
+npm test                  # เทสทั้งหมด — clock walk/stacking, สกิล 12 ใบ (โครง ①②③ ต่อตัวละคร), บอส 3 ตัว, คะแนน/EXP, full-game smoke
 npm run typecheck         # tsc --noEmit
 npm run build             # production build → dist/
 npm run balance -- 2000   # จำลองสมดุลด้วยบอทกลาง 4 ตัว 2000 เกม — ผลจริงบันทึกไว้ใน docs/BALANCE_NOTES.md

@@ -18,7 +18,7 @@ export const ALL_CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna', 'Dax', 'Mi
 
 export type SkillId =
   | 'Slash'
-  | 'Berserk'
+  | 'Guard'
   | 'CounterAttack'
   | 'QuickShot'
   | 'SetTrap'
@@ -36,22 +36,25 @@ export type SkillId =
   | 'ArcaneWard'
   | 'MendingWind';
 
-/** Which resolution family a skill belongs to — see docs/10-v0.3.0-rulings.md §5. */
+/** Which resolution family a skill belongs to — see docs/RULINGS.md §5. */
 export type SkillKind =
-  | 'attack' // Slash, Twin Shot, Smite — plain damage to boss, resolves next visit
-  | 'attackGated' // Berserk — attack but re-checks a self-condition at resolve
+  | 'attack' // Twin Shot, Smite — plain damage to boss, resolves next visit
+  | 'attackGated' // Slash — attack whose damage steps up while a self-condition holds
   | 'attackRoll' // Quick Shot — attack + dice ladder → weak point debuff, resolves next visit
   | 'attackMana' // Fireball, Meteor — attack scaled by mana paid, resolves next visit
   | 'heal' // Heal — targeted heal, resolves next visit
   | 'buffCounter' // Counter Attack — immediate self-shield + conditional counter-strike
   | 'buffParty' // Blessing — immediate party-wide atk/defense buff
   | 'buffMana' // ManaCharge — immediate mana gain + self-shield
+  | 'guard' // Guard — immediate damage-redirect link from an ally onto the caster
   | 'trap'; // Set Trap — immediate token placement
 
 export interface SkillLevelStats {
   time: number;
   /** Meaning depends on the skill: flat damage, heal amount, trap damage, dmg reduction, etc. */
   primary?: number;
+  /** Also overloaded per kind: hit count (attack), damage per mana (attackMana), riposte damage
+   *  (buffCounter), and — for `attackGated` — the *boosted* damage used while the gate holds. */
   secondary?: number;
   /** Quick Shot only — dice-ladder starting target (5 normally, 4 at Lv2). */
   rollBaseTarget?: number;
@@ -89,18 +92,42 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   Slash: {
     id: 'Slash',
     charId: 'Matt',
-    kind: 'attack',
-    name: { th: 'Slash', en: 'Slash' },
-    lv1: { time: 4, primary: 6 },
-    lv2: { time: 4, primary: 9 },
-  },
-  Berserk: {
-    id: 'Berserk',
-    charId: 'Matt',
     kind: 'attackGated',
-    name: { th: 'Berserk', en: 'Berserk' },
-    lv1: { time: 5, primary: 11 },
-    lv2: { time: 5, primary: 16 },
+    name: { th: 'Slash', en: 'Slash' },
+    // v0.3.2: Berserk was folded into Slash as a damage tier rather than kept as a separate card,
+    // so Matt's slot ① holds one attack instead of two and slot ② is free for Guard (see the role
+    // template in GAME_DESIGN.md §8.0). primary = normal damage, secondary = the "ยิ่งใกล้ตายยิ่งแรง"
+    // damage while HP <= 5. secondary stays at 11 on purpose: matt1 scores on "more than 10 damage
+    // in one hit", so anything lower would put Matt's own slot-① condition out of reach unbuffed.
+    lv1: { time: 4, primary: 6, secondary: 11 },
+    lv2: { time: 4, primary: 9, secondary: 16 },
+  },
+  Guard: {
+    id: 'Guard',
+    charId: 'Matt',
+    kind: 'guard',
+    name: { th: 'Guard', en: 'Guard' },
+    // primary = flat reduction on damage redirected onto Matt · secondary = attack buff handed to
+    // the warded ally. Both were forced by measurement, not taste (docs/BALANCE_NOTES.md):
+    //
+    //  - A *pure* redirect (reduction 0) made the party strictly worse off. A redirect doesn't
+    //    lower incoming damage, it concentrates it onto one 16 HP body instead of four pools, so it
+    //    killed Matt more than it saved anyone: luna3 ("nobody died") fell 0.94 → 0.54 fires/game
+    //    and total boss damage *rose*. `primary` is what makes eating a hit cost the boss something.
+    //  - Even mitigated, a zero-offence card could not pay its own ⏱. Every other character's slot ②
+    //    feeds the damage economy — Quick Shot deals damage while opening the weak point, Blessing
+    //    multiplies the whole party, ManaCharge banks damage for later — and Matt's was the only one
+    //    producing nothing at all, which cost the party ~11 damage/battle it does not have (§10).
+    //    `secondary` is the fix, and it is the Knight fantasy stated mechanically: the ally you are
+    //    covering can swing freely. Distinct from Blessing on purpose (one target, and it comes
+    //    bundled with absorption, vs. party-wide with none) per the §8.0 no-duplicate-kinds rule.
+    //
+    // ⏱5, not 4, for two reasons beyond flavour: it keeps Matt's kit average at 4.33 exactly where
+    // v0.3.1's speed realignment put it (Kit 3.67 < Luna 4.00 < Matt 4.33 < Vera 5.00), and it
+    // steps into the ⏱>=5 bracket Somnivar taxes — which Berserk just vacated by being folded into
+    // Slash's ⏱4.
+    lv1: { time: 5, primary: 4, secondary: 3 },
+    lv2: { time: 5, primary: 6, secondary: 4 },
   },
   CounterAttack: {
     id: 'CounterAttack',
@@ -269,7 +296,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 16,
     startSlot: 23,
     reviveHp: 8,
-    skills: ['Slash', 'Berserk', 'CounterAttack'],
+    // Role template order (GAME_DESIGN.md §8.0): ① attack, ② support, ③ signature.
+    skills: ['Slash', 'Guard', 'CounterAttack'],
     score: [
       {
         id: 'matt1',
@@ -303,7 +331,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 13,
     startSlot: 23,
     reviveHp: 7,
-    skills: ['QuickShot', 'SetTrap', 'TwinShot'],
+    // ① Twin Shot ② Quick Shot (its weak point is what the rest of the party spends) ③ Set Trap.
+    skills: ['TwinShot', 'QuickShot', 'SetTrap'],
     score: [
       {
         id: 'kit1',
@@ -337,7 +366,9 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 11,
     startSlot: 23,
     reviveHp: 6,
-    skills: ['Fireball', 'Meteor', 'ManaCharge'],
+    // ① Fireball ② ManaCharge ③ Meteor. Vera is the template's one sanctioned "supports only
+    // herself" case (§8.0) — she is the payload the other three set up, not a setter-upper.
+    skills: ['Fireball', 'ManaCharge', 'Meteor'],
     score: [
       {
         id: 'vera1',
@@ -380,7 +411,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 13,
     startSlot: 23,
     reviveHp: 7,
-    skills: ['Heal', 'Blessing', 'Smite'],
+    // ① Smite ② Blessing ③ Heal — Heal is her identity card, not her team-support one.
+    skills: ['Smite', 'Blessing', 'Heal'],
     score: [
       {
         id: 'luna1',
@@ -425,7 +457,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 11,
     startSlot: 21,
     reviveHp: 5,
-    skills: ['Flurry', 'Riposte', 'Focus'],
+    // ① Flurry ② Focus (a second weak-point opener) ③ Riposte.
+    skills: ['Flurry', 'Focus', 'Riposte'],
     score: [
       {
         id: 'dax1',
@@ -459,7 +492,12 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 9,
     startSlot: 20,
     reviveHp: 4,
-    skills: ['FrostBolt', 'ArcaneWard', 'MendingWind'],
+    // ① Frost Bolt ② Mending Wind ③ Arcane Ward — but ③ is a template violation, not a signature:
+    // Arcane Ward is `buffMana` with the same numbers as Vera's ManaCharge, so Mira has nothing
+    // that is *hers*. This is the same character the sim already flags as the roster's outlier
+    // (0.99 pts/win vs. everyone else's 5-8, docs/BALANCE_NOTES.md) — the role template (§8.0) and
+    // the balance data agree, and she stays out of CHAR_IDS until she has a real slot ③.
+    skills: ['FrostBolt', 'MendingWind', 'ArcaneWard'],
     score: [
       {
         id: 'mira1',

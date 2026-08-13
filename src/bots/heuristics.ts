@@ -1,5 +1,5 @@
 import { SKILLS, skillStats, type CharId } from '@content/characters';
-import { applySomnivarTax, type Choice, type GameState } from '@engine/index';
+import { applySomnivarTax, bossMoveTargets, type Choice, type GameState } from '@engine/index';
 
 /** Rough per-⏱ value estimate for a candidate DECLARE_ACTION choice. Fully deterministic where
  *  the doc's numbers are deterministic (this ruleset hides nothing — GAME_DESIGN_v0_3_0.md §4.4)
@@ -27,7 +27,11 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       break;
     }
     case 'attackGated': {
-      value = Math.max(0, stats.primary! + buffAtk - battle.armor);
+      // Slash resolves for `secondary` while the caster is at/below the HP tier and `primary`
+      // otherwise. Priced off the tier that applies *right now* — the bot can't know whether a
+      // teammate will heal the boost away before it lands, and §4.4 gives it no way to ask.
+      const base = fighter.hp <= 5 && stats.secondary != null ? stats.secondary : stats.primary!;
+      value = Math.max(0, base + buffAtk - battle.armor);
       break;
     }
     case 'attackRoll': {
@@ -56,6 +60,22 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
     case 'buffMana':
       value = fighter.mana < 3 ? 4.5 : 2;
       break;
+    case 'guard': {
+      // Deliberately a *low floor*. Guard deals no damage, and this ruleset's binding constraint is
+      // party damage before the clock runs out (§10) — so blind mitigation has to score worse than
+      // just attacking, or the party guards itself to death on the clock. Guard is meant to win
+      // only when the boss's already-declared move says it will: that read lives in
+      // comboSynergyBonus below, which is where nearly all of this skill's value comes from.
+      const ward = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+      if (!ward || !ward.alive || ward.playerId === playerId) return -Infinity;
+      const wardFragility = 1 - ward.hp / ward.maxHp;
+      const ownHeadroom = fighter.hp / fighter.maxHp;
+      // The attack buff handed to the ward is the part that is always worth something, so price it
+      // like the party buff it resembles; the absorption on top scales with how much trouble the
+      // ward is actually in and how much room Matt has left to take hits.
+      value = (stats.secondary ?? 0) * 1.2 + wardFragility * 4 * ownHeadroom;
+      break;
+    }
     case 'trap': {
       // The boss's pawn only moves on its own turn, so a trap armed exactly on the slot it is
       // sitting on is certain to connect; anywhere else is a near-certain waste. Beyond the
@@ -84,8 +104,13 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   let bonus = 0;
 
   if (player.charId === 'Matt') {
-    if (choice.skillId === 'Berserk') bonus += 2; // big hit, likely clears the >10-dmg condition
+    // Slash at/below the HP tier is the >10-dmg hit matt1 wants, so it's worth reaching for the
+    // same way Berserk used to be (v0.3.2 folded the two cards into one).
+    if (choice.skillId === 'Slash' && fighter.hp <= 5) bonus += 2;
     if (choice.skillId === 'Slash' && battle.bossHp <= 20) bonus += 1; // angling for Last Shot
+    // Guard is Matt's only *deliberate* way down to the HP band both matt3 ("end below 5, alive")
+    // and Slash's boosted tier need — taking hits for someone else is the point, not a cost.
+    if (choice.skillId === 'Guard' && fighter.hp > 5) bonus += 0.5;
   }
   if (player.charId === 'Vera') {
     if (choice.skillId === 'Meteor' && battle.bossHp <= 30) bonus += 3; // angling for the Meteor-finish bonus
@@ -96,7 +121,6 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   if (player.charId === 'Luna') {
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;
   }
-  void fighter;
   return bonus;
 }
 
@@ -138,6 +162,37 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
       const opensInTime = landedAtSlot >= veraPending.landedAtSlot;
       const bossWontInterrupt = bossNextResolvesAt === undefined || bossNextResolvesAt < veraPending.landedAtSlot;
       if (opensInTime && bossWontInterrupt) bonus += 5;
+    }
+  }
+
+  // Matt's Guard is the clearest case of the "read the board" play GAME_DESIGN.md §8 describes for
+  // his kit: the boss's next move is already rolled and public, so who it will hit is knowable, not
+  // a guess. Reward guarding exactly that player — and only while Guard would still be up when the
+  // move lands (it expires at Matt's own next visit, so it covers anything resolving at or above
+  // his landing slot).
+  if (player.charId === 'Matt' && choice.skillId === 'Guard' && battle.bossPending) {
+    const fighter = battle.fighters.find((f) => f.playerId === playerId)!;
+    const doomed = bossMoveTargets(state, battle.bossPending.moveKey);
+    const coversTheHit = landedAtSlot <= battle.bossPending.landedAtSlot;
+    if (coversTheHit && doomed.some((f) => f.playerId === choice.targetPlayerId)) {
+      // Worth much more when it's the difference between a teammate living and dying — luna3
+      // ("nobody died") is a party-wide payout, and a dead teammate is several lost actions.
+      const ward = battle.fighters.find((f) => f.playerId === choice.targetPlayerId)!;
+      // Stepping in front of a *focused* hit is the whole point. Doing it into an AoE is close to
+      // pointless — Matt takes his own share anyway and then the ward's on top, so it converts one
+      // survivable hit on two people into one potentially lethal hit on him.
+      //
+      // Sized against what Guard actually buys, not against how good it feels: absorbing a hit the
+      // ward would have survived is worth roughly what Slash gives up (§10's damage budget has no
+      // slack for pure mitigation), while absorbing one that would have *killed* them is worth
+      // several actions — a dead teammate loses their turns, their revive comes back at half HP,
+      // and luna3 pays the whole party. Only the second case should beat attacking.
+      const biggestPlausibleHit = 12 + battle.rage;
+      const wardWouldDie = ward.hp <= biggestPlausibleHit;
+      const mattWouldSurvive = fighter.hp > biggestPlausibleHit;
+      if (doomed.length > 1) bonus += 0.5;
+      else if (wardWouldDie && mattWouldSurvive) bonus += 8;
+      else bonus += 2;
     }
   }
 

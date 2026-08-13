@@ -9,6 +9,7 @@ import {
   dealDamageToFighterFromBoss,
   killFighter,
 } from '@engine/index';
+import { skillStats } from '@content/characters';
 import { fixedDraftState } from './testUtils';
 
 function findFighter(state: ReturnType<typeof fixedDraftState>, charId: string) {
@@ -16,32 +17,174 @@ function findFighter(state: ReturnType<typeof fixedDraftState>, charId: string) 
   return state.battle!.fighters.find((f) => f.playerId === player.id)!;
 }
 
-describe('Berserk — HP<=5 gate re-checked at resolve (§5.5)', () => {
-  it('is wasted if healed above 5 before it resolves', () => {
+describe('Slash — the HP<=5 damage tier is picked at resolve (v0.3.2, was Berserk)', () => {
+  it('drops back to the base number if healed above 5 before it resolves — downgraded, not wasted', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     matt.hp = 4;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Berserk' });
-    matt.hp = 12; // healed back up before resolve
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' });
+    matt.hp = 12; // a well-meaning Luna heal lands first
     const bossHpBefore = state.battle!.bossHp;
     resolveFighterPending(state, matt, rng);
-    expect(state.battle!.bossHp).toBe(bossHpBefore);
-    const last = state.battle!.log.at(-1);
-    expect(last).toMatchObject({ t: 'RESOLVE_ATTACK', wasted: true });
+    // 6, not 11, and emphatically not 0: folding Berserk into Slash means the heal costs Matt the
+    // boost (and matt1's ">10 in one hit"), never the whole action.
+    expect(state.battle!.bossHp).toBe(bossHpBefore - 6);
+    expect(state.battle!.log.at(-1)).toMatchObject({ t: 'RESOLVE_ATTACK', dmg: 6, wasted: false });
   });
 
-  it('deals damage when the gate is still satisfied at resolve', () => {
+  it('uses the boosted number when still at/below the tier at resolve', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     matt.hp = 3;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Berserk' });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' });
     const bossHpBefore = state.battle!.bossHp;
     resolveFighterPending(state, matt, rng);
-    expect(state.battle!.bossHp).toBeLessThan(bossHpBefore);
+    expect(state.battle!.bossHp).toBe(bossHpBefore - 11);
+  });
+
+  it('is declarable at any HP — the tier is a bonus, no longer a gate', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    matt.hp = matt.maxHp;
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' })).not.toThrow();
+  });
+
+  it('clears matt1 (">10 damage in one hit") unbuffed at the boosted tier, but not at the base one', () => {
+    // The exact reason Slash's secondary is 11 and not 10 — see src/content/characters.ts.
+    expect(skillStats('Slash', false).secondary!).toBeGreaterThan(10);
+    expect(skillStats('Slash', false).primary!).toBeLessThanOrEqual(10);
+  });
+});
+
+describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guardian', () => {
+  it('sends a single-target boss hit to Matt instead of the ward', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+
+    const reduction = skillStats('Guard', false).primary!;
+    const mattHp = matt.hp;
+    const veraHp = vera.hp;
+    const { applied, recipient } = dealDamageToFighterFromBoss(state, vera, 10);
+    expect(recipient.playerId).toBe(matt.playerId);
+    expect(applied).toBe(10 - reduction); // the reduction is what makes absorbing it worth an action
+    expect(vera.hp).toBe(veraHp); // untouched
+    expect(matt.hp).toBe(mattHp - (10 - reduction));
+  });
+
+  it('reduces only the redirected hit, never the guardian\'s own share of an AoE', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    const reduction = skillStats('Guard', false).primary!;
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+
+    const mattHp = matt.hp;
+    dealDamageToFighterFromBoss(state, matt, 10); // his own share — full price
+    dealDamageToFighterFromBoss(state, vera, 10); // hers, redirected and reduced
+    expect(matt.hp).toBe(mattHp - 10 - (10 - reduction));
+    expect(vera.hp).toBe(vera.maxHp);
+  });
+
+  it('gives the ward an attack buff — the reason Guard can pay its own ⏱', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const rng = createRNG(1);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    const wardAtk = skillStats('Guard', false).secondary!;
+    const fireball = skillStats('Fireball', false).primary!;
+
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 });
+    const bossHpBefore = state.battle!.bossHp;
+    resolveFighterPending(state, vera, rng);
+    expect(state.battle!.bossHp).toBe(bossHpBefore - (fireball + wardAtk));
+  });
+
+  it('buffs only the ward, not the guardian and not a bystander', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const rng = createRNG(1);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    const kit = findFighter(state, 'Kit');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'TwinShot' });
+    const before = state.battle!.bossHp;
+    resolveFighterPending(state, kit, rng);
+    const twin = skillStats('TwinShot', false);
+    expect(state.battle!.bossHp).toBe(before - twin.primary! * twin.secondary!);
+  });
+
+  it('expires when the guardian\'s own turn comes round', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const rng = createRNG(1);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    expect(state.battle!.guard).not.toBeNull();
+
+    resolveFighterPending(state, matt, rng);
+    expect(state.battle!.guard).toBeNull();
+    const veraHp = vera.hp;
+    dealDamageToFighterFromBoss(state, vera, 5);
+    expect(vera.hp).toBe(veraHp - 5); // back to taking her own hits
+  });
+
+  it('drops the link when the guardian dies, so the ward is exposed again', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    killFighter(state, matt);
+    expect(state.battle!.guard).toBeNull();
+
+    const veraHp = vera.hp;
+    const { recipient } = dealDamageToFighterFromBoss(state, vera, 5);
+    expect(recipient.playerId).toBe(vera.playerId);
+    expect(vera.hp).toBe(veraHp - 5);
+  });
+
+  it('rejects guarding yourself, and guarding the dead', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: matt.playerId })).toThrow(
+      /different, living ally/
+    );
+    killFighter(state, vera);
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId })).toThrow(
+      /different, living ally/
+    );
+  });
+
+  it('lets the redirected hit trigger the guardian\'s own Counter, not the ward\'s', () => {
+    // Guard and Counter can never overlap on Matt himself (declaring one ends the other), but a
+    // guarded *ward* running their own counter shield must not riposte off a hit they never took.
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    vera.shield = { kind: 'counter', reduction: 50, counterDmg: 12, hitDuringWindow: false };
+
+    const bossHpBefore = state.battle!.bossHp;
+    dealDamageToFighterFromBoss(state, vera, 6);
+    expect(state.battle!.bossHp).toBe(bossHpBefore); // no riposte — Vera was never hit
+    expect(vera.shield?.hitDuringWindow).toBe(false);
   });
 });
 
@@ -54,7 +197,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     expect(matt.shield?.kind).toBe('counter');
 
     let bossHp = state.battle!.bossHp;
-    const applied = dealDamageToFighterFromBoss(state, matt, 6);
+    const { applied } = dealDamageToFighterFromBoss(state, matt, 6);
     expect(applied).toBe(3); // floor(6 * 0.5)
     expect(state.battle!.bossHp).toBe(bossHp - 12); // riposte lands right away, not on his turn
 
@@ -85,7 +228,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     const matt = findFighter(state, 'Matt');
     declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' });
     const bossHp = state.battle!.bossHp;
-    const applied = dealDamageToFighterFromBoss(state, matt, 1); // floor(1*0.5) = 0
+    const { applied } = dealDamageToFighterFromBoss(state, matt, 1); // floor(1*0.5) = 0
     expect(applied).toBe(0);
     expect(state.battle!.bossHp).toBe(bossHp - 12);
   });

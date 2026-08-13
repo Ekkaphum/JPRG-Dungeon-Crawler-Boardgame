@@ -100,6 +100,7 @@ export function prepareBattle(state: GameState) {
     traps: [],
     weakPointActive: false,
     partyBuff: null,
+    guard: null,
     finishedBy: null,
     finishedBySkill: null,
     nextStackSeq: 0,

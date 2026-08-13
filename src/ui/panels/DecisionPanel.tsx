@@ -107,10 +107,12 @@ function DeclareActionPanel({
       {!skillId && (
         <div className="flex gap-2 flex-wrap">
           {def.skills.map((sid) => {
-            // Berserk needs its HP<=5 gate met; Set Trap needs at least one free slot inside its
-            // own ⏱ window, otherwise the picker would open with nothing to choose.
+            // Set Trap needs at least one free slot inside its own ⏱ window, and Guard needs a
+            // living ally other than the caster — otherwise the picker would open with nothing
+            // to choose.
             const disabled =
-              (sid === 'Berserk' && fighter.hp > 5) || (SKILLS[sid].kind === 'trap' && decision.options.trapSlots.length === 0);
+              (SKILLS[sid].kind === 'trap' && decision.options.trapSlots.length === 0) ||
+              (SKILLS[sid].kind === 'guard' && !battle.fighters.some((f) => f.alive && f.playerId !== decision.playerId));
             const stats = skillStats(sid, isLv2(sid));
             // Same landing slot the boss's own pending-move readout and the party stat bar already
             // show for things already declared — surfacing it here too lets a player line their
@@ -154,6 +156,29 @@ function DeclareActionPanel({
           onPick={(m) => submit({ kind: 'DECLARE_ACTION', skillId, manaSpent: m })}
           onCancel={() => setSkillId(null)}
         />
+      )}
+
+      {skillId && skillKind === 'guard' && (
+        <div className="flex gap-2 flex-wrap items-center">
+          <span className="text-xs text-gold-dim">{t('decision.guardTarget')}</span>
+          {battle.fighters
+            .filter((f) => f.alive && f.playerId !== decision.playerId)
+            .map((f) => {
+              const p = state.players.find((pp) => pp.id === f.playerId)!;
+              return (
+                <button
+                  key={f.playerId}
+                  onClick={() => submit({ kind: 'DECLARE_ACTION', skillId, targetPlayerId: f.playerId })}
+                  className="gold-frame rounded px-2 py-1 text-xs hover:bg-gold/10"
+                >
+                  {p.name} ({f.hp}/{f.maxHp})
+                </button>
+              );
+            })}
+          <button onClick={() => setSkillId(null)} className="text-xs text-gold-dim underline">
+            {t('common.close')}
+          </button>
+        </div>
       )}
 
       {skillId && skillKind === 'heal' && (

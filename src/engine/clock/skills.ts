@@ -1,4 +1,4 @@
-// Declare + resolve logic for all 12 adventurer skills. See docs/10-v0.3.0-rulings.md §5 for the
+// Declare + resolve logic for all 12 adventurer skills. See docs/RULINGS.md §5 and §7 for the
 // declare-immediate vs resolve-delayed split this file implements skill-by-skill.
 
 import { CHARACTERS, SKILLS, skillStats, type SkillId } from '@content/characters';
@@ -11,9 +11,10 @@ function isLv2(state: GameState, fighter: Fighter, skillId: SkillId): boolean {
   return !!state.progress[fighter.playerId]?.isLv2[skillId];
 }
 
-/** Berserk's declare-time gate (GAME_DESIGN.md: "ใช้ได้เฉพาะตอนประกาศแล้ว HP ≤ 5" — Berserk requires
- *  HP≤5 *at the moment it's declared*). Shared with the identical re-check at resolve (HP may have
- *  changed by then, e.g. a well-meaning Luna heal) so the two thresholds can never drift apart. */
+/** Slash's "ยิ่งใกล้ตายยิ่งแรง" damage tier (GAME_DESIGN.md §8). Checked only at *resolve*, not at
+ *  declare: v0.3.2 folded Berserk into Slash, so this no longer gates whether the action happens at
+ *  all — it only picks which of the two damage numbers lands. A Luna heal arriving mid-flight now
+ *  downgrades Matt's hit (11 → 6) instead of deleting it outright; see docs/RULINGS.md §7. */
 const ATTACK_GATED_HP_THRESHOLD = 5;
 
 /** Somnivar's "มนตร์ง่วงงุน" tax: player-declared skills with base ⏱ >= 5 walk 2 extra slots. */
@@ -65,8 +66,8 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   // Validated at the engine boundary rather than trusted from the caller — the UI already builds
   // legal choices, but a bot or a hand-built Choice bypasses that entirely. Without this, the
   // engine would let a player declare a skill they don't own, overspend mana they don't have, aim
-  // Heal at nobody, or fire Berserk above its HP gate (see legalTrapSlots above for the same
-  // reasoning already applied to Set Trap).
+  // Heal at nobody, or Guard themselves (see legalTrapSlots above for the same reasoning already
+  // applied to Set Trap).
   if (def.charId !== fighter.charId) {
     throw new Error(`${skillId} does not belong to ${fighter.charId} (player ${fighter.playerId} declared it)`);
   }
@@ -82,8 +83,16 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       throw new Error(`illegal Heal target ${choice.targetPlayerId} for player ${fighter.playerId} (target must be alive when declared)`);
     }
   }
-  if (def.kind === 'attackGated' && fighter.hp > ATTACK_GATED_HP_THRESHOLD) {
-    throw new Error(`${skillId} requires HP<=${ATTACK_GATED_HP_THRESHOLD} to declare (player ${fighter.playerId} has ${fighter.hp} HP)`);
+  if (def.kind === 'guard') {
+    // Self-guard is rejected rather than silently no-op'd: it would read on the board as a defensive
+    // action while doing literally nothing, and every existing damage path already sends a fighter's
+    // own damage to themselves.
+    const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+    if (!target || !target.alive || target.playerId === fighter.playerId) {
+      throw new Error(
+        `illegal Guard target ${choice.targetPlayerId} for player ${fighter.playerId} (must be a different, living ally)`
+      );
+    }
   }
 
   const stats = skillStats(skillId, isLv2(state, fighter, skillId));
@@ -111,6 +120,17 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     case 'buffMana':
       fighter.mana = Math.min(3, fighter.mana + stats.primary!);
       fighter.shield = { kind: 'mana', reduction: stats.secondary! };
+      break;
+    case 'guard':
+      // Declare-immediate (docs/RULINGS.md §5 group B): the protection has to be up *before* the
+      // boss's already-announced move lands, or reading the boss — the whole point of §4.4 — would
+      // buy Matt nothing. Only one link can exist at a time; a second Guard replaces the first.
+      battle.guard = {
+        guardianId: fighter.playerId,
+        wardId: choice.targetPlayerId!,
+        reduction: stats.primary ?? 0,
+        wardAtk: stats.secondary ?? 0,
+      };
       break;
     case 'trap': {
       // Validated rather than trusted: the choice comes from a UI or a bot, and an out-of-window
@@ -157,7 +177,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
   const stats = skillStats(skillId, isLv2(state, fighter, skillId));
 
   const dealAttack = (rawBase: number, ignoresArmor: boolean) => {
-    const outgoing = computeOutgoingPlayerDamage(battle, rawBase);
+    const outgoing = computeOutgoingPlayerDamage(battle, rawBase, fighter.playerId);
     const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor, skillId });
     onPlayerDealtDamage(state, fighter.playerId, skillId, result.effective);
     battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: 'boss', dmg: result.effective, wasted: false });
@@ -181,12 +201,11 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       break;
     }
     case 'attackGated': {
-      // Berserk: HP<=5 condition re-checked at resolve — may have been healed away in the interim.
-      if (fighter.hp <= ATTACK_GATED_HP_THRESHOLD) {
-        dealAttack(stats.primary!, false);
-      } else {
-        battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: 'boss', dmg: 0, wasted: true });
-      }
+      // Slash: the HP<=5 tier is re-checked here, at resolve, so it reflects the damage Matt has
+      // actually taken while the swing was in flight — including a Luna heal that pulls him back
+      // above the line. The action never fizzles now (v0.3.2); it just lands for the lower number.
+      const boosted = fighter.hp <= ATTACK_GATED_HP_THRESHOLD && stats.secondary != null;
+      dealAttack(boosted ? stats.secondary! : stats.primary!, false);
       break;
     }
     case 'attackRoll': {
@@ -230,6 +249,13 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       battle.log.push({ t: 'RESOLVE_BUFF', playerId: fighter.playerId, skillId });
       break;
     }
+    case 'guard': {
+      // Same lifetime rule as buffParty: only tear down a link this fighter still owns, so a Guard
+      // that was already replaced (or cleared by the guardian's death) isn't cancelled twice.
+      if (battle.guard?.guardianId === fighter.playerId) battle.guard = null;
+      battle.log.push({ t: 'RESOLVE_BUFF', playerId: fighter.playerId, skillId });
+      break;
+    }
     case 'trap': {
       // All-or-nothing at declare time — nothing left to resolve.
       break;
@@ -270,16 +296,41 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
   }
 }
 
-/** Applies incoming boss damage to a player fighter (Blessing's flat reduction, mana/counter
- *  shields, HP floor, death) but does *not* resolve any triggered counter-strike — it only reports
- *  how much counter damage is now queued. Single-target hits resolve that queue immediately via
- *  `dealDamageToFighterFromBoss` below; AoE hits (bossAI.ts) apply every target's damage first and
- *  resolve counters only once the whole wave has landed — see `resolveQueuedCounter`. */
-export function applyBossDamageToFighter(state: GameState, fighter: Fighter, rawDamage: number): { applied: number; counterDmg: number } {
+/** Where damage aimed at `fighter` actually lands, after Matt's Guard. Returns the ward's guardian
+ *  when a link is up and the guardian is still standing, otherwise the original target.
+ *
+ *  Deliberately *not* recursive: a guardian who is themselves being guarded still eats their ward's
+ *  damage personally. Only one Guard link can exist at a time today so the case can't arise, but
+ *  resolving one hop keeps it that way by construction rather than by luck. */
+export function redirectTarget(state: GameState, fighter: Fighter): { recipient: Fighter; reduction: number } {
+  const battle = state.battle!;
+  const link = battle.guard;
+  if (!link || link.wardId !== fighter.playerId) return { recipient: fighter, reduction: 0 };
+  const guardian = battle.fighters.find((f) => f.playerId === link.guardianId);
+  if (!guardian || !guardian.alive) return { recipient: fighter, reduction: 0 };
+  return { recipient: guardian, reduction: link.reduction };
+}
+
+/** Applies incoming boss damage to a player fighter (Guard redirect, Blessing's flat reduction,
+ *  mana/counter shields, HP floor, death) but does *not* resolve any triggered counter-strike — it
+ *  only reports how much counter damage is now queued. Single-target hits resolve that queue
+ *  immediately via `dealDamageToFighterFromBoss` below; AoE hits (bossAI.ts) apply every target's
+ *  damage first and resolve counters only once the whole wave has landed — see `resolveQueuedCounter`.
+ *
+ *  `recipient` is who actually took it, which callers must use for both the log entry and the
+ *  counter-strike: a riposte belongs to whoever was hit, not to whoever the boss aimed at. Under an
+ *  AoE this is called once per target, so a guardian legitimately takes their own hit *and* their
+ *  ward's — Guard is meant to be dangerous against moves that hit everyone. */
+export function applyBossDamageToFighter(
+  state: GameState,
+  fighter: Fighter,
+  rawDamage: number
+): { applied: number; counterDmg: number; recipient: Fighter } {
+  const { recipient, reduction } = redirectTarget(state, fighter);
   // Read before applying: dying clears the shield.
-  const counterDmg = fighter.shield?.kind === 'counter' ? fighter.shield.counterDmg ?? 0 : 0;
-  const applied = applyDamageToFighter(state, fighter, rawDamage);
-  return { applied, counterDmg };
+  const counterDmg = recipient.shield?.kind === 'counter' ? recipient.shield.counterDmg ?? 0 : 0;
+  const applied = applyDamageToFighter(state, recipient, Math.max(0, rawDamage - reduction));
+  return { applied, counterDmg, recipient };
 }
 
 /** Resolves one fighter's counter-strike queued by `applyBossDamageToFighter` above, against the
@@ -293,7 +344,7 @@ export function resolveQueuedCounter(state: GameState, fighter: Fighter, counter
   // Previously hardcoded to 'CounterAttack' always, which would have mislabeled Dax's ripostes in
   // the log/UI and made a Riposte-specific score condition unreachable.
   const counterSkillId = CHARACTERS[fighter.charId].skills.find((sid) => SKILLS[sid].kind === 'buffCounter') ?? 'CounterAttack';
-  const outgoing = computeOutgoingPlayerDamage(battle, counterDmg);
+  const outgoing = computeOutgoingPlayerDamage(battle, counterDmg, fighter.playerId);
   const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor: false, skillId: counterSkillId });
   onPlayerDealtDamage(state, fighter.playerId, counterSkillId, result.effective);
   battle.log.push({
@@ -312,8 +363,12 @@ export function resolveQueuedCounter(state: GameState, fighter: Fighter, counter
  *  every target takes the hit before any counter fires — see GAME_DESIGN_v0_3_0.md's Counter
  *  interaction: an AoE hits everyone as if simultaneously, so a Counter it triggers can't retroactively
  *  make the boss "already dead" for targets later in the same wave. */
-export function dealDamageToFighterFromBoss(state: GameState, fighter: Fighter, rawDamage: number): number {
-  const { applied, counterDmg } = applyBossDamageToFighter(state, fighter, rawDamage);
-  resolveQueuedCounter(state, fighter, counterDmg);
-  return applied;
+export function dealDamageToFighterFromBoss(
+  state: GameState,
+  fighter: Fighter,
+  rawDamage: number
+): { applied: number; recipient: Fighter } {
+  const { applied, counterDmg, recipient } = applyBossDamageToFighter(state, fighter, rawDamage);
+  resolveQueuedCounter(state, recipient, counterDmg);
+  return { applied, recipient };
 }

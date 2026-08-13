@@ -14,15 +14,17 @@ export function declareCandidates(state: GameState, decision: Extract<PendingDec
 
   for (const skillId of charDef.skills) {
     const def = SKILLS[skillId];
-    // Berserk is only worth offering when its HP<=5 gate is actually met right now — declaring it
-    // otherwise just wastes the action (§5.5), so bots never pick it in that state.
-    if (skillId === 'Berserk' && fighter.hp > 5) continue;
 
     if (def.kind === 'heal') {
       // A living target is required at declare time. If that target dies while Heal is pending,
       // resolution still fizzles normally under §5.5.
       const aliveTargets = battle.fighters.filter((f) => f.alive);
       for (const t of aliveTargets) out.push({ kind: 'DECLARE_ACTION', skillId, targetPlayerId: t.playerId });
+    } else if (def.kind === 'guard') {
+      // Guard protects someone else by definition — the caster is never a legal ward, and the
+      // engine rejects a self-guard outright.
+      const wards = battle.fighters.filter((f) => f.alive && f.playerId !== playerId);
+      for (const t of wards) out.push({ kind: 'DECLARE_ACTION', skillId, targetPlayerId: t.playerId });
     } else if (def.kind === 'attackMana') {
       const maxMana = Math.min(fighter.mana, 3);
       for (let m = 0; m <= maxMana; m++) out.push({ kind: 'DECLARE_ACTION', skillId, manaSpent: m });
@@ -35,14 +37,15 @@ export function declareCandidates(state: GameState, decision: Extract<PendingDec
     }
   }
 
-  // Fallback: if every skill got filtered out for some edge-case reason (e.g. Heal with no alive
-  // targets at all, which shouldn't happen since the caster itself is always alive+targetable),
-  // just offer Berserk-free attack skills unconditionally so the game never stalls.
+  // Fallback: if every skill got filtered out for some edge-case reason (e.g. a last-survivor
+  // Matt whose only untargeted options were filtered), offer the target-free attack skills
+  // unconditionally so the game never stalls.
   if (out.length === 0) {
     for (const skillId of charDef.skills) {
-      if (skillId === 'Berserk') continue;
       const def = SKILLS[skillId];
-      if (def.kind === 'attack' || def.kind === 'attackRoll') out.push({ kind: 'DECLARE_ACTION', skillId });
+      if (def.kind === 'attack' || def.kind === 'attackGated' || def.kind === 'attackRoll') {
+        out.push({ kind: 'DECLARE_ACTION', skillId });
+      }
     }
   }
   return out;

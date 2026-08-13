@@ -24,7 +24,7 @@ describe('summarizeBattle', () => {
   it('credits damage, hits and biggest hit per player', () => {
     const { battle } = battleWithLog([
       { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Slash', targetId: 'boss', dmg: 6, wasted: false },
-      { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Berserk', targetId: 'boss', dmg: 11, wasted: false },
+      { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Slash', targetId: 'boss', dmg: 11, wasted: false },
       { t: 'RESOLVE_ATTACK', playerId: 1, skillId: 'QuickShot', targetId: 'boss', dmg: 4, wasted: false },
     ]);
     battle.bossHp = battle.bossHpMax - 21;
@@ -43,7 +43,7 @@ describe('summarizeBattle', () => {
 
   it('ignores wasted attacks, zero-damage hits, and damage aimed at players', () => {
     const { battle } = battleWithLog([
-      { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Berserk', targetId: 'boss', dmg: 11, wasted: true },
+      { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Slash', targetId: 'boss', dmg: 11, wasted: true },
       { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Slash', targetId: 'boss', dmg: 0, wasted: false },
       { t: 'RESOLVE_ATTACK', playerId: 'boss', skillId: 'BossMove', targetId: 0, dmg: 9, wasted: false },
     ]);

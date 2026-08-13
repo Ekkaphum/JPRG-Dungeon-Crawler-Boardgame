@@ -75,6 +75,7 @@ export const en: Record<I18nKey, string> = {
   'decision.declareTitle': '{name} — Declare an action',
   'decision.mana': 'Spend mana',
   'decision.healTarget': 'Heal who',
+  'decision.guardTarget': 'Guard who',
   'decision.trapSlot': 'Place trap at slot',
   'decision.confirm': 'Confirm',
   'decision.lv2': 'Lv2',

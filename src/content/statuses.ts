@@ -8,6 +8,8 @@ export type StatusId =
   | 'counter'
   | 'manaShield'
   | 'blessing'
+  | 'guarding'
+  | 'guarded'
   | 'down'
   | 'pending';
 
@@ -85,6 +87,24 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
       en: 'The whole party hits harder and takes less damage until the caster’s next turn.',
     },
   },
+  guarding: {
+    icon: '🛡️',
+    tone: 'neutral',
+    label: { th: 'กำลังปกป้อง', en: 'Guarding' },
+    desc: {
+      th: 'รับดาเมจแทนเพื่อนที่ปกป้องอยู่ จนถึงเทิร์นหน้าของตัวเอง — ถ้าบอสออกท่าที่ตีทุกคน จะกินสองต่อ',
+      en: "Taking the warded ally's damage until your next turn — against a move that hits everyone, you take both shares.",
+    },
+  },
+  guarded: {
+    icon: '🛡️',
+    tone: 'good',
+    label: { th: 'ถูกปกป้องอยู่', en: 'Guarded' },
+    desc: {
+      th: 'ดาเมจที่เล็งมาที่คุณจะไปเข้าคนที่ปกป้องคุณแทน และคุณโจมตีแรงขึ้น จนถึงเทิร์นหน้าของเขา',
+      en: 'Damage aimed at you lands on your guardian instead, and you attack harder, until their next turn.',
+    },
+  },
   down: {
     icon: '💀',
     tone: 'bad',
@@ -129,5 +149,9 @@ export function heroStatuses(battle: BattleState, f: Fighter): ActiveStatus[] {
   if (f.shield?.kind === 'counter') out.push({ id: 'counter', value: `-${f.shield.reduction}%` });
   if (f.shield?.kind === 'mana') out.push({ id: 'manaShield', value: `-${f.shield.reduction}` });
   if (battle.partyBuff) out.push({ id: 'blessing', value: `+${battle.partyBuff.atk}/-${battle.partyBuff.dmgReduction}` });
+  // Both ends of a Guard link get a badge — the ward needs to know their damage is being absorbed
+  // just as much as the guardian needs to know they're absorbing it.
+  if (battle.guard?.guardianId === f.playerId) out.push({ id: 'guarding' });
+  if (battle.guard?.wardId === f.playerId) out.push({ id: 'guarded', value: `+${battle.guard.wardAtk}` });
   return out;
 }

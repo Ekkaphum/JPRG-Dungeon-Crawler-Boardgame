@@ -69,7 +69,7 @@ export function actionFlashFor(state: GameState, ev: ClockLogEvent): ActionFlash
       if (ev.playerId === 'boss' || ev.skillId === 'BossMove') return null;
       const skillId = ev.skillId as SkillId;
       const kind = SKILLS[skillId]?.kind;
-      if (kind === 'buffParty' || kind === 'buffCounter' || kind === 'buffMana') {
+      if (kind === 'buffParty' || kind === 'buffCounter' || kind === 'buffMana' || kind === 'guard') {
         return { source: 'skill', skillId, isLv2: lv2(ev.playerId, skillId), tone: 'buff' };
       }
       return null;
@@ -186,6 +186,7 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
     traps: [],
     weakPointActive: false,
     partyBuff: null,
+    guard: null,
     finishedBy: null,
     finishedBySkill: null,
     outcome: 'in_progress',
@@ -219,6 +220,7 @@ export function cloneDisplay(battle: BattleState): BattleState {
     log: [],
     traps: battle.traps.map((t) => ({ ...t })),
     partyBuff: battle.partyBuff ? { ...battle.partyBuff } : null,
+    guard: battle.guard ? { ...battle.guard } : null,
     bossPending: battle.bossPending ? { ...battle.bossPending } : null,
     fighters: battle.fighters.map((f) => ({
       ...f,
@@ -288,6 +290,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
         f.shield = null;
       }
       if (b.partyBuff?.ownerId === ev.playerId) b.partyBuff = null;
+      if (b.guard?.guardianId === ev.playerId) b.guard = null;
       break;
     }
 
@@ -309,8 +312,10 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
         f.pending = null;
         f.shield = null;
         f.reviveAtSlot = ev.reviveAtSlot;
-        // Mirror the engine: the pawn moves to where it will come back.
+        // Mirror the engine: the pawn moves to where it will come back, and a dead guardian's
+        // Guard link drops (killFighter does the same on the true state).
         if (ev.reviveAtSlot != null) f.slot = ev.reviveAtSlot;
+        if (b.guard?.guardianId === ev.playerId) b.guard = null;
       }
       break;
     }

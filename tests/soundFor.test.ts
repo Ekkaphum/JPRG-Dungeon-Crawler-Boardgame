@@ -19,7 +19,7 @@ describe('soundFor', () => {
   });
 
   it('nothing for a wasted or zero-damage attack', () => {
-    const wasted: ClockLogEvent = { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Berserk', targetId: 'boss', dmg: 0, wasted: true };
+    const wasted: ClockLogEvent = { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Slash', targetId: 'boss', dmg: 0, wasted: true };
     const zero: ClockLogEvent = { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Slash', targetId: 'boss', dmg: 0, wasted: false };
     expect(soundFor(wasted)).toBeNull();
     expect(soundFor(zero)).toBeNull();

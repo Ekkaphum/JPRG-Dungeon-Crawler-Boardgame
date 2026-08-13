@@ -6,12 +6,14 @@ import { BOSSES } from '@content/bosses3';
 import { CHARACTERS, type SkillId } from '@content/characters';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
-/** Outgoing damage a player deals to the boss: base + party Blessing atk buff + weak-point bonus.
+/** Outgoing damage a player deals to the boss: base + party Blessing atk buff + weak-point bonus +
+ *  Guard's single-target buff if this attacker is the one being covered.
  *  "ทุกคน" buffs never apply to the boss (GAME_DESIGN_v0_3_0.md §5.1) so this is player-only. */
-export function computeOutgoingPlayerDamage(battle: BattleState, base: number): number {
+export function computeOutgoingPlayerDamage(battle: BattleState, base: number, attackerId?: number): number {
   let dmg = base;
   if (battle.partyBuff) dmg += battle.partyBuff.atk;
   if (battle.weakPointActive) dmg += 4;
+  if (attackerId != null && battle.guard?.wardId === attackerId) dmg += battle.guard.wardAtk;
   return dmg;
 }
 
@@ -94,6 +96,10 @@ export function killFighter(state: GameState, fighter: Fighter) {
   state.deathCounts[fighter.playerId] = (state.deathCounts[fighter.playerId] ?? 0) + 1;
   fighter.pending = null;
   fighter.shield = null;
+  // A dead guardian can't absorb anything — drop the link rather than leaving redirectTarget() to
+  // filter it out on every hit. (A dead *ward* leaves the link standing on purpose: it costs
+  // nothing while they're down, and it's still up if they revive inside Guard's window.)
+  if (battle.guard?.guardianId === fighter.playerId) battle.guard = null;
   const reviveAt = battle.marker - 6;
   fighter.reviveAtSlot = reviveAt >= 0 ? reviveAt : null;
   // The pawn is physically moved to where it will come back (GAME_DESIGN_v0_3_0.md §5.4). Leaving

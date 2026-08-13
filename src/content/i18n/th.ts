@@ -73,6 +73,7 @@ export const th = {
   'decision.declareTitle': '{name} — ประกาศแอคชัน',
   'decision.mana': 'จ่ายมานา',
   'decision.healTarget': 'รักษาใคร',
+  'decision.guardTarget': 'ปกป้องใคร',
   'decision.trapSlot': 'วางกับดักที่ช่องไหน',
   'decision.confirm': 'ยืนยัน',
   'decision.lv2': 'Lv2',

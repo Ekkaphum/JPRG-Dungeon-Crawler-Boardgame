@@ -38,9 +38,23 @@ export interface PendingAction {
   skillId: SkillId;
   declaredAtSlot: number;
   landedAtSlot: number;
-  targetPlayerId?: PlayerId; // Heal
+  targetPlayerId?: PlayerId; // Heal, Guard
   manaSpent?: number; // Fireball / Meteor
   trapSlot?: number; // SetTrap (placed immediately; kept here for log/UI only)
+}
+
+/** Matt's Guard: an active redirect link, not a shield. Lives on the battle rather than on either
+ *  fighter because the effect is read from the *ward's* side (damage aimed at them lands on the
+ *  guardian instead) while its lifetime is owned by the *guardian's* pawn — exactly the same shape
+ *  as `partyBuff`, which is likewise set on declare and cleared when its owner's pending resolves. */
+export interface GuardLink {
+  guardianId: PlayerId;
+  wardId: PlayerId;
+  /** Flat reduction applied to redirected damage only. */
+  reduction: number;
+  /** Attack bonus the ward gets while covered — Guard's contribution to the damage economy, and
+   *  the reason it can justify its ⏱ at all (see the Guard entry in @content/characters). */
+  wardAtk: number;
 }
 
 export interface BossPendingAction {
@@ -98,7 +112,18 @@ export type ClockLogEvent =
    *  announce the move first, and — unlike RESOLVE_ATTACK — it fires even for moves that deal no
    *  damage at all (Golden Throne, Eternal Slumber). */
   | { t: 'BOSS_MOVE'; bossId: BossId; moveKey: 'A' | 'B' | 'C' }
-  | { t: 'RESOLVE_ATTACK'; playerId: PlayerId | 'boss'; skillId: SkillId | 'BossMove'; targetId: PlayerId | 'boss'; dmg: number; wasted: boolean }
+  /** `targetId` is who actually *took* the damage. When Guard redirected it, `redirectedFrom` names
+   *  the player it was originally aimed at — so the log reads "Matt took 12 (for Kit)" rather than
+   *  silently reporting a hit on someone the boss never chose. */
+  | {
+      t: 'RESOLVE_ATTACK';
+      playerId: PlayerId | 'boss';
+      skillId: SkillId | 'BossMove';
+      targetId: PlayerId | 'boss';
+      dmg: number;
+      wasted: boolean;
+      redirectedFrom?: PlayerId;
+    }
   | { t: 'RESOLVE_HEAL'; playerId: PlayerId; targetId: PlayerId; amount: number; wasted: boolean }
   | { t: 'RESOLVE_BUFF'; playerId: PlayerId; skillId: SkillId }
   | { t: 'RESOLVE_TRAP_TRIGGER'; slot: number; dmg: number; ownerId: PlayerId }
@@ -126,6 +151,7 @@ export interface BattleState {
   traps: TrapToken[];
   weakPointActive: boolean;
   partyBuff: { atk: number; dmgReduction: number; ownerId: PlayerId } | null;
+  guard: GuardLink | null;
   finishedBy: PlayerId | null;
   finishedBySkill: SkillId | null;
   nextStackSeq: number;

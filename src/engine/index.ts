@@ -16,9 +16,10 @@ export {
   processTrapsAtMarker,
   dealDamageToFighterFromBoss,
   applyBossDamageToFighter,
+  redirectTarget,
   resolveQueuedCounter,
 } from './clock/skills';
-export { declareBossAction, resolveBossPending } from './clock/bossAI';
+export { declareBossAction, resolveBossPending, bossMoveTargets } from './clock/bossAI';
 export { pickExtreme, pickExtremeN } from './clock/rank';
 export { currentTotalScore, pushScore, applyDamageToFighter, applyDamageToBoss, healFighter, killFighter, reviveFighter } from './clock/damage';
 export { determineWinner, grantEndOfBattleRewards, onBattleEndScoring, onPlayerDealtDamage, onWeakPointOpened, onTrapTriggered, onHealResolved } from './clock/scoring';
