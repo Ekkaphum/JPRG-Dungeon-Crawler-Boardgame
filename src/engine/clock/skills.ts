@@ -1,7 +1,7 @@
 // Declare + resolve logic for every adventurer skill. See docs/RULINGS.md §5 and §7 for the
 // declare-immediate vs resolve-delayed split this file implements skill-by-skill.
 
-import { CHARACTERS, SKILLS, skillStats, type SkillId } from '@content/characters';
+import { CHARACTERS, SKILLS, skillStats, type SkillDef, type SkillId, type SkillLevelStats } from '@content/characters';
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter } from './damage';
 import { onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
 import type { Choice, Fighter, GameState } from './types';
@@ -77,8 +77,48 @@ function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpos
   return success;
 }
 
-/** Step 2+3 of a visit: declare a new action, apply any declare-immediate effect, move the pawn. */
-export function declareSkill(state: GameState, fighter: Fighter, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>) {
+/** Applies a single hit of an `attack`-kind skill (Slash, Power Strike, Twin Shot, Flurry, ...): the
+ *  full damage pipeline (party/weak-point/Guard/Berserk buffs, boss armor, score hooks, log). Shared
+ *  between the immediate path (declareSkill, for skills marked `immediate`) and the resolve-delayed
+ *  path (resolveFighterPending, for everyone else) so both run through the exact same math. */
+function dealAttackFor(state: GameState, fighter: Fighter, skillId: SkillId, rawBase: number, ignoresArmor: boolean) {
+  const battle = state.battle!;
+  const outgoing = computeOutgoingPlayerDamage(battle, rawBase, fighter.playerId);
+  const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor, skillId });
+  onPlayerDealtDamage(state, fighter.playerId, skillId, result.effective);
+  battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: 'boss', dmg: result.effective, wasted: false });
+  return result;
+}
+
+/** Resolves an `attack`-kind skill's hit(s) — single or multi-hit, driven by whether `secondary`
+ *  (hit count) is set. Used by both the immediate and resolve-delayed paths. */
+function resolveAttackHits(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, def: SkillDef) {
+  const battle = state.battle!;
+  if (stats.secondary != null) {
+    for (let i = 0; i < stats.secondary; i++) {
+      if (battle.outcome !== 'in_progress') break;
+      dealAttackFor(state, fighter, skillId, stats.primary!, def.ignoresArmor === true);
+    }
+  } else {
+    dealAttackFor(state, fighter, skillId, stats.primary!, def.ignoresArmor === true);
+  }
+}
+
+/** Resolves an `attackRoll`-kind skill: the hit, then the weak-point roll. Used by both the
+ *  immediate and resolve-delayed paths. */
+function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, rng: RNG) {
+  const battle = state.battle!;
+  dealAttackFor(state, fighter, skillId, stats.primary!, false);
+  if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng)) {
+    battle.weakPointActive = true;
+    onWeakPointOpened(state, fighter.playerId);
+  }
+}
+
+/** Step 2+3 of a visit: declare a new action, apply any declare-immediate effect, move the pawn.
+ *  `rng` is only consumed when the declared skill is both `immediate` and `attackRoll`-kind (Sharp
+ *  Shooting) — its weak-point roll happens right here instead of at resolve. */
+export function declareSkill(state: GameState, fighter: Fighter, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>, rng: RNG) {
   const battle = state.battle!;
   const skillId = choice.skillId;
   const def = SKILLS[skillId];
@@ -130,6 +170,17 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   fighter.slot = landedAtSlot;
   fighter.stackSeq = battle.nextStackSeq++;
 
+  // Logged before any immediate resolution below so the log reads "declared, then resolved" in
+  // that order, not the other way round.
+  battle.log.push({
+    t: 'DECLARE',
+    playerId: fighter.playerId,
+    slot: battle.marker,
+    skillId,
+    landSlot: landedAtSlot,
+    label: def.name.th,
+  });
+
   switch (def.kind) {
     case 'buffCounter':
       fighter.shield = { kind: 'counter', reduction: stats.primary!, counterDmg: stats.secondary!, hitDuringWindow: false };
@@ -170,13 +221,25 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       break;
     case 'multiHit':
       // Multi Shot: the primary hit resolves normally through fighter.pending at landedAtSlot; the
-      // earlier hits are scheduled right now and fire unconditionally when the marker reaches them
-      // (processScheduledHitsAtMarker), independent of whether this fighter is even still alive by
-      // then — same "fire and forget" contract as a trap.
+      // earlier hits are scheduled right now and fire when the marker reaches them
+      // (processScheduledHitsAtMarker) — but only if this fighter is still alive at that moment.
+      // Dying mid-flight stops the remaining hits dead, same as the primary (killFighter already
+      // clears fighter.pending, which is what stops that one).
       for (const eh of stats.earlyHits ?? []) {
         battle.scheduledHits.push({ slot: battle.marker - eh.offset, dmg: eh.dmg, ownerId: fighter.playerId, skillId });
       }
       break;
+  }
+
+  // v0.4.1: skills marked `immediate` (@content/characters) deal their damage — and, for Sharp
+  // Shooting, roll their weak-point check — right here, instead of waiting for this fighter's next
+  // visit. The pawn still walks its full ⏱ exactly as set up above; only *when the damage lands*
+  // changes. Flagging the pending as resolved tells resolveFighterPending there's nothing left to
+  // do when this fighter is next visited — it just frees the pawn.
+  if (def.immediate) {
+    if (def.kind === 'attack') resolveAttackHits(state, fighter, skillId, stats, def);
+    else if (def.kind === 'attackRoll') resolveAttackRoll(state, fighter, skillId, stats, rng);
+    fighter.pending.resolved = true;
   }
 
   // Vera's ManaCharge passive (@content/characters PASSIVES.Vera): declaring any of her own
@@ -187,15 +250,6 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   if (fighter.charId === 'Vera' && !DAMAGING_KINDS.has(def.kind)) {
     fighter.mana = Math.min(3, fighter.mana + 1);
   }
-
-  battle.log.push({
-    t: 'DECLARE',
-    playerId: fighter.playerId,
-    slot: battle.marker,
-    skillId,
-    landSlot: landedAtSlot,
-    label: def.name.th,
-  });
 }
 
 function rollTarget(state: GameState, fighter: Fighter, skillId: SkillId, baseTarget: number): number {
@@ -210,33 +264,21 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
   const battle = state.battle!;
   const pending = fighter.pending;
   if (!pending) return;
+  if (pending.resolved) {
+    // Already applied immediately at declare (a skill marked `immediate` — see declareSkill) —
+    // nothing left to do but free the pawn for its next declare.
+    fighter.pending = null;
+    return;
+  }
   const skillId = pending.skillId;
   const def = SKILLS[skillId];
   const stats = skillStats(skillId, isLv2(state, fighter, skillId));
 
-  const dealAttack = (rawBase: number, ignoresArmor: boolean) => {
-    const outgoing = computeOutgoingPlayerDamage(battle, rawBase, fighter.playerId);
-    const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor, skillId });
-    onPlayerDealtDamage(state, fighter.playerId, skillId, result.effective);
-    battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: 'boss', dmg: result.effective, wasted: false });
-    return result;
-  };
+  const dealAttack = (rawBase: number, ignoresArmor: boolean) => dealAttackFor(state, fighter, skillId, rawBase, ignoresArmor);
 
   switch (def.kind) {
     case 'attack': {
-      // Multi-hit is driven by whether `secondary` (hit count) is set at all, not by which skill
-      // this is — was hardcoded to `skillId === 'TwinShot'` specifically, which silently made
-      // Dax's Flurry (also 'attack' kind, also has a secondary hit count) resolve as a single hit
-      // instead of 3. ignoresArmor is likewise read off the skill def (Smite/Aura Smite) rather
-      // than a hardcoded skillId check.
-      if (stats.secondary != null) {
-        for (let i = 0; i < stats.secondary; i++) {
-          if (battle.outcome !== 'in_progress') break;
-          dealAttack(stats.primary!, def.ignoresArmor === true);
-        }
-      } else {
-        dealAttack(stats.primary!, def.ignoresArmor === true);
-      }
+      resolveAttackHits(state, fighter, skillId, stats, def);
       break;
     }
     case 'attackGated': {
@@ -248,11 +290,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       break;
     }
     case 'attackRoll': {
-      dealAttack(stats.primary!, false);
-      if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng)) {
-        battle.weakPointActive = true;
-        onWeakPointOpened(state, fighter.playerId);
-      }
+      resolveAttackRoll(state, fighter, skillId, stats, rng);
       break;
     }
     case 'attackMana': {
@@ -340,9 +378,12 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
   }
 }
 
-/** Multi Shot's early hits (kind: 'multiHit', @content/characters): fired unconditionally the
- *  instant the marker reaches their scheduled slot — no roll, no boss-position requirement, unlike
- *  a trap. Runs alongside processTrapsAtMarker every tick, before that slot's visit queue. */
+/** Multi Shot's early hits (kind: 'multiHit', @content/characters): fired the instant the marker
+ *  reaches their scheduled slot — no roll, no boss-position requirement, unlike a trap — *unless*
+ *  the caster has since died, in which case this and every later scheduled hit of theirs is wasted.
+ *  Checked live at each hit's own tick (not baked in at declare) so a revival landing in time before
+ *  a later hit would let the skill resume — same "check now, not when declared" spirit as Slash's
+ *  old HP tier. Runs alongside processTrapsAtMarker every tick, before that slot's visit queue. */
 export function processScheduledHitsAtMarker(state: GameState) {
   const battle = state.battle!;
   const here = battle.scheduledHits.filter((h) => h.slot === battle.marker);
@@ -350,6 +391,11 @@ export function processScheduledHitsAtMarker(state: GameState) {
   battle.scheduledHits = battle.scheduledHits.filter((h) => h.slot !== battle.marker);
   for (const h of here) {
     if (battle.outcome !== 'in_progress') break;
+    const owner = battle.fighters.find((f) => f.playerId === h.ownerId);
+    if (!owner || !owner.alive) {
+      battle.log.push({ t: 'RESOLVE_ATTACK', playerId: h.ownerId, skillId: h.skillId, targetId: 'boss', dmg: 0, wasted: true });
+      continue;
+    }
     const outgoing = computeOutgoingPlayerDamage(battle, h.dmg, h.ownerId);
     const result = applyDamageToBoss(state, h.ownerId, outgoing, { ignoresArmor: false, skillId: h.skillId });
     onPlayerDealtDamage(state, h.ownerId, h.skillId, result.effective);

@@ -53,7 +53,7 @@ describe('Dax score conditions', () => {
     setPlayerCharacter(state, 0, 'Dax');
     prepareBattle(state);
     const dax = findFighter(state, 0);
-    declareSkill(state, dax, { kind: 'DECLARE_ACTION', skillId: 'Riposte' });
+    declareSkill(state, dax, { kind: 'DECLARE_ACTION', skillId: 'Riposte' }, createRNG(1));
     expect(dax.shield?.kind).toBe('counter');
 
     dealDamageToFighterFromBoss(state, dax, 10);
@@ -72,7 +72,7 @@ describe('Dax score conditions', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 0);
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' }, createRNG(1));
     dealDamageToFighterFromBoss(state, matt, 10);
     expect(state.battle!.log.some((e) => e.t === 'RESOLVE_ATTACK' && e.skillId === 'CounterAttack')).toBe(true);
   });
@@ -171,7 +171,7 @@ describe('Dax/Mira declare and resolve through the generic skill-kind paths', ()
     setPlayerCharacter(state, 0, 'Dax');
     prepareBattle(state);
     const dax = findFighter(state, 0);
-    declareSkill(state, dax, { kind: 'DECLARE_ACTION', skillId: 'Flurry' });
+    declareSkill(state, dax, { kind: 'DECLARE_ACTION', skillId: 'Flurry' }, createRNG(1));
     const bossHpBefore = state.battle!.bossHp;
     resolveFighterPending(state, dax, createRNG(1));
     const hits = state.battle!.log.filter((e) => e.t === 'RESOLVE_ATTACK' && e.skillId === 'Flurry' && !e.wasted);
@@ -184,7 +184,7 @@ describe('Dax/Mira declare and resolve through the generic skill-kind paths', ()
     setPlayerCharacter(state, 0, 'Dax');
     prepareBattle(state);
     const dax = findFighter(state, 0);
-    declareSkill(state, dax, { kind: 'DECLARE_ACTION', skillId: 'Focus' });
+    declareSkill(state, dax, { kind: 'DECLARE_ACTION', skillId: 'Focus' }, createRNG(1));
     resolveFighterPending(state, dax, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
     expect(state.battle!.weakPointActive).toBe(true);
     expect(state.scoreLog.find((e) => e.conditionId === 'dax1')?.playerId).toBe(dax.playerId);
@@ -196,7 +196,7 @@ describe('Dax/Mira declare and resolve through the generic skill-kind paths', ()
     prepareBattle(state);
     const mira = findFighter(state, 3);
     mira.mana = 2;
-    declareSkill(state, mira, { kind: 'DECLARE_ACTION', skillId: 'FrostBolt', manaSpent: 2 });
+    declareSkill(state, mira, { kind: 'DECLARE_ACTION', skillId: 'FrostBolt', manaSpent: 2 }, createRNG(1));
     expect(mira.mana).toBe(0);
   });
 });

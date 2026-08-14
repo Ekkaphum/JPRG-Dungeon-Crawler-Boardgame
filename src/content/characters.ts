@@ -84,6 +84,15 @@ export interface SkillDef {
   /** Damage from this skill skips the boss's armor entirely — Smite/Aura Smite and Trap!/Set Trap
    *  (the latter hardcoded separately in skills.ts's trap-kind resolution, not read from here). */
   ignoresArmor?: boolean;
+  /** v0.4.1: an `attack`/`attackRoll`-kind skill marked `immediate` deals its damage (and rolls its
+   *  weak-point check, if any) the instant it's declared, instead of waiting for the caster's next
+   *  visit — skills.ts's declareSkill() resolves it right there and flags the pending action as
+   *  already resolved. The pawn still walks its full ⏱ exactly as before; only *when the damage
+   *  lands* changes. UI shows a ⚡ badge on these — see PASSIVES-adjacent skill cards in
+   *  DecisionPanel.tsx/HeroDetailModal.tsx. Reserved for fast, simple hits (the common attacks, Power
+   *  Strike, Sharp Shooting, Aura Smite) — charged/scaling attacks (Fireball, Meteor) and multi-slot
+   *  ones (Multi Shot) stay resolve-delayed. */
+  immediate?: boolean;
   lv1: SkillLevelStats;
   lv2: SkillLevelStats;
 }
@@ -168,6 +177,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     id: 'Slash',
     charId: 'Matt',
     kind: 'attack',
+    immediate: true,
     name: { th: 'Slash', en: 'Slash' },
     lv1: { time: 2, primary: 3 },
     lv2: { time: 2, primary: 4 },
@@ -176,6 +186,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     id: 'PowerStrike',
     charId: 'Matt',
     kind: 'attack',
+    immediate: true,
     name: { th: 'Power Strike', en: 'Power Strike' },
     lv1: { time: 4, primary: 6 },
     lv2: { time: 4, primary: 9 },
@@ -204,6 +215,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     id: 'QuickShot',
     charId: 'Kit',
     kind: 'attack',
+    immediate: true,
     name: { th: 'Quick Shot', en: 'Quick Shot' },
     lv1: { time: 2, primary: 2 },
     lv2: { time: 2, primary: 3 },
@@ -212,6 +224,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     id: 'SharpShooting',
     charId: 'Kit',
     kind: 'attackRoll',
+    immediate: true,
     name: { th: 'Sharp Shooting', en: 'Sharp Shooting' },
     // On a successful roll, every player's attacks on the boss deal +4 until the boss next acts —
     // reuses the same weakPointActive flag the old Quick Shot set.
@@ -244,6 +257,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     id: 'AirPush',
     charId: 'Vera',
     kind: 'attack',
+    immediate: true,
     name: { th: 'Air Push', en: 'Air Push' },
     lv1: { time: 2, primary: 2 },
     lv2: { time: 2, primary: 3 },
@@ -281,6 +295,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     id: 'Hitting',
     charId: 'Luna',
     kind: 'attack',
+    immediate: true,
     name: { th: 'Hitting', en: 'Hitting' },
     lv1: { time: 2, primary: 2 },
     lv2: { time: 2, primary: 3 },
@@ -290,6 +305,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     charId: 'Luna',
     kind: 'attack',
     ignoresArmor: true,
+    immediate: true,
     name: { th: 'Aura Smite', en: 'Aura Smite' },
     lv1: { time: 4, primary: 5 },
     lv2: { time: 4, primary: 7 },

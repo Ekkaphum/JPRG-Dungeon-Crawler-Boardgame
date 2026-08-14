@@ -34,7 +34,7 @@ function* resolvePlayerVisit(state: GameState, f: Fighter, rng: RNG): Generator<
   const options = buildDeclareOptions(state, f);
   const choice = yield { kind: 'DECLARE_ACTION', playerId: f.playerId, options };
   if (choice.kind !== 'DECLARE_ACTION') throw new Error(`expected DECLARE_ACTION for player ${f.playerId}`);
-  declareSkill(state, f, choice);
+  declareSkill(state, f, choice, rng);
 }
 
 function buildDeclareOptions(state: GameState, fighter: Fighter): DeclareOptions {

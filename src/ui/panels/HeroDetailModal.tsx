@@ -51,8 +51,15 @@ export function HeroDetailModal({
           <div className="text-xs text-gold-dim mt-1">{t('game.marker', { n: f.slot })}</div>
           {pending && (
             <div className="text-xs mt-1">
-              <span className="text-gold-dim">{t('game.willLandAt', { n: landSlotDisplay(f.pending!.landedAtSlot) })}: </span>
-              <span className="text-gold-bright">{pending.name[lang]}</span>
+              {f.pending!.resolved ? (
+                <span className="text-gold-dim">{t('game.usedImmediately', { n: landSlotDisplay(f.pending!.landedAtSlot) })} — </span>
+              ) : (
+                <span className="text-gold-dim">{t('game.willLandAt', { n: landSlotDisplay(f.pending!.landedAtSlot) })}: </span>
+              )}
+              <span className="text-gold-bright">
+                {pending.immediate && '⚡ '}
+                {pending.name[lang]}
+              </span>
             </div>
           )}
           <div className="text-xs text-gold-bright mt-1">
@@ -76,6 +83,7 @@ export function HeroDetailModal({
               <div key={sid} className={`rounded p-2 border ${isPending ? 'border-gold bg-gold/10' : 'border-gold-dim/25'}`}>
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs gold-text">
+                    {SKILLS[sid].immediate && <span title={t('decision.immediateBadge')}>⚡ </span>}
                     {SKILLS[sid].name[lang]}
                     {isLv2 && <span className="ml-1 text-gold-bright">{t('decision.lv2')}</span>}
                   </span>

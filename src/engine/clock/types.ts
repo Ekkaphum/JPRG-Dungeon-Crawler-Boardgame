@@ -46,6 +46,11 @@ export interface PendingAction {
   targetPlayerId?: PlayerId; // Heal, Guard
   manaSpent?: number; // Fireball / Meteor
   trapSlot?: number; // SetTrap (placed immediately; kept here for log/UI only)
+  /** True once this action's effect has already run — set by declareSkill for skills marked
+   *  `immediate` in @content/characters (their damage/roll fires at declare, not at resolve).
+   *  resolveFighterPending checks this and, when true, just frees the pawn without re-running
+   *  anything — the pawn still walks its full ⏱ as normal, only the damage timing changed. */
+  resolved?: boolean;
 }
 
 /** Matt's Guard: an active redirect link, not a shield. Lives on the battle rather than on either

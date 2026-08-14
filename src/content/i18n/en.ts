@@ -80,6 +80,9 @@ export const en: Record<I18nKey, string> = {
   'decision.confirm': 'Confirm',
   'decision.lv2': 'Lv2',
   'decision.tooSlow': 'may not land before the clock runs out',
+  'decision.immediateBadge': 'resolves the instant it is declared',
+  'game.landsImmediately': '⚡ Immediate · free again at slot {n}',
+  'game.usedImmediately': '⚡ Already used · free again at slot {n}',
 
   'detail.statuses': 'Active statuses',
   'detail.moves': 'All moves (d6)',
@@ -138,7 +141,7 @@ export const en: Record<I18nKey, string> = {
   'tutorial.close': 'Got it, start playing',
   'tutorial.core.title': 'The core loop: declare now, resolve next visit',
   'tutorial.core.body':
-    "The 24-slot clock counts down. Every time the marker reaches your pawn, you declare a move — it doesn't happen yet. It resolves the next time the marker reaches you again (⏱ slots later). Everyone can see everyone's declared actions at all times, including the boss's — nothing is hidden.",
+    "The 24-slot clock counts down. Every time the marker reaches your pawn, you declare a move — it doesn't happen yet. It resolves the next time the marker reaches you again (⏱ slots later) — except skills marked ⚡, which resolve the instant you declare them (the pawn still walks its usual ⏱ though). Everyone can see everyone's declared actions at all times, including the boss's — nothing is hidden.",
   'tutorial.death.title': "Dying isn't the end",
   'tutorial.death.body': 'HP hits 0 → you leave the clock temporarily, then auto-revive 6 slots later at half HP.',
   'tutorial.score.title': 'Scoring is personal',

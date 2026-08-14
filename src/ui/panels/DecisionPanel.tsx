@@ -146,10 +146,13 @@ function DeclareActionPanel({
                 className="skill-card gold-frame rounded-lg px-3 py-2 hover:bg-gold/10 disabled:opacity-30 text-left"
               >
                 <div className="text-sm">
+                  {SKILLS[sid].immediate && <span title={t('decision.immediateBadge')}>⚡ </span>}
                   {SKILLS[sid].name[lang]} {isLv2(sid) && <span className="text-gold-bright">{t('decision.lv2')}</span>}
                 </div>
                 <div className={`text-[10px] ${tooSlow ? 'text-boss' : 'text-gold-dim'}`}>
-                  ⏱{stats.time} → {t('game.willLandAt', { n: landSlotDisplay(landedSlot) })}
+                  {SKILLS[sid].immediate
+                    ? `⏱${stats.time} → ${t('game.landsImmediately', { n: landSlotDisplay(landedSlot) })}`
+                    : `⏱${stats.time} → ${t('game.willLandAt', { n: landSlotDisplay(landedSlot) })}`}
                   {tooSlow && ` (${t('decision.tooSlow')})`}
                 </div>
               </button>

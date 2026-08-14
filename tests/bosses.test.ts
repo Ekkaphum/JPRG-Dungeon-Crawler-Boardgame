@@ -67,7 +67,7 @@ describe('Somnivar — sleep tax + push moves (§9②)', () => {
     const vera = findFighter(state, 'Vera');
     const marker = state.battle!.marker;
     vera.mana = 0;
-    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Meteor', manaSpent: 0 });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Meteor', manaSpent: 0 }, createRNG(1));
     expect(vera.pending!.landedAtSlot).toBe(marker - (7 + 2));
   });
 
@@ -75,7 +75,7 @@ describe('Somnivar — sleep tax + push moves (§9②)', () => {
     const state = somnivarState();
     const vera = findFighter(state, 'Vera');
     const marker = state.battle!.marker;
-    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 }, createRNG(1));
     expect(vera.pending!.landedAtSlot).toBe(marker - 3);
   });
 

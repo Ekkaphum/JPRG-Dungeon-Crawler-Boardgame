@@ -250,7 +250,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
-    expect(() => declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Meteor' as never })).toThrow(/does not belong to Kit/);
+    expect(() => declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Meteor' as never }, createRNG(1))).toThrow(/does not belong to Kit/);
   });
 
   it('rejects mana spend unless it is a finite integer in [0, 3] and affordable', () => {
@@ -258,24 +258,24 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
     vera.mana = 1;
-    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 2 })).toThrow(/illegal mana spend/);
-    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: -1 })).toThrow(/illegal mana spend/);
-    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0.5 })).toThrow(/illegal mana spend/);
-    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: Number.NaN })).toThrow(/illegal mana spend/);
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 2 }, createRNG(1))).toThrow(/illegal mana spend/);
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: -1 }, createRNG(1))).toThrow(/illegal mana spend/);
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0.5 }, createRNG(1))).toThrow(/illegal mana spend/);
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: Number.NaN }, createRNG(1))).toThrow(/illegal mana spend/);
     vera.mana = 99;
-    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 4 })).toThrow(/illegal mana spend/);
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 4 }, createRNG(1))).toThrow(/illegal mana spend/);
     // Within bounds still works.
     vera.mana = 1;
-    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 1 })).not.toThrow();
+    expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 1 }, createRNG(1))).not.toThrow();
   });
 
   it('rejects a Heal declared at a target not in this battle', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
-    expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: 999 })).toThrow(/illegal Heal target/);
+    expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: 999 }, createRNG(1))).toThrow(/illegal Heal target/);
     const matt = findFighter(state, 'Matt');
-    expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId })).not.toThrow();
+    expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId }, createRNG(1))).not.toThrow();
   });
 
   it('rejects a Heal aimed at someone already dead when declared', () => {
@@ -284,7 +284,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     const luna = findFighter(state, 'Luna');
     const matt = findFighter(state, 'Matt');
     killFighter(state, matt);
-    expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId })).toThrow(
+    expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId }, createRNG(1))).toThrow(
       /target must be alive when declared/
     );
   });
@@ -293,7 +293,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
-    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: matt.playerId })).toThrow(
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: matt.playerId }, createRNG(1))).toThrow(
       /different, living ally/
     );
   });
@@ -302,7 +302,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
-    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard' })).toThrow(/different, living ally/);
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard' }, createRNG(1))).toThrow(/different, living ally/);
   });
 });
 

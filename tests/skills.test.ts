@@ -18,58 +18,104 @@ function findFighter(state: ReturnType<typeof fixedDraftState>, charId: string) 
   return state.battle!.fighters.find((f) => f.playerId === player.id)!;
 }
 
-describe('Berserk passive (Matt, v0.4.0) — +4 damage on any attack while HP < 7, checked at resolve', () => {
-  it('adds +4 to Power Strike when Matt is under the threshold at resolve', () => {
+describe('Berserk passive (Matt, v0.4.0) — +4 damage on any attack while HP < 7, applied the instant an immediate attack is declared', () => {
+  it('adds +4 to Power Strike immediately when Matt is under the threshold', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     matt.hp = 6;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' });
     const bossHpBefore = state.battle!.bossHp;
-    resolveFighterPending(state, matt, rng);
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' }, createRNG(1));
     const base = skillStats('PowerStrike', false).primary!;
     expect(state.battle!.bossHp).toBe(bossHpBefore - (base + 4));
+
+    // Power Strike is `immediate` — nothing left for resolveFighterPending to do at Matt's next visit.
+    expect(matt.pending?.resolved).toBe(true);
+    const afterDeclare = state.battle!.bossHp;
+    resolveFighterPending(state, matt, createRNG(1));
+    expect(state.battle!.bossHp).toBe(afterDeclare); // not applied a second time
   });
 
   it('does not add the bonus at HP 7 or above', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     matt.hp = 7;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' });
     const bossHpBefore = state.battle!.bossHp;
-    resolveFighterPending(state, matt, rng);
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' }, createRNG(1));
     const base = skillStats('PowerStrike', false).primary!;
     expect(state.battle!.bossHp).toBe(bossHpBefore - base);
   });
 
-  it('is checked at resolve, not declare — a heal above the threshold before it lands removes the bonus', () => {
+  it('is recomputed on every use, not "sticky" — full HP on a later declare drops the bonus', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
-    matt.hp = 4;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' });
-    matt.hp = 12; // a well-meaning Luna heal lands first
-    const bossHpBefore = state.battle!.bossHp;
-    resolveFighterPending(state, matt, rng);
-    const base = skillStats('PowerStrike', false).primary!;
-    expect(state.battle!.bossHp).toBe(bossHpBefore - base);
+    matt.hp = 1;
+    let bossHpBefore = state.battle!.bossHp;
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' }, createRNG(1));
+    const slashBase = skillStats('Slash', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - (slashBase + 4));
+
+    matt.hp = matt.maxHp; // a well-timed heal lands before Matt's next action
+    bossHpBefore = state.battle!.bossHp;
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' }, createRNG(1));
+    const powerBase = skillStats('PowerStrike', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - powerBase); // no bonus this time
   });
 
   it('applies to every Matt attack, not just Power Strike — e.g. the common Slash', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     matt.hp = 1;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' });
     const bossHpBefore = state.battle!.bossHp;
-    resolveFighterPending(state, matt, rng);
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' }, createRNG(1));
     const base = skillStats('Slash', false).primary!;
     expect(state.battle!.bossHp).toBe(bossHpBefore - (base + 4));
+  });
+});
+
+describe("Immediate skills (v0.4.1) — attack lands at declare, not at the caster's next visit", () => {
+  it('applies damage right at declare, logging DECLARE before RESOLVE_ATTACK', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    const bossHpBefore = state.battle!.bossHp;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' }, createRNG(1));
+    const base = skillStats('QuickShot', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - base);
+    const lastTwo = state.battle!.log.slice(-2);
+    expect(lastTwo[0].t).toBe('DECLARE');
+    expect(lastTwo[1]).toMatchObject({ t: 'RESOLVE_ATTACK', dmg: base, wasted: false });
+  });
+
+  it('flags the pending action resolved, so the pawn still walks its ⏱ but a later resolveFighterPending is a no-op', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    const markerBefore = state.battle!.marker;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' }, createRNG(1));
+    expect(kit.pending?.resolved).toBe(true);
+    expect(kit.slot).toBe(markerBefore - skillStats('QuickShot', false).time); // pawn still moved its full ⏱
+
+    const bossHpAfterDeclare = state.battle!.bossHp;
+    resolveFighterPending(state, kit, createRNG(1));
+    expect(state.battle!.bossHp).toBe(bossHpAfterDeclare); // not applied twice
+    expect(kit.pending).toBeNull(); // pawn freed for its next declare
+  });
+
+  it('a hand-built pending without the resolved flag still resolves normally at visit time', () => {
+    // Guards the fallback path: anything that constructs a PendingAction directly (rather than via
+    // declareSkill) still gets its damage applied the old way, at resolve.
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    kit.pending = { skillId: 'QuickShot', declaredAtSlot: 20, landedAtSlot: 18 };
+    const bossHpBefore = state.battle!.bossHp;
+    resolveFighterPending(state, kit, createRNG(1));
+    const base = skillStats('QuickShot', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - base);
   });
 });
 
@@ -79,7 +125,7 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
 
     const reduction = skillStats('Guard', false).primary!;
     const mattHp = matt.hp;
@@ -97,7 +143,7 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
     const reduction = skillStats('Guard', false).primary!;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
 
     const mattHp = matt.hp;
     dealDamageToFighterFromBoss(state, matt, 10); // his own share — full price
@@ -114,9 +160,9 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     const vera = findFighter(state, 'Vera');
     const fireball = skillStats('Fireball', false).primary!;
 
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
     expect(skillStats('Guard', false).secondary).toBeUndefined();
-    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 }, createRNG(1));
     const bossHpBefore = state.battle!.bossHp;
     resolveFighterPending(state, vera, rng);
     expect(state.battle!.bossHp).toBe(bossHpBefore - fireball);
@@ -125,15 +171,13 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
   it('does not affect a bystander\'s own damage', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
     const kit = findFighter(state, 'Kit');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
 
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
     const before = state.battle!.bossHp;
-    resolveFighterPending(state, kit, rng);
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' }, createRNG(1)); // immediate
     const quickShot = skillStats('QuickShot', false);
     expect(state.battle!.bossHp).toBe(before - quickShot.primary!);
   });
@@ -144,7 +188,7 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
     expect(state.battle!.guard).not.toBeNull();
 
     resolveFighterPending(state, matt, rng);
@@ -159,7 +203,7 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
     killFighter(state, matt);
     expect(state.battle!.guard).toBeNull();
 
@@ -174,11 +218,11 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
-    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: matt.playerId })).toThrow(
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: matt.playerId }, createRNG(1))).toThrow(
       /different, living ally/
     );
     killFighter(state, vera);
-    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId })).toThrow(
+    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1))).toThrow(
       /different, living ally/
     );
   });
@@ -190,7 +234,7 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
     vera.shield = { kind: 'counter', reduction: 50, counterDmg: 12, hitDuringWindow: false };
 
     const bossHpBefore = state.battle!.bossHp;
@@ -205,7 +249,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' }, createRNG(1));
     expect(matt.shield?.kind).toBe('counter');
 
     let bossHp = state.battle!.bossHp;
@@ -225,7 +269,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     prepareBattle(state);
     const rng = createRNG(2);
     const matt = findFighter(state, 'Matt');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' }, createRNG(1));
     dealDamageToFighterFromBoss(state, matt, 6); // already answered
 
     const bossHpBefore = state.battle!.bossHp;
@@ -238,7 +282,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' }, createRNG(1));
     const bossHp = state.battle!.bossHp;
     const { applied } = dealDamageToFighterFromBoss(state, matt, 1); // floor(1*0.5) = 0
     expect(applied).toBe(0);
@@ -249,7 +293,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'CounterAttack' }, createRNG(1));
     const bossHp = state.battle!.bossHp;
     dealDamageToFighterFromBoss(state, matt, 999);
     expect(matt.alive).toBe(false);
@@ -261,6 +305,8 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
 
 describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, never resets, floors at 2", () => {
   it('permanently lowers Sharp Shooting\'s target by 1 per miss, no auto-success, floors at 2', () => {
+    // Sharp Shooting is `immediate` (v0.4.1) — its roll happens right at declareSkill now, so the
+    // rng controlling the die goes into declareSkill directly, not a later resolveFighterPending.
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
@@ -268,8 +314,7 @@ describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, n
 
     const targets: (number | null)[] = [];
     for (let i = 0; i < 5; i++) {
-      declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
-      resolveFighterPending(state, kit, missRng);
+      declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng);
       const roll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SharpShooting weak point').at(-1)!;
       targets.push(roll.t === 'ROLL' ? roll.target : null);
     }
@@ -284,11 +329,10 @@ describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, n
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     const missRng = { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
-    resolveFighterPending(state, kit, missRng); // one miss, penalty now 1
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng); // one miss, penalty now 1
 
     state.battle!.marker = 13;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
     state.battle!.marker = 10;
     state.battle!.bossSlot = 10;
     processTrapsAtMarker(state, missRng);
@@ -302,17 +346,14 @@ describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, n
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     const missRng = { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
-    resolveFighterPending(state, kit, missRng); // miss, penalty 1, next target 4
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng); // miss, penalty 1, next target 4
     expect(state.progress[kit.playerId].rollPenalty).toBe(1);
 
     const hitRng = { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
-    resolveFighterPending(state, kit, hitRng); // hits at target 4
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, hitRng); // hits at target 4
     expect(state.progress[kit.playerId].rollPenalty).toBe(1); // untouched by the success
 
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
-    resolveFighterPending(state, kit, missRng);
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng);
     const roll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SharpShooting weak point').at(-1)!;
     expect(roll.t === 'ROLL' && roll.target).toBe(4); // still discounted, not reset to base 5
   });
@@ -324,7 +365,7 @@ describe('Vera mana — paid immediately at declare, never refunded (§5.1/§8)'
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
     vera.mana = 3;
-    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 2 });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 2 }, createRNG(1));
     expect(vera.mana).toBe(1);
   });
 });
@@ -336,7 +377,7 @@ describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an ex
     const kit = findFighter(state, 'Kit');
     // Trap! is ⏱4, so slot 10 is only armable from marker 11–13 (see tests/trapSlots.test.ts).
     state.battle!.marker = 13;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
     expect(state.battle!.traps).toHaveLength(1);
 
     state.battle!.marker = 10;
@@ -360,7 +401,7 @@ describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an ex
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 13;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
     state.battle!.marker = 10;
     state.battle!.bossSlot = 10;
     state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
@@ -378,7 +419,7 @@ describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an ex
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 13; // slot 10 must be inside Trap!'s ⏱4 window to arm
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
     state.battle!.marker = 10;
     state.battle!.bossSlot = 6; // boss is headed elsewhere, not stopping at 10
     const bossHpBefore = state.battle!.bossHp;
@@ -394,7 +435,7 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 20;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
     expect(state.battle!.scheduledHits).toEqual([
       { slot: 18, dmg: 2, ownerId: kit.playerId, skillId: 'MultiShot' },
       { slot: 17, dmg: 3, ownerId: kit.playerId, skillId: 'MultiShot' },
@@ -407,7 +448,7 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 20;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
 
     let bossHp = state.battle!.bossHp;
     state.battle!.marker = 18;
@@ -432,7 +473,7 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 20;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
     state.battle!.marker = 18;
     processScheduledHitsAtMarker(state);
     state.battle!.marker = 17;
@@ -440,6 +481,32 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     state.battle!.marker = 16;
     resolveFighterPending(state, kit, createRNG(1));
     expect(kit.attackCountThisBattle).toBe(3);
+  });
+
+  it('stops firing once its owner dies mid-flight — no hits land after death', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 20;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
+
+    let bossHp = state.battle!.bossHp;
+    state.battle!.marker = 18;
+    processScheduledHitsAtMarker(state); // first early hit lands normally, Kit still alive
+    expect(state.battle!.bossHp).toBe(bossHp - 2);
+
+    killFighter(state, kit); // Kit dies before the second scheduled hit's slot
+
+    bossHp = state.battle!.bossHp;
+    state.battle!.marker = 17;
+    processScheduledHitsAtMarker(state);
+    expect(state.battle!.bossHp).toBe(bossHp); // no damage — the caster is down
+    const wasted = state.battle!.log.filter((e) => e.t === 'RESOLVE_ATTACK' && e.skillId === 'MultiShot').at(-1)!;
+    expect(wasted).toMatchObject({ wasted: true, dmg: 0 });
+
+    // The primary hit is already cancelled too — killFighter clears fighter.pending on death, and
+    // resolveFighterPending's `if (!pending) return;` guard stops it from ever running.
+    expect(kit.pending).toBeNull();
   });
 });
 
@@ -449,7 +516,7 @@ describe('ManaCharge passive (Vera, v0.4.0) — Aura Charge grants +1 mana the i
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
     expect(vera.mana).toBe(0);
-    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'AuraCharge' });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'AuraCharge' }, createRNG(1));
     expect(vera.mana).toBe(1);
   });
 
@@ -457,7 +524,7 @@ describe('ManaCharge passive (Vera, v0.4.0) — Aura Charge grants +1 mana the i
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
-    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 }, createRNG(1));
     expect(vera.mana).toBe(0);
   });
 
@@ -466,7 +533,7 @@ describe('ManaCharge passive (Vera, v0.4.0) — Aura Charge grants +1 mana the i
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
     vera.mana = 3;
-    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'AuraCharge' });
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'AuraCharge' }, createRNG(1));
     expect(vera.mana).toBe(3);
   });
 
@@ -475,7 +542,7 @@ describe('ManaCharge passive (Vera, v0.4.0) — Aura Charge grants +1 mana the i
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
     expect(vera.mana).toBe(0);
   });
 });
@@ -487,7 +554,7 @@ describe('Heal — target invalid at resolve = wasted for free (§5.5)', () => {
     const rng = createRNG(4);
     const luna = findFighter(state, 'Luna');
     const matt = findFighter(state, 'Matt');
-    declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId });
+    declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId }, createRNG(1));
     killFighter(state, matt);
     resolveFighterPending(state, luna, rng);
     const last = state.battle!.log.at(-1);

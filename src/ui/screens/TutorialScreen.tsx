@@ -54,7 +54,7 @@ export function TutorialScreen() {
                       <td className="px-2 py-1.5 text-gold-dim">{def.hp}</td>
                       <td className="px-2 py-1.5 text-gold-dim">{def.startSlot}</td>
                       <td className="px-2 py-1.5 text-gold-dim leading-relaxed">
-                        {def.skills.map((sid) => `${SKILLS[sid].name[lang]} (⏱${SKILLS[sid].lv1.time})`).join(' · ')}
+                        {def.skills.map((sid) => `${SKILLS[sid].immediate ? '⚡ ' : ''}${SKILLS[sid].name[lang]} (⏱${SKILLS[sid].lv1.time})`).join(' · ')}
                       </td>
                       <td className="px-2 py-1.5 text-gold-dim leading-relaxed">
                         {def.score.map((c) => `${c.desc[lang]} (${c.points}p)`).join(' · ')}

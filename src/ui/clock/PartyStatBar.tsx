@@ -79,7 +79,7 @@ function HeroRow({
             ? t('game.dead', { n: f.reviveAtSlot })
             : t('game.deadForever')
           : pending
-          ? `→ ${pending.name[lang]} @${landSlotDisplay(f.pending!.landedAtSlot)}`
+          ? `${pending.immediate ? '⚡' : '→'} ${pending.name[lang]} @${landSlotDisplay(f.pending!.landedAtSlot)}`
           : f.shield
           ? `🛡 ${f.shield.kind === 'counter' ? 'Counter' : 'Mana'}`
           : ''}
