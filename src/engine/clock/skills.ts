@@ -1,4 +1,4 @@
-// Declare + resolve logic for all 12 adventurer skills. See docs/RULINGS.md §5 and §7 for the
+// Declare + resolve logic for every adventurer skill. See docs/RULINGS.md §5 and §7 for the
 // declare-immediate vs resolve-delayed split this file implements skill-by-skill.
 
 import { CHARACTERS, SKILLS, skillStats, type SkillId } from '@content/characters';
@@ -23,16 +23,17 @@ export function applySomnivarTax(state: GameState, baseTime: number): number {
   return baseTime;
 }
 
-/** Slots Set Trap may legally be armed on: strictly inside the skill's own ⏱ window (so the trap is
- *  a read of where the boss stops next, not a snipe anywhere on the clock — the whole point of the
- *  v0.3.0.2 redesign), at or above slot 0, and not already holding another trap.
+/** Slots Trap! may legally be armed on: strictly inside the skill's own ⏱ window (so the trap is
+ *  a read of where the boss stops next, not a snipe anywhere on the clock), at or above slot 0, and
+ *  not already holding another trap. ⏱4 gives exactly the "up to 3 slots ahead" range the v0.4.0
+ *  redesign calls for (marker-1..marker-3) without needing a separate range field.
  *
  *  Single source of truth on purpose: buildDeclareOptions() offers exactly this list to the UI and
  *  the bots, and declareSkill() below rejects anything outside it. Computing it in two places is
  *  what let the UI hand humans illegal slots while bots played by the rules. */
 export function legalTrapSlots(state: GameState, fighter: Fighter): number[] {
   const battle = state.battle!;
-  const trapTime = applySomnivarTax(state, skillStats('SetTrap', isLv2(state, fighter, 'SetTrap')).time);
+  const trapTime = applySomnivarTax(state, skillStats('Trap', isLv2(state, fighter, 'Trap')).time);
   const slots: number[] = [];
   // s > 0, not s >= 0: slot 0 is never playable (the walk loop ends the battle the instant the
   // marker reaches it, before processing anything there — see walk.ts) so a trap armed on it could
@@ -43,17 +44,36 @@ export function legalTrapSlots(state: GameState, fighter: Fighter): number[] {
   return slots;
 }
 
-/** Escalating dice ladder shared by Quick Shot's weak point and Set Trap's cancel: 5+ on the first
- *  try, one easier per miss, automatic on the 5th, and reset the moment it lands (§5.2). */
+/** Dice check shared by Sharp Shooting's weak point and Trap!'s cancel. Kit's Skill Improvement
+ *  passive (@content/characters PASSIVES.Kit) replaces the old per-skill "ladder" for him alone:
+ *  instead of a per-attempt target that resets to the base the moment it lands, every miss on
+ *  *either* skill permanently lowers PlayerProgress.rollPenalty (floor of 2, never resets, carries
+ *  across battles). Any other roll-using character (Dax's Focus) keeps the original per-battle,
+ *  per-skill, reset-on-success ladder with its 5th-attempt auto-success. */
 function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpose: string, rng: RNG): boolean {
   const battle = state.battle!;
   const base = skillStats(skillId, isLv2(state, fighter, skillId)).rollBaseTarget ?? 5;
-  const attempt = fighter.rollAttempt[skillId] ?? 0;
-  const target = attempt >= 4 ? 0 : Math.max(1, base - attempt);
+  const usesSkillImprovement = fighter.charId === 'Kit';
+  const progress = state.progress[fighter.playerId];
+
+  let target: number;
+  if (usesSkillImprovement) {
+    target = Math.max(2, base - (progress?.rollPenalty ?? 0));
+  } else {
+    const attempt = fighter.rollAttempt[skillId] ?? 0;
+    target = attempt >= 4 ? 0 : Math.max(1, base - attempt);
+  }
+
   const die = rng.int(1, 6);
   const success = target === 0 || die >= target;
   battle.log.push({ t: 'ROLL', playerId: fighter.playerId, purpose, die, target: target || null, success });
-  fighter.rollAttempt[skillId] = success ? 0 : attempt + 1;
+
+  if (usesSkillImprovement) {
+    if (!success && progress) progress.rollPenalty += 1;
+  } else {
+    const attempt = fighter.rollAttempt[skillId] ?? 0;
+    fighter.rollAttempt[skillId] = success ? 0 : attempt + 1;
+  }
   return success;
 }
 
@@ -138,7 +158,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       const legal = legalTrapSlots(state, fighter);
       if (choice.trapSlot == null || !legal.includes(choice.trapSlot)) {
         throw new Error(
-          `illegal Set Trap slot ${choice.trapSlot} for player ${fighter.playerId} at marker ${battle.marker} (legal: ${legal.join(',') || 'none'})`
+          `illegal Trap slot ${choice.trapSlot} for player ${fighter.playerId} at marker ${battle.marker} (legal: ${legal.join(',') || 'none'})`
         );
       }
       battle.traps.push({ slot: choice.trapSlot, dmg: stats.primary!, ownerId: fighter.playerId });
@@ -148,6 +168,24 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       // Mana is paid up front and never refunded, even if the attack later fizzles (§5.1/§8).
       fighter.mana = Math.max(0, fighter.mana - (choice.manaSpent ?? 0));
       break;
+    case 'multiHit':
+      // Multi Shot: the primary hit resolves normally through fighter.pending at landedAtSlot; the
+      // earlier hits are scheduled right now and fire unconditionally when the marker reaches them
+      // (processScheduledHitsAtMarker), independent of whether this fighter is even still alive by
+      // then — same "fire and forget" contract as a trap.
+      for (const eh of stats.earlyHits ?? []) {
+        battle.scheduledHits.push({ slot: battle.marker - eh.offset, dmg: eh.dmg, ownerId: fighter.playerId, skillId });
+      }
+      break;
+  }
+
+  // Vera's ManaCharge passive (@content/characters PASSIVES.Vera): declaring any of her own
+  // non-damaging actions (Aura Charge is currently the only one) grants +1 mana, cap 3. Kept
+  // separate from Aura Charge's own `buffMana` handling above (its primary is 0) so the passive
+  // reads as what it is — an always-on trait, not a property baked into one specific card.
+  const DAMAGING_KINDS = new Set(['attack', 'attackGated', 'attackRoll', 'attackMana', 'multiHit']);
+  if (fighter.charId === 'Vera' && !DAMAGING_KINDS.has(def.kind)) {
+    fighter.mana = Math.min(3, fighter.mana + 1);
   }
 
   battle.log.push({
@@ -189,14 +227,15 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       // Multi-hit is driven by whether `secondary` (hit count) is set at all, not by which skill
       // this is — was hardcoded to `skillId === 'TwinShot'` specifically, which silently made
       // Dax's Flurry (also 'attack' kind, also has a secondary hit count) resolve as a single hit
-      // instead of 3. Slash/Smite have no `secondary`, so this is unchanged for them.
+      // instead of 3. ignoresArmor is likewise read off the skill def (Smite/Aura Smite) rather
+      // than a hardcoded skillId check.
       if (stats.secondary != null) {
         for (let i = 0; i < stats.secondary; i++) {
           if (battle.outcome !== 'in_progress') break;
-          dealAttack(stats.primary!, false);
+          dealAttack(stats.primary!, def.ignoresArmor === true);
         }
       } else {
-        dealAttack(stats.primary!, skillId === 'Smite');
+        dealAttack(stats.primary!, def.ignoresArmor === true);
       }
       break;
     }
@@ -210,7 +249,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
     }
     case 'attackRoll': {
       dealAttack(stats.primary!, false);
-      if (rollLadder(state, fighter, skillId, 'QuickShot weak point', rng)) {
+      if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng)) {
         battle.weakPointActive = true;
         onWeakPointOpened(state, fighter.playerId);
       }
@@ -219,6 +258,11 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
     case 'attackMana': {
       const base = stats.primary! + stats.secondary! * (pending.manaSpent ?? 0);
       dealAttack(base, false);
+      break;
+    }
+    case 'multiHit': {
+      // The primary hit only — the two earlier hits already fired via scheduledHits (declareSkill).
+      dealAttack(stats.primary!, false);
       break;
     }
     case 'heal': {
@@ -279,20 +323,37 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
       continue;
     }
 
-    // The boss stopping on the trap only springs it — whether it actually cuts is a roll now, same
-    // escalating ladder as Quick Shot's weak point (5+, easier by 1 each miss, 5th attempt auto-
-    // succeeds). A miss means no damage AND no cancel — the trap fired too weakly to do either.
+    // The boss stopping on the trap only springs it — whether it actually cuts is a roll now (Kit's
+    // Skill Improvement passive, not the old per-battle ladder). A miss means no damage AND no
+    // cancel — the trap fired too weakly to do either.
     const owner = battle.fighters.find((f) => f.playerId === trap.ownerId)!;
-    const success = rollLadder(state, owner, 'SetTrap', 'SetTrap trigger', rng);
+    const success = rollLadder(state, owner, 'Trap', 'Trap trigger', rng);
     if (!success) {
       battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: 0, ownerId: trap.ownerId });
       continue;
     }
 
-    const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'SetTrap', countsAsAttack: false });
+    const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'Trap', countsAsAttack: false });
     onTrapTriggered(state, trap.ownerId);
     battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
     if (battle.bossPending && battle.outcome === 'in_progress') battle.bossPending = null;
+  }
+}
+
+/** Multi Shot's early hits (kind: 'multiHit', @content/characters): fired unconditionally the
+ *  instant the marker reaches their scheduled slot — no roll, no boss-position requirement, unlike
+ *  a trap. Runs alongside processTrapsAtMarker every tick, before that slot's visit queue. */
+export function processScheduledHitsAtMarker(state: GameState) {
+  const battle = state.battle!;
+  const here = battle.scheduledHits.filter((h) => h.slot === battle.marker);
+  if (here.length === 0) return;
+  battle.scheduledHits = battle.scheduledHits.filter((h) => h.slot !== battle.marker);
+  for (const h of here) {
+    if (battle.outcome !== 'in_progress') break;
+    const outgoing = computeOutgoingPlayerDamage(battle, h.dmg, h.ownerId);
+    const result = applyDamageToBoss(state, h.ownerId, outgoing, { ignoresArmor: false, skillId: h.skillId });
+    onPlayerDealtDamage(state, h.ownerId, h.skillId, result.effective);
+    battle.log.push({ t: 'RESOLVE_ATTACK', playerId: h.ownerId, skillId: h.skillId, targetId: 'boss', dmg: result.effective, wasted: false });
   }
 }
 

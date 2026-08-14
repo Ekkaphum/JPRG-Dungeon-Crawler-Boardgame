@@ -76,6 +76,7 @@ function assignCharacter(state: GameState, playerId: PlayerId, charId: CharId) {
     isLv2: {},
     expOnCard: {},
     bankedExp: 0,
+    rollPenalty: 0,
   };
 }
 
@@ -98,6 +99,7 @@ export function prepareBattle(state: GameState) {
     bossStackSeq: state.players.length,
     bossPending: null,
     traps: [],
+    scheduledHits: [],
     weakPointActive: false,
     partyBuff: null,
     guard: null,

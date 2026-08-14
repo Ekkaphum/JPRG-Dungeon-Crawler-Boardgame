@@ -50,7 +50,7 @@ describe('Set Trap legal slots (§v0.3.0.2)', () => {
     state.battle!.marker = 20;
     const kit = kitFighter(state);
 
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 18 });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 18 });
     expect(state.battle!.traps).toHaveLength(1);
     expect(state.battle!.traps[0]).toMatchObject({ slot: 18, ownerId: kit.playerId });
   });
@@ -63,7 +63,7 @@ describe('Set Trap legal slots (§v0.3.0.2)', () => {
 
     // Slot 3 is empty and below the marker — exactly what the old UI would have offered — but it
     // is far outside Set Trap's ⏱4 window, so it must not be accepted.
-    expect(() => declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 3 })).toThrow(/illegal Set Trap slot/);
+    expect(() => declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 3 })).toThrow(/illegal Trap slot/);
     expect(state.battle!.traps).toHaveLength(0);
   });
 
@@ -73,7 +73,7 @@ describe('Set Trap legal slots (§v0.3.0.2)', () => {
     state.battle!.marker = 20;
     const kit = kitFighter(state);
 
-    expect(() => declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap' })).toThrow(/illegal Set Trap slot/);
+    expect(() => declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap' })).toThrow(/illegal Trap slot/);
     expect(state.battle!.traps).toHaveLength(0);
   });
 

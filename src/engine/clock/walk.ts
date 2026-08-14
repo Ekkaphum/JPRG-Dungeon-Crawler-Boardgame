@@ -3,7 +3,7 @@
 
 import { CHARACTERS } from '@content/characters';
 import type { RNG } from '../rng';
-import { declareSkill, legalTrapSlots, processTrapsAtMarker, resolveFighterPending } from './skills';
+import { declareSkill, legalTrapSlots, processScheduledHitsAtMarker, processTrapsAtMarker, resolveFighterPending } from './skills';
 import { declareBossAction, resolveBossPending } from './bossAI';
 import { reviveFighter } from './damage';
 import { onBattleEndScoring } from './scoring';
@@ -81,6 +81,9 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
     battle.log.push({ t: 'MARKER_TICK', marker: battle.marker });
 
     processTrapsAtMarker(state, rng);
+    if (battle.outcome !== 'in_progress') break;
+
+    processScheduledHitsAtMarker(state);
     if (battle.outcome !== 'in_progress') break;
 
     for (const f of battle.fighters) {

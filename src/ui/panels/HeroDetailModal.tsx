@@ -1,5 +1,5 @@
 import type { BattleState, GameState } from '@engine/index';
-import { CHARACTERS, SKILLS, skillStats } from '@content/characters';
+import { CHARACTERS, PASSIVES, SKILLS, skillStats } from '@content/characters';
 import { skillEffectText } from '@content/skillText';
 import { heroStatuses } from '@content/statuses';
 import { landSlotDisplay } from '@content/eventText';
@@ -88,6 +88,15 @@ export function HeroDetailModal({
           })}
         </div>
       </Section>
+
+      {PASSIVES[p.charId] && (
+        <Section title={t('detail.passive')}>
+          <div className="rounded p-2 border border-gold-dim/25">
+            <div className="text-xs gold-text">{PASSIVES[p.charId]!.name[lang]}</div>
+            <div className="text-[11px] text-gold-dim mt-0.5 leading-snug">{PASSIVES[p.charId]!.desc[lang]}</div>
+          </div>
+        </Section>
+      )}
 
       <Section title={t('detail.scoreConditions')}>
         <div className="flex flex-col gap-1.5">

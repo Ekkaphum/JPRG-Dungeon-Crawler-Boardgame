@@ -11,31 +11,39 @@ export function skillBriefText(skillId: SkillId, isLv2: boolean, lang: Lang): st
 
   switch (skillId) {
     case 'Slash':
-      return th ? `โจมตีบอส ${p} · ถ้า HP ≤ 5 เป็น ${q}` : `${p} damage to the boss · ${q} while at HP ≤ 5`;
+    case 'QuickShot':
+    case 'AirPush':
+    case 'Hitting':
+      return th ? `โจมตีบอส ${p} (สกิลพื้นฐาน)` : `${p} damage to the boss (common attack)`;
+    case 'PowerStrike':
+      return th ? `โจมตีบอส ${p}` : `${p} damage to the boss`;
     case 'Guard':
-      return th
-        ? `รับดาเมจแทนเพื่อน 1 คน (ลดลง ${p}) · เขาโจมตี +${q}`
-        : `Take one ally's damage (reduced by ${p}) · they attack +${q}`;
+      return th ? `รับดาเมจแทนเพื่อน 1 คน (ลดลง ${p})` : `Take one ally's damage instead (reduced by ${p})`;
     case 'CounterAttack':
       return th ? `ลดดาเมจที่เข้า ${p}% · โดนตีสวนกลับทันที ${q} ทุกครั้ง` : `Take ${p}% less · riposte ${q} instantly on every hit`;
-    case 'QuickShot':
-      return th ? `โจมตี ${p} · ทอยเต๋าเปิดจุดอ่อน (${s.rollBaseTarget}+)` : `${p} damage · roll ${s.rollBaseTarget}+ to open a weak point`;
-    case 'SetTrap':
+    case 'SharpShooting':
       return th
-        ? `วางกับดัก ${p} (ไม่สนเกราะ) ในช่วง ⏱ ของสกิล · โดนแล้วทอย ${s.rollBaseTarget}+ ยกเลิกท่าบอส`
-        : `Trap for ${p} (ignores armor) inside the skill's own window · on a hit, roll ${s.rollBaseTarget}+ to cancel the boss's move`;
-    case 'TwinShot':
-      return th ? `โจมตี ${p} × ${q} ครั้ง (รวม ${p * q})` : `${p} damage ×${q} (${p * q} total)`;
+        ? `โจมตี ${p} · ทอยเต๋าเปิดจุดอ่อน (${s.rollBaseTarget}+) — ทุกคนโจมตี +4`
+        : `${p} damage · roll ${s.rollBaseTarget}+ to open a weak point — everyone deals +4`;
+    case 'Trap':
+      return th
+        ? `วางกับดัก ${p} (ไม่สนเกราะ) ในระยะ 3 ช่องถัดไป · โดนแล้วทอย ${s.rollBaseTarget}+ ยกเลิกท่าบอส`
+        : `Trap for ${p} (ignores armor) up to 3 slots ahead · on a hit, roll ${s.rollBaseTarget}+ to cancel the boss's move`;
+    case 'MultiShot': {
+      const early = s.earlyHits ?? [];
+      const all = [...early.map((h) => h.dmg), p];
+      return th ? `โจมตี ${all.join('/')} ที่ระยะ ${early.map((h) => h.offset).join('/')}/${s.time} ช่อง` : `Hits ${all.join('/')} at ${early.map((h) => h.offset).join('/')}/${s.time} slots out`;
+    }
     case 'Fireball':
     case 'Meteor':
       return th ? `โจมตี ${p} + ${q} ต่อมานาที่จ่าย` : `${p} damage +${q} per mana spent`;
-    case 'ManaCharge':
-      return th ? `มานา +${p} · ลดดาเมจที่เข้า ${q}` : `+${p} mana · take ${q} less damage`;
+    case 'AuraCharge':
+      return th ? `Def +${q} (มานา +1 จากพาสซีฟ ManaCharge)` : `Def +${q} (+1 mana from the ManaCharge passive)`;
     case 'Heal':
       return th ? `ฟื้น HP ให้เป้าหมาย ${p}` : `Restore ${p} HP`;
     case 'Blessing':
-      return th ? `ทั้งวง +${p} ATK · ลดดาเมจ ${q}` : `Party +${p} ATK · ${q} less damage taken`;
-    case 'Smite':
+      return th ? `ทั้งวง +${p} ATK · เกราะ +${q}` : `Party +${p} ATK · +${q} armor`;
+    case 'AuraSmite':
       return th ? `โจมตี ${p} — ไม่สนเกราะ` : `${p} damage, ignores armor`;
     default:
       return '';
@@ -52,45 +60,56 @@ export function skillEffectText(skillId: SkillId, isLv2: boolean, lang: Lang): s
 
   switch (skillId) {
     case 'Slash':
+    case 'QuickShot':
+    case 'AirPush':
+    case 'Hitting':
+      return th ? `สกิลพื้นฐาน ไม่มีเงื่อนไข — โจมตีบอส ${p} ดาเมจ, ⏱${s.time}` : `Common attack, no conditions — deal ${p} damage to the boss, ⏱${s.time}.`;
+    case 'PowerStrike':
       return th
-        ? `โจมตีบอส ${p} ดาเมจ — ถ้าตอนรับผล HP ของคุณ ≤ 5 จะเป็น ${q} ดาเมจแทน (เช็คตอนรับผล ไม่ใช่ตอนประกาศ: ถ้ามีคนฮีลคุณขึ้นเกิน 5 ก่อน หมัดนี้จะกลับไปเป็น ${p})`
-        : `Deal ${p} damage to the boss — or ${q} if your HP is ${'≤'} 5 when it resolves (checked on resolve, not on declare: an ally healing you back above 5 first drops it to ${p}).`;
+        ? `โจมตีบอส ${p} ดาเมจ — ขณะ HP ต่ำกว่า 7 พาสซีฟ Berserk เพิ่มดาเมจนี้ (และทุกดาเมจของ Matt) อีก +4`
+        : `Deal ${p} damage to the boss — while HP is below 7, the Berserk passive adds +4 to this (and every) Matt attack.`;
     case 'Guard':
       return th
-        ? `ทันทีที่ประกาศ: เลือกเพื่อน 1 คน (ไม่ใช่ตัวเอง) จนถึงเทิร์นหน้าของคุณ — ดาเมจทั้งหมดที่เขาจะได้รับ มาเข้าคุณแทนโดยลดลง ${p} และเขาโจมตีแรงขึ้น +${q} · ท่าที่ตีทุกคน (AoE) คุณจะกินทั้งของตัวเองและของเขา`
-        : `On declare: pick one ally (never yourself) until your next turn — all damage aimed at them lands on you instead, reduced by ${p}, and they attack for +${q}. Against a move that hits everyone you take both your share and theirs.`;
+        ? `ทันทีที่ประกาศ: เลือกเพื่อน 1 คน (ไม่ใช่ตัวเอง) จนถึงเทิร์นหน้าของคุณ — ดาเมจทั้งหมดที่เขาจะได้รับ มาเข้าคุณแทนโดยลดลง ${p} · ท่าที่ตีทุกคน (AoE) คุณจะกินทั้งของตัวเองและของเขา`
+        : `On declare: pick one ally (never yourself) until your next turn — all damage aimed at them lands on you instead, reduced by ${p}. Against a move that hits everyone you take both your share and theirs.`;
     case 'CounterAttack':
       return th
         ? `ทันทีที่ประกาศ: ดาเมจที่เข้าลด ${p}% · ทุกครั้งที่โดนตีระหว่างนั้น สวนกลับบอส ${q} ทันที (โดนกี่ครั้งก็สวนกี่ครั้ง แม้ดาเมจที่เข้าจะเหลือ 0) · พอถึงตาตัวเองรอบหน้าแค่หมดฤทธิ์ ไม่ตีซ้ำ`
         : `On declare: incoming damage reduced ${p}% · every hit during the window is answered with an immediate ${q} riposte (once per hit, even if the damage rounds to 0) · reaching your next turn just ends it, with no extra strike.`;
-    case 'QuickShot':
+    case 'SharpShooting':
       return th
-        ? `โจมตี ${p} ดาเมจ + ทอย d6 เปิดจุดอ่อน (ต้อง ${s.rollBaseTarget}+ · พลาดแล้วง่ายขึ้น 1 ทุกครั้ง · ครั้งที่ 5 สำเร็จอัตโนมัติ) — เปิดแล้วทุกคนโจมตี +4 จนบอสลงมือ`
-        : `Deal ${p} damage and roll d6 to open a weak point (need ${s.rollBaseTarget}+, 1 easier per miss, auto on the 5th try) — everyone then deals +4 until the boss acts.`;
-    case 'SetTrap':
+        ? `โจมตี ${p} ดาเมจ + ทอย d6 เปิดจุดอ่อน (ต้อง ${s.rollBaseTarget}+ — เกณฑ์นี้ลดลงถาวรทุกครั้งที่พลาด จากพาสซีฟ Skill Improvement, ต่ำสุด 2) — เปิดแล้วทุกคนโจมตี +4 จนบอสลงมือ`
+        : `Deal ${p} damage and roll d6 to open a weak point (need ${s.rollBaseTarget}+ — permanently lowered by 1 on every miss via the Skill Improvement passive, floor of 2) — everyone then deals +4 until the boss acts.`;
+    case 'Trap':
         return th
-        ? `เลือกวางกับดัก 1 ช่องภายในช่วง ⏱ ของสกิลนี้ · ถ้าบอสมา "หยุด" ตรงนั้นพอดี: ${p} ดาเมจ (ไม่สนเกราะ) แล้วทอย d6 (ต้อง ${s.rollBaseTarget}+ · พลาดแล้วง่ายขึ้น 1 ทุกครั้ง · ครั้งที่ 5 สำเร็จอัตโนมัติ) ถ้าผ่านคือยกเลิกท่าที่บอสประกาศไว้ · ถ้ามาร์กเกอร์เดินผ่านเฉยๆ กับดักหายไป`
-        : `Arm the trap on one slot inside this skill's own window · if the boss *stops* exactly there: ${p} damage (ignores armor), then roll d6 (need ${s.rollBaseTarget}+, 1 easier per miss, auto on the 5th) to cancel its declared move · if the marker merely passes, the trap is lost.`;
-    case 'TwinShot':
-      return th ? `โจมตีบอส ${p} ดาเมจ ${q} ครั้ง (รวม ${p * q})` : `Hit the boss for ${p}, ${q} times (${p * q} total).`;
+        ? `เลือกวางกับดัก 1 ช่อง ไม่เกิน 3 ช่องถัดจากตำแหน่งปัจจุบัน · ถ้าบอสมา "หยุด" ตรงนั้นพอดี: ${p} ดาเมจ (ไม่สนเกราะ) แล้วทอย d6 (ต้อง ${s.rollBaseTarget}+, ลดลงถาวรทุกครั้งที่พลาดจากพาสซีฟ Skill Improvement, ต่ำสุด 2) ถ้าผ่านคือยกเลิกท่าที่บอสประกาศไว้ทั้งท่า · ถ้ามาร์กเกอร์เดินผ่านเฉยๆ กับดักหายไป`
+        : `Arm the trap on one slot up to 3 ahead of your current position · if the boss *stops* exactly there: ${p} damage (ignores armor), then roll d6 (need ${s.rollBaseTarget}+, permanently lowered by 1 on every miss via Skill Improvement, floor of 2) to cancel its declared move entirely · if the marker merely passes, the trap is lost.`;
+    case 'MultiShot': {
+      const early = s.earlyHits ?? [];
+      const parts = [...early.map((h) => `${h.dmg} dmg ที่ระยะ ${h.offset} ช่อง`), `${p} dmg ที่ระยะ ${s.time} ช่อง (ตอน resolve)`];
+      const partsEn = [...early.map((h) => `${h.dmg} dmg ${h.offset} slots out`), `${p} dmg ${s.time} slots out (on resolve)`];
+      return th
+        ? `ยิง 3 นัดจากแอคชันเดียว: ${parts.join(', ')} — แต่ละนัดยิงอัตโนมัติไม่ต้องทอยเต๋า`
+        : `Three hits from one declare: ${partsEn.join(', ')} — each fires unconditionally, no roll needed.`;
+    }
     case 'Fireball':
     case 'Meteor':
       return th
-        ? `โจมตี ${p} ดาเมจ + ${q} ต่อมานา 1 หน่วยที่จ่าย (จ่ายได้สูงสุด 3 → ${p + q * 3}) · มานาจ่ายตอนประกาศ ไม่คืนแม้แอคชันจะเสียฟรี`
-        : `Deal ${p} damage +${q} per mana spent (up to 3 → ${p + q * 3}) · mana is paid on declare and never refunded.`;
-    case 'ManaCharge':
+        ? `โจมตี ${p} ดาเมจ + ${q} ต่อมานา 1 หน่วยที่จ่าย (จ่ายได้สูงสุด 3 → ${p + q * 3}) · มานาจ่ายตอนประกาศ ไม่คืนแม้แอคชันจะเสียฟรี — มานาได้มาจากพาสซีฟ ManaCharge ตอนใช้ Aura Charge`
+        : `Deal ${p} damage +${q} per mana spent (up to 3 → ${p + q * 3}) · mana is paid on declare and never refunded — mana itself comes from the ManaCharge passive whenever Aura Charge is used.`;
+    case 'AuraCharge':
       return th
-        ? `ทันทีที่ประกาศ: ได้มานา +${p} (เก็บได้สูงสุด 3) และดาเมจที่เข้าลด ${q} จนถึงเทิร์นหน้าของตัวเอง`
-        : `On declare: gain ${p} mana (cap 3) and reduce incoming damage by ${q} until your next turn.`;
+        ? `ทันทีที่ประกาศ: ดาเมจที่เข้าลด ${q} จนถึงเทิร์นหน้าของตัวเอง · พาสซีฟ ManaCharge มอบมานา +1 (เก็บได้สูงสุด 3) ให้ทันทีที่ใช้การ์ดนี้`
+        : `On declare: incoming damage reduced by ${q} until your next turn · the ManaCharge passive grants +1 mana (cap 3) the instant this card is used.`;
     case 'Heal':
       return th
         ? `ฟื้น HP ให้เป้าหมาย ${p} แต้ม — ถ้าเป้าหมายตายไปก่อนถึงตาคุณ แอคชันนี้เสียฟรี`
         : `Restore ${p} HP to the target — wasted if the target dies before it resolves.`;
     case 'Blessing':
       return th
-        ? `ทันทีที่ประกาศ: ทั้งวงโจมตี +${p} และดาเมจที่เข้าลด ${q} จนถึงเทิร์นหน้าของคุณ (บัฟ "ทุกคน" ไม่รวมบอส)`
-        : `On declare: the whole party gains +${p} attack and -${q} incoming damage until your next turn (party-only, never the boss).`;
-    case 'Smite':
+        ? `ทันทีที่ประกาศ: ทั้งวงโจมตี +${p} และได้เกราะ +${q} จนถึงเทิร์นหน้าของคุณ (บัฟ "ทุกคน" ไม่รวมบอส)`
+        : `On declare: the whole party gains +${p} attack and +${q} armor until your next turn (party-only, never the boss).`;
+    case 'AuraSmite':
       return th ? `โจมตีบอส ${p} ดาเมจ — ไม่สนเกราะ` : `Deal ${p} damage to the boss, ignoring armor.`;
     default:
       return '';

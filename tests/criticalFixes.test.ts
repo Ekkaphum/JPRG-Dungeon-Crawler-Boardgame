@@ -62,7 +62,7 @@ describe('1. party wipe ends the battle immediately, even with time left', () =>
     for (const f of state.battle!.fighters) killFighter(state, f);
     expect(state.battle!.outcome).toBe('party_wiped');
 
-    const ownSkill: Record<string, string> = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'Smite' };
+    const ownSkill: Record<string, string> = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'AuraSmite' };
     while (!res.done) {
       const d: PendingDecision = res.value;
       if (d.kind !== 'DECLARE_ACTION') throw new Error(`unexpected decision kind ${d.kind}`);
@@ -111,13 +111,13 @@ describe('3. resolveOrderCompare — players always resolve before the boss', ()
   });
 });
 
-describe('6. Set Trap damage does not count toward attack-count conditions', () => {
+describe('6. Trap! damage does not count toward attack-count conditions', () => {
   it('applyDamageToBoss with countsAsAttack:false leaves attackCountThisBattle untouched', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     expect(kit.attackCountThisBattle).toBe(0);
-    applyDamageToBoss(state, kit.playerId, 4, { ignoresArmor: true, skillId: 'SetTrap', countsAsAttack: false });
+    applyDamageToBoss(state, kit.playerId, 4, { ignoresArmor: true, skillId: 'Trap', countsAsAttack: false });
     expect(kit.attackCountThisBattle).toBe(0);
   });
 
@@ -201,8 +201,8 @@ describe('8. AoE + Counter — every target is hit before any counter resolves',
 describe('4. Last Shot is tallied off battle.finishedBy, not matt2/vera2 score entries', () => {
   it("credits a Luna kill — a character with no Last Shot score condition of her own", async () => {
     // Luna has no matt2/vera2-style condition, so the old scoreLog-scanning tie-break would have
-    // shown 0 Last Shots for her even though she landed the killing blow. Smite also ignores armor
-    // (skills.ts dealAttack: `skillId === 'Smite'`), so a high armor value here can't stop the kill.
+    // shown 0 Last Shots for her even though she landed the killing blow. Aura Smite also ignores
+    // armor (SKILLS.AuraSmite.ignoresArmor), so a high armor value here can't stop the kill.
     const state = fixedDraftState();
     prepareBattle(state);
     const battle = state.battle!;
@@ -214,7 +214,7 @@ describe('4. Last Shot is tallied off battle.finishedBy, not matt2/vera2 score e
     for (const f of battle.fighters) if (f.charId !== 'Luna') f.slot = 2;
     battle.bossSlot = 2; // parked away from Luna's tick so only she resolves this turn
     luna.slot = 10;
-    luna.pending = { skillId: 'Smite', declaredAtSlot: 12, landedAtSlot: 10 };
+    luna.pending = { skillId: 'AuraSmite', declaredAtSlot: 12, landedAtSlot: 10 };
     battle.marker = 11;
 
     const rng = createRNG(1);

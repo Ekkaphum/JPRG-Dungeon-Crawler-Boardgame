@@ -17,18 +17,28 @@ export const CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna'];
 export const ALL_CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna', 'Dax', 'Mira'];
 
 export type SkillId =
+  // Matt
   | 'Slash'
+  | 'PowerStrike'
   | 'Guard'
   | 'CounterAttack'
+  // Kit
   | 'QuickShot'
-  | 'SetTrap'
-  | 'TwinShot'
+  | 'SharpShooting'
+  | 'Trap'
+  | 'MultiShot'
+  // Vera
+  | 'AirPush'
   | 'Fireball'
+  | 'AuraCharge'
   | 'Meteor'
-  | 'ManaCharge'
-  | 'Heal'
+  // Luna
+  | 'Hitting'
+  | 'AuraSmite'
   | 'Blessing'
-  | 'Smite'
+  | 'Heal'
+  // Dax / Mira — unchanged by the v0.4.0 redesign, still content-complete but excluded from
+  // CHAR_IDS (see the comment on ALL_CHAR_IDS above).
   | 'Flurry'
   | 'Riposte'
   | 'Focus'
@@ -38,16 +48,17 @@ export type SkillId =
 
 /** Which resolution family a skill belongs to — see docs/RULINGS.md §5. */
 export type SkillKind =
-  | 'attack' // Twin Shot, Smite — plain damage to boss, resolves next visit
-  | 'attackGated' // Slash — attack whose damage steps up while a self-condition holds
-  | 'attackRoll' // Quick Shot — attack + dice ladder → weak point debuff, resolves next visit
-  | 'attackMana' // Fireball, Meteor — attack scaled by mana paid, resolves next visit
-  | 'heal' // Heal — targeted heal, resolves next visit
-  | 'buffCounter' // Counter Attack — immediate self-shield + conditional counter-strike
+  | 'attack' // Slash, Power Strike, Quick Shot, Air Push, Hitting, Aura Smite, Twin Shot, Smite — plain damage to boss, resolves next visit
+  | 'attackGated' // (unused since v0.4.0 — Matt's HP-gated damage is now the always-on Berserk passive instead of a per-skill tier)
+  | 'attackRoll' // Sharp Shooting, Focus — attack + dice roll → weak point buff, resolves next visit
+  | 'attackMana' // Fireball, Meteor, Frost Bolt — attack scaled by mana paid, resolves next visit
+  | 'multiHit' // Multi Shot — one hit at resolve + extra hits scheduled at earlier slots (see earlyHits)
+  | 'heal' // Heal, Mending Wind — targeted heal, resolves next visit
+  | 'buffCounter' // Counter Attack, Riposte — immediate self-shield + conditional counter-strike
   | 'buffParty' // Blessing — immediate party-wide atk/defense buff
-  | 'buffMana' // ManaCharge — immediate mana gain + self-shield
+  | 'buffMana' // Aura Charge, Arcane Ward — immediate self-shield; Vera's own mana gain comes from her ManaCharge passive, not this
   | 'guard' // Guard — immediate damage-redirect link from an ally onto the caster
-  | 'trap'; // Set Trap — immediate token placement
+  | 'trap'; // Trap!, Set Trap — immediate token placement
 
 export interface SkillLevelStats {
   time: number;
@@ -56,8 +67,13 @@ export interface SkillLevelStats {
   /** Also overloaded per kind: hit count (attack), damage per mana (attackMana), riposte damage
    *  (buffCounter), and — for `attackGated` — the *boosted* damage used while the gate holds. */
   secondary?: number;
-  /** Quick Shot only — dice-ladder starting target (5 normally, 4 at Lv2). */
+  /** Dice-ladder starting target for attackRoll/trap kinds (5 normally, 4 at Lv2 — 6/5 for Trap!). */
   rollBaseTarget?: number;
+  /** multiHit only — extra hits scheduled `offset` slots before the caster's own landing slot,
+   *  fired unconditionally (no roll, no boss-position check) when the clock marker reaches them. The
+   *  skill's own `primary` damage still lands normally at resolve (marker - time), so a 3-hit skill
+   *  needs exactly 2 entries here. */
+  earlyHits?: { offset: number; dmg: number }[];
 }
 
 export interface SkillDef {
@@ -65,9 +81,64 @@ export interface SkillDef {
   charId: CharId;
   kind: SkillKind;
   name: { th: string; en: string };
+  /** Damage from this skill skips the boss's armor entirely — Smite/Aura Smite and Trap!/Set Trap
+   *  (the latter hardcoded separately in skills.ts's trap-kind resolution, not read from here). */
+  ignoresArmor?: boolean;
   lv1: SkillLevelStats;
   lv2: SkillLevelStats;
 }
+
+export type PassiveId = 'Berserk' | 'SkillImprovement' | 'ManaCharge' | 'HolyWater';
+
+export interface PassiveDef {
+  id: PassiveId;
+  charId: CharId;
+  name: { th: string; en: string };
+  desc: { th: string; en: string };
+}
+
+/** Always-on character traits — never declared, never leveled with EXP (there's no card to put
+ *  tokens on), just true for as long as the character is alive. Engine hooks for these live where
+ *  the mechanic naturally sits (damage.ts for Berserk, skills.ts for the roll-penalty and mana
+ *  passives) rather than through a generic dispatch table — four one-off effects don't earn one. */
+export const PASSIVES: Partial<Record<CharId, PassiveDef>> = {
+  Matt: {
+    id: 'Berserk',
+    charId: 'Matt',
+    name: { th: 'Berserk', en: 'Berserk' },
+    desc: {
+      th: 'ทำงานเองตลอดเวลา: ขณะ HP ต่ำกว่า 7 พลังโจมตีของ Matt ทุกครั้ง +4 (เช็คตอน resolve เหมือน Slash เดิม)',
+      en: "Always active: while Matt's HP is below 7, every attack of his deals +4 damage (checked on resolve, same timing as the old Slash tier).",
+    },
+  },
+  Kit: {
+    id: 'SkillImprovement',
+    charId: 'Kit',
+    name: { th: 'Skill Improvement', en: 'Skill Improvement' },
+    desc: {
+      th: 'ทุกครั้งที่ทอยลูกเต๋าของ Sharp Shooting หรือ Trap! ไม่สำเร็จ เกณฑ์ที่ต้องทอยของทั้งสองสกิลจะลดลง 1 แต้ม สะสมไปตลอดทั้งเกม (ข้ามยกบอส) จนถึงค่าต่ำสุด 2',
+      en: "Every failed Sharp Shooting or Trap! roll permanently lowers both skills' target by 1, stacking across the whole game (not reset between boss fights), down to a floor of 2.",
+    },
+  },
+  Vera: {
+    id: 'ManaCharge',
+    charId: 'Vera',
+    name: { th: 'ManaCharge', en: 'ManaCharge' },
+    desc: {
+      th: 'ทำงานเองตลอดเวลา: ทุกครั้งที่ Vera ประกาศแอคชันที่ไม่สร้างดาเมจให้บอส (เช่น Aura Charge) เธอได้มานา +1 (สูงสุด 3) — Fireball/Meteor จ่ายมานานี้ได้ +3 ดาเมจต่อหน่วย',
+      en: "Always active: whenever Vera declares a non-damaging action (Aura Charge), she gains +1 mana (cap 3) — Fireball/Meteor spend it for +3 damage per point.",
+    },
+  },
+  Luna: {
+    id: 'HolyWater',
+    charId: 'Luna',
+    name: { th: 'HolyWater', en: 'Holy Water' },
+    desc: {
+      th: 'ทำงานเองตลอดเวลา: เมื่อบอสโจมตี Luna โดยตรง (ท่าเดี่ยว ไม่ใช่ AoE) สถานะผิดปกติที่ท่านั้นจะติดให้เธอถูกยกเลิกทันที — ยังไม่มีท่าบอสใดในเนื้อหาปัจจุบันที่ติดสถานะผิดปกติ ดังนั้นตอนนี้ยังไม่มีผลจริงในเกม แต่กลไกพร้อมรองรับบอสในอนาคต',
+      en: "Always active: when the boss hits Luna with a single-target move, any debuff status it would apply to her is cancelled — no boss move in the current 3-boss content actually applies one, so this has no observable effect yet, but the hook is wired for future boss content.",
+    },
+  },
+};
 
 export interface ScoreConditionDef {
   id: string;
@@ -89,45 +160,36 @@ export interface CharacterDef {
 }
 
 export const SKILLS: Record<SkillId, SkillDef> = {
+  // v0.4.0 redesign: every drafted character now gets a cheap "common attack" plus 3 real cards
+  // (was a flat 3-card kit), and one always-on passive that isn't a card at all — see PASSIVES
+  // above. Lv2 numbers are extrapolated with the same ~35-50% bump docs/10-v0.3.0-rulings.md §1
+  // uses everywhere else in this file; only Lv1 was specified.
   Slash: {
     id: 'Slash',
     charId: 'Matt',
-    kind: 'attackGated',
+    kind: 'attack',
     name: { th: 'Slash', en: 'Slash' },
-    // v0.3.2: Berserk was folded into Slash as a damage tier rather than kept as a separate card,
-    // so Matt's slot ① holds one attack instead of two and slot ② is free for Guard (see the role
-    // template in GAME_DESIGN.md §8.0). primary = normal damage, secondary = the "ยิ่งใกล้ตายยิ่งแรง"
-    // damage while HP <= 5. secondary stays at 11 on purpose: matt1 scores on "more than 10 damage
-    // in one hit", so anything lower would put Matt's own slot-① condition out of reach unbuffed.
-    lv1: { time: 4, primary: 6, secondary: 11 },
-    lv2: { time: 4, primary: 9, secondary: 16 },
+    lv1: { time: 2, primary: 3 },
+    lv2: { time: 2, primary: 4 },
+  },
+  PowerStrike: {
+    id: 'PowerStrike',
+    charId: 'Matt',
+    kind: 'attack',
+    name: { th: 'Power Strike', en: 'Power Strike' },
+    lv1: { time: 4, primary: 6 },
+    lv2: { time: 4, primary: 9 },
   },
   Guard: {
     id: 'Guard',
     charId: 'Matt',
     kind: 'guard',
     name: { th: 'Guard', en: 'Guard' },
-    // primary = flat reduction on damage redirected onto Matt · secondary = attack buff handed to
-    // the warded ally. Both were forced by measurement, not taste (docs/BALANCE_NOTES.md):
-    //
-    //  - A *pure* redirect (reduction 0) made the party strictly worse off. A redirect doesn't
-    //    lower incoming damage, it concentrates it onto one 16 HP body instead of four pools, so it
-    //    killed Matt more than it saved anyone: luna3 ("nobody died") fell 0.94 → 0.54 fires/game
-    //    and total boss damage *rose*. `primary` is what makes eating a hit cost the boss something.
-    //  - Even mitigated, a zero-offence card could not pay its own ⏱. Every other character's slot ②
-    //    feeds the damage economy — Quick Shot deals damage while opening the weak point, Blessing
-    //    multiplies the whole party, ManaCharge banks damage for later — and Matt's was the only one
-    //    producing nothing at all, which cost the party ~11 damage/battle it does not have (§10).
-    //    `secondary` is the fix, and it is the Knight fantasy stated mechanically: the ally you are
-    //    covering can swing freely. Distinct from Blessing on purpose (one target, and it comes
-    //    bundled with absorption, vs. party-wide with none) per the §8.0 no-duplicate-kinds rule.
-    //
-    // ⏱5, not 4, for two reasons beyond flavour: it keeps Matt's kit average at 4.33 exactly where
-    // v0.3.1's speed realignment put it (Kit 3.67 < Luna 4.00 < Matt 4.33 < Vera 5.00), and it
-    // steps into the ⏱>=5 bracket Somnivar taxes — which Berserk just vacated by being folded into
-    // Slash's ⏱4.
-    lv1: { time: 5, primary: 4, secondary: 3 },
-    lv2: { time: 5, primary: 6, secondary: 4 },
+    // primary = flat reduction on damage redirected onto Matt. No more `secondary`/wardAtk (the
+    // ward no longer gets an attack buff) — the redesign frames Guard as pure protection: Matt
+    // takes the hit instead of them, full stop.
+    lv1: { time: 5, primary: 4 },
+    lv2: { time: 5, primary: 6 },
   },
   CounterAttack: {
     id: 'CounterAttack',
@@ -135,46 +197,77 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     kind: 'buffCounter',
     name: { th: 'Counter Attack', en: 'Counter Attack' },
     // primary = incoming-damage reduction %, secondary = counter-strike damage
-    // ⏱5 -> 4 (2026-08-13): part of the equal-start speed realignment — see docs/BALANCE_NOTES.md.
-    lv1: { time: 4, primary: 50, secondary: 12 },
-    lv2: { time: 4, primary: 50, secondary: 17 },
+    lv1: { time: 4, primary: 50, secondary: 9 },
+    lv2: { time: 4, primary: 50, secondary: 13 },
   },
   QuickShot: {
     id: 'QuickShot',
     charId: 'Kit',
-    kind: 'attackRoll',
+    kind: 'attack',
     name: { th: 'Quick Shot', en: 'Quick Shot' },
-    lv1: { time: 3, primary: 4, rollBaseTarget: 5 },
-    lv2: { time: 3, primary: 6, rollBaseTarget: 4 },
+    lv1: { time: 2, primary: 2 },
+    lv2: { time: 2, primary: 3 },
   },
-  SetTrap: {
-    id: 'SetTrap',
+  SharpShooting: {
+    id: 'SharpShooting',
+    charId: 'Kit',
+    kind: 'attackRoll',
+    name: { th: 'Sharp Shooting', en: 'Sharp Shooting' },
+    // On a successful roll, every player's attacks on the boss deal +4 until the boss next acts —
+    // reuses the same weakPointActive flag the old Quick Shot set.
+    lv1: { time: 3, primary: 5, rollBaseTarget: 5 },
+    lv2: { time: 3, primary: 7, rollBaseTarget: 4 },
+  },
+  Trap: {
+    id: 'Trap',
     charId: 'Kit',
     kind: 'trap',
-    name: { th: 'Set Trap', en: 'Set Trap' },
-    // Armed somewhere inside the skill's own ⏱ window; on a hit it deals `primary` and rolls the
-    // same escalating ladder Quick Shot uses to cancel the boss's declared move.
-    lv1: { time: 4, primary: 4, rollBaseTarget: 5 },
-    lv2: { time: 4, primary: 6, rollBaseTarget: 4 },
+    name: { th: 'Trap!', en: 'Trap!' },
+    // Armed on one of the 3 slots ahead of Kit's own pawn (legalTrapSlots derives this from `time`
+    // — 4 gives exactly 3 legal slots, marker-1..marker-3). On a hit: `primary` damage (ignores
+    // armor) and, on a successful roll, the boss's queued move is cancelled outright.
+    lv1: { time: 4, primary: 5, rollBaseTarget: 6 },
+    lv2: { time: 4, primary: 7, rollBaseTarget: 5 },
   },
-  TwinShot: {
-    id: 'TwinShot',
+  MultiShot: {
+    id: 'MultiShot',
     charId: 'Kit',
+    kind: 'multiHit',
+    name: { th: 'Multi Shot', en: 'Multi Shot' },
+    // primary = the hit that lands at normal resolve (marker - time). earlyHits fire unconditionally
+    // at marker - offset, no roll needed — 2 dmg 2 slots out, 3 dmg 3 slots out, then the 4-dmg
+    // primary hit itself lands 4 slots out (= time), for 3 total hits across the ⏱4 window.
+    lv1: { time: 4, primary: 4, earlyHits: [{ offset: 2, dmg: 2 }, { offset: 3, dmg: 3 }] },
+    lv2: { time: 4, primary: 6, earlyHits: [{ offset: 2, dmg: 3 }, { offset: 3, dmg: 5 }] },
+  },
+  AirPush: {
+    id: 'AirPush',
+    charId: 'Vera',
     kind: 'attack',
-    name: { th: 'Twin Shot', en: 'Twin Shot' },
-    // primary = damage per hit, secondary = hit count
-    // ⏱5 -> 4 (2026-08-13): part of the equal-start speed realignment — see docs/BALANCE_NOTES.md.
-    lv1: { time: 4, primary: 4, secondary: 2 },
-    lv2: { time: 4, primary: 6, secondary: 2 },
+    name: { th: 'Air Push', en: 'Air Push' },
+    lv1: { time: 2, primary: 2 },
+    lv2: { time: 2, primary: 3 },
   },
   Fireball: {
     id: 'Fireball',
     charId: 'Vera',
     kind: 'attackMana',
     name: { th: 'Fireball', en: 'Fireball' },
-    // primary = base damage, secondary = damage per mana point
+    // primary = base damage, secondary = damage per mana point. Mana itself comes from Vera's
+    // ManaCharge passive (see PASSIVES), not from anything Fireball does.
     lv1: { time: 3, primary: 5, secondary: 3 },
     lv2: { time: 3, primary: 8, secondary: 3 },
+  },
+  AuraCharge: {
+    id: 'AuraCharge',
+    charId: 'Vera',
+    kind: 'buffMana',
+    name: { th: 'Aura Charge', en: 'Aura Charge' },
+    // primary intentionally 0 — the mana gain is the ManaCharge *passive* firing off this
+    // non-damaging declare (skills.ts), not a property of the card itself. secondary = the flat
+    // "Def+3" damage reduction the card actually grants.
+    lv1: { time: 2, primary: 0, secondary: 3 },
+    lv2: { time: 2, primary: 0, secondary: 5 },
   },
   Meteor: {
     id: 'Meteor',
@@ -184,41 +277,40 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     lv1: { time: 7, primary: 13, secondary: 3 },
     lv2: { time: 7, primary: 18, secondary: 3 },
   },
-  ManaCharge: {
-    id: 'ManaCharge',
-    charId: 'Vera',
-    kind: 'buffMana',
-    name: { th: 'ManaCharge', en: 'ManaCharge' },
-    // primary = mana gained, secondary = incoming-damage reduction (flat)
-    lv1: { time: 2, primary: 1, secondary: 3 },
-    lv2: { time: 2, primary: 1, secondary: 5 },
-  },
-  Heal: {
-    id: 'Heal',
+  Hitting: {
+    id: 'Hitting',
     charId: 'Luna',
-    kind: 'heal',
-    name: { th: 'Heal', en: 'Heal' },
-    lv1: { time: 4, primary: 6 },
-    lv2: { time: 4, primary: 9 },
+    kind: 'attack',
+    name: { th: 'Hitting', en: 'Hitting' },
+    lv1: { time: 2, primary: 2 },
+    lv2: { time: 2, primary: 3 },
+  },
+  AuraSmite: {
+    id: 'AuraSmite',
+    charId: 'Luna',
+    kind: 'attack',
+    ignoresArmor: true,
+    name: { th: 'Aura Smite', en: 'Aura Smite' },
+    lv1: { time: 4, primary: 5 },
+    lv2: { time: 4, primary: 7 },
   },
   Blessing: {
     id: 'Blessing',
     charId: 'Luna',
     kind: 'buffParty',
     name: { th: 'Blessing', en: 'Blessing' },
-    // primary = party atk buff, secondary = party dmg reduction (flat)
+    // primary = party atk buff, secondary = party armor/dmg reduction (flat), both lasting until
+    // Luna's next turn (her declared ⏱ already matches the "เป็นเวลา 4" duration in the design note).
     lv1: { time: 4, primary: 3, secondary: 2 },
     lv2: { time: 4, primary: 4, secondary: 3 },
   },
-  Smite: {
-    id: 'Smite',
+  Heal: {
+    id: 'Heal',
     charId: 'Luna',
-    kind: 'attack',
-    name: { th: 'Smite', en: 'Smite' },
-    // ⏱3 dmg4 -> ⏱4 dmg6 (2026-08-13): part of the equal-start speed realignment — see
-    // docs/BALANCE_NOTES.md. Damage raised alongside the ⏱ increase so it stays worth casting.
-    lv1: { time: 4, primary: 6 },
-    lv2: { time: 4, primary: 8 },
+    kind: 'heal',
+    name: { th: 'Heal', en: 'Heal' },
+    lv1: { time: 3, primary: 6 },
+    lv2: { time: 3, primary: 9 },
   },
 
   // Dax — Duelist. Only uses skill kinds the engine already treats generically (attack,
@@ -296,8 +388,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 16,
     startSlot: 23,
     reviveHp: 8,
-    // Role template order (GAME_DESIGN.md §8.0): ① attack, ② support, ③ signature.
-    skills: ['Slash', 'Guard', 'CounterAttack'],
+    // v0.4.0: common attack + 3 cards, plus the always-on Berserk passive (PASSIVES.Matt).
+    skills: ['Slash', 'PowerStrike', 'Guard', 'CounterAttack'],
     score: [
       {
         id: 'matt1',
@@ -332,7 +424,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     startSlot: 23,
     reviveHp: 7,
     // ① Twin Shot ② Quick Shot (its weak point is what the rest of the party spends) ③ Set Trap.
-    skills: ['TwinShot', 'QuickShot', 'SetTrap'],
+    // v0.4.0: common attack + 3 cards, plus the always-on Skill Improvement passive (PASSIVES.Kit).
+    skills: ['QuickShot', 'SharpShooting', 'Trap', 'MultiShot'],
     score: [
       {
         id: 'kit1',
@@ -368,7 +461,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     reviveHp: 6,
     // ① Fireball ② ManaCharge ③ Meteor. Vera is the template's one sanctioned "supports only
     // herself" case (§8.0) — she is the payload the other three set up, not a setter-upper.
-    skills: ['Fireball', 'ManaCharge', 'Meteor'],
+    // v0.4.0: common attack + 3 cards, plus the always-on ManaCharge passive (PASSIVES.Vera).
+    skills: ['AirPush', 'Fireball', 'AuraCharge', 'Meteor'],
     score: [
       {
         id: 'vera1',
@@ -412,7 +506,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     startSlot: 23,
     reviveHp: 7,
     // ① Smite ② Blessing ③ Heal — Heal is her identity card, not her team-support one.
-    skills: ['Smite', 'Blessing', 'Heal'],
+    // v0.4.0: common attack + 3 cards, plus the always-on HolyWater passive (PASSIVES.Luna).
+    skills: ['Hitting', 'AuraSmite', 'Blessing', 'Heal'],
     score: [
       {
         id: 'luna1',

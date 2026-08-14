@@ -34,7 +34,7 @@ export function createHardBot(id: number, rand: () => number = Math.random): Age
                 estimateChoiceValue(state, decision.playerId, c) +
                 scoreConditionBonus(state, decision.playerId, c) +
                 comboSynergyBonus(state, decision.playerId, c);
-              const isDefensive = c.skillId === 'CounterAttack' || c.skillId === 'ManaCharge' || c.skillId === 'Heal';
+              const isDefensive = c.skillId === 'CounterAttack' || c.skillId === 'AuraCharge' || c.skillId === 'Heal';
               if (critical && isDefensive) score += 4;
               return { choice: c, score };
             })

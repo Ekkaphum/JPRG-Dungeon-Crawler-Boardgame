@@ -14,6 +14,7 @@ export {
   legalTrapSlots,
   resolveFighterPending,
   processTrapsAtMarker,
+  processScheduledHitsAtMarker,
   dealDamageToFighterFromBoss,
   applyBossDamageToFighter,
   redirectTarget,

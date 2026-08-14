@@ -6,14 +6,23 @@ import { BOSSES } from '@content/bosses3';
 import { CHARACTERS, type SkillId } from '@content/characters';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
+/** Berserk's threshold (@content/characters PASSIVES.Matt) — always-on, checked here rather than
+ *  once at declare so a mid-flight heal that pulls Matt back above it drops the bonus, same resolve-
+ *  time timing the old Slash HP tier used. */
+const BERSERK_HP_THRESHOLD = 7;
+
 /** Outgoing damage a player deals to the boss: base + party Blessing atk buff + weak-point bonus +
- *  Guard's single-target buff if this attacker is the one being covered.
+ *  Guard's single-target buff if this attacker is the one being covered + Matt's Berserk passive.
  *  "ทุกคน" buffs never apply to the boss (GAME_DESIGN_v0_3_0.md §5.1) so this is player-only. */
 export function computeOutgoingPlayerDamage(battle: BattleState, base: number, attackerId?: number): number {
   let dmg = base;
   if (battle.partyBuff) dmg += battle.partyBuff.atk;
   if (battle.weakPointActive) dmg += 4;
   if (attackerId != null && battle.guard?.wardId === attackerId) dmg += battle.guard.wardAtk;
+  if (attackerId != null) {
+    const attacker = battle.fighters.find((f) => f.playerId === attackerId);
+    if (attacker?.charId === 'Matt' && attacker.alive && attacker.hp < BERSERK_HP_THRESHOLD) dmg += 4;
+  }
   return dmg;
 }
 

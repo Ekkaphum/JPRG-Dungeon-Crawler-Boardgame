@@ -43,7 +43,7 @@ export function declareCandidates(state: GameState, decision: Extract<PendingDec
   if (out.length === 0) {
     for (const skillId of charDef.skills) {
       const def = SKILLS[skillId];
-      if (def.kind === 'attack' || def.kind === 'attackGated' || def.kind === 'attackRoll') {
+      if (def.kind === 'attack' || def.kind === 'attackGated' || def.kind === 'attackRoll' || def.kind === 'multiHit') {
         out.push({ kind: 'DECLARE_ACTION', skillId });
       }
     }

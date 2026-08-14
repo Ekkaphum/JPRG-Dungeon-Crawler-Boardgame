@@ -82,6 +82,7 @@ export const th = {
   'detail.statuses': 'สถานะที่ติดอยู่ตอนนี้',
   'detail.moves': 'ท่าทั้งหมด (ทอย d6)',
   'detail.skills': 'สกิล',
+  'detail.passive': 'พาสซีฟ (ทำงานเองตลอดเวลา)',
   'detail.scoreConditions': 'เงื่อนไขคะแนนประจำตัว',
   'detail.claimed': 'ได้ไปแล้ว {n} ครั้ง',
   'detail.open': 'ดูรายละเอียด',

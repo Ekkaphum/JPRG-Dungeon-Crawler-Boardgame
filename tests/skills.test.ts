@@ -5,6 +5,7 @@ import {
   declareSkill,
   resolveFighterPending,
   processTrapsAtMarker,
+  processScheduledHitsAtMarker,
   applyDamageToFighter,
   dealDamageToFighterFromBoss,
   killFighter,
@@ -17,47 +18,58 @@ function findFighter(state: ReturnType<typeof fixedDraftState>, charId: string) 
   return state.battle!.fighters.find((f) => f.playerId === player.id)!;
 }
 
-describe('Slash — the HP<=5 damage tier is picked at resolve (v0.3.2, was Berserk)', () => {
-  it('drops back to the base number if healed above 5 before it resolves — downgraded, not wasted', () => {
+describe('Berserk passive (Matt, v0.4.0) — +4 damage on any attack while HP < 7, checked at resolve', () => {
+  it('adds +4 to Power Strike when Matt is under the threshold at resolve', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const rng = createRNG(1);
+    const matt = findFighter(state, 'Matt');
+    matt.hp = 6;
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' });
+    const bossHpBefore = state.battle!.bossHp;
+    resolveFighterPending(state, matt, rng);
+    const base = skillStats('PowerStrike', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - (base + 4));
+  });
+
+  it('does not add the bonus at HP 7 or above', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const rng = createRNG(1);
+    const matt = findFighter(state, 'Matt');
+    matt.hp = 7;
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' });
+    const bossHpBefore = state.battle!.bossHp;
+    resolveFighterPending(state, matt, rng);
+    const base = skillStats('PowerStrike', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - base);
+  });
+
+  it('is checked at resolve, not declare — a heal above the threshold before it lands removes the bonus', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     matt.hp = 4;
-    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' });
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' });
     matt.hp = 12; // a well-meaning Luna heal lands first
     const bossHpBefore = state.battle!.bossHp;
     resolveFighterPending(state, matt, rng);
-    // 6, not 11, and emphatically not 0: folding Berserk into Slash means the heal costs Matt the
-    // boost (and matt1's ">10 in one hit"), never the whole action.
-    expect(state.battle!.bossHp).toBe(bossHpBefore - 6);
-    expect(state.battle!.log.at(-1)).toMatchObject({ t: 'RESOLVE_ATTACK', dmg: 6, wasted: false });
+    const base = skillStats('PowerStrike', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - base);
   });
 
-  it('uses the boosted number when still at/below the tier at resolve', () => {
+  it('applies to every Matt attack, not just Power Strike — e.g. the common Slash', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
-    matt.hp = 3;
+    matt.hp = 1;
     declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' });
     const bossHpBefore = state.battle!.bossHp;
     resolveFighterPending(state, matt, rng);
-    expect(state.battle!.bossHp).toBe(bossHpBefore - 11);
-  });
-
-  it('is declarable at any HP — the tier is a bonus, no longer a gate', () => {
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
-    matt.hp = matt.maxHp;
-    expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' })).not.toThrow();
-  });
-
-  it('clears matt1 (">10 damage in one hit") unbuffed at the boosted tier, but not at the base one', () => {
-    // The exact reason Slash's secondary is 11 and not 10 — see src/content/characters.ts.
-    expect(skillStats('Slash', false).secondary!).toBeGreaterThan(10);
-    expect(skillStats('Slash', false).primary!).toBeLessThanOrEqual(10);
+    const base = skillStats('Slash', false).primary!;
+    expect(state.battle!.bossHp).toBe(bossHpBefore - (base + 4));
   });
 });
 
@@ -94,23 +106,23 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     expect(vera.hp).toBe(vera.maxHp);
   });
 
-  it('gives the ward an attack buff — the reason Guard can pay its own ⏱', () => {
+  it('no longer buffs the ward\'s attack (v0.4.0 dropped the secondary/wardAtk — pure protection now)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const rng = createRNG(1);
     const matt = findFighter(state, 'Matt');
     const vera = findFighter(state, 'Vera');
-    const wardAtk = skillStats('Guard', false).secondary!;
     const fireball = skillStats('Fireball', false).primary!;
 
     declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    expect(skillStats('Guard', false).secondary).toBeUndefined();
     declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 });
     const bossHpBefore = state.battle!.bossHp;
     resolveFighterPending(state, vera, rng);
-    expect(state.battle!.bossHp).toBe(bossHpBefore - (fireball + wardAtk));
+    expect(state.battle!.bossHp).toBe(bossHpBefore - fireball);
   });
 
-  it('buffs only the ward, not the guardian and not a bystander', () => {
+  it('does not affect a bystander\'s own damage', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const rng = createRNG(1);
@@ -119,11 +131,11 @@ describe('Guard (§8 Matt, v0.3.2) — redirects an ally\'s damage onto the guar
     const kit = findFighter(state, 'Kit');
     declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
 
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'TwinShot' });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
     const before = state.battle!.bossHp;
     resolveFighterPending(state, kit, rng);
-    const twin = skillStats('TwinShot', false);
-    expect(state.battle!.bossHp).toBe(before - twin.primary! * twin.secondary!);
+    const quickShot = skillStats('QuickShot', false);
+    expect(state.battle!.bossHp).toBe(before - quickShot.primary!);
   });
 
   it('expires when the guardian\'s own turn comes round', () => {
@@ -199,12 +211,12 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     let bossHp = state.battle!.bossHp;
     const { applied } = dealDamageToFighterFromBoss(state, matt, 6);
     expect(applied).toBe(3); // floor(6 * 0.5)
-    expect(state.battle!.bossHp).toBe(bossHp - 12); // riposte lands right away, not on his turn
+    expect(state.battle!.bossHp).toBe(bossHp - 9); // riposte lands right away, not on his turn
 
     // A second hit in the same window answers again — the shield is not consumed.
     bossHp = state.battle!.bossHp;
     dealDamageToFighterFromBoss(state, matt, 6);
-    expect(state.battle!.bossHp).toBe(bossHp - 12);
+    expect(state.battle!.bossHp).toBe(bossHp - 9);
     expect(matt.shield?.kind).toBe('counter');
   });
 
@@ -230,7 +242,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     const bossHp = state.battle!.bossHp;
     const { applied } = dealDamageToFighterFromBoss(state, matt, 1); // floor(1*0.5) = 0
     expect(applied).toBe(0);
-    expect(state.battle!.bossHp).toBe(bossHp - 12);
+    expect(state.battle!.bossHp).toBe(bossHp - 9);
   });
 
   it('still ripostes on the hit that kills him', () => {
@@ -241,24 +253,68 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
     const bossHp = state.battle!.bossHp;
     dealDamageToFighterFromBoss(state, matt, 999);
     expect(matt.alive).toBe(false);
-    expect(state.battle!.bossHp).toBe(bossHp - 12);
+    // Berserk (PASSIVES.Matt) requires the attacker to still be alive, so the kill-blow riposte
+    // lands at the base secondary — not boosted, even though HP was well under the threshold.
+    expect(state.battle!.bossHp).toBe(bossHp - 9);
   });
 });
 
-describe('Quick Shot dice ladder (§5.2)', () => {
-  it('the 5th attempt since a success always auto-succeeds', () => {
+describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, never resets, floors at 2", () => {
+  it('permanently lowers Sharp Shooting\'s target by 1 per miss, no auto-success, floors at 2', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const rng = createRNG(7);
     const kit = findFighter(state, 'Kit');
-    for (let i = 0; i < 6; i++) {
-      declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
-      resolveFighterPending(state, kit, rng);
+    const missRng = { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>;
+
+    const targets: (number | null)[] = [];
+    for (let i = 0; i < 5; i++) {
+      declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
+      resolveFighterPending(state, kit, missRng);
+      const roll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SharpShooting weak point').at(-1)!;
+      targets.push(roll.t === 'ROLL' ? roll.target : null);
     }
-    const rolls = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose.includes('QuickShot'));
-    for (const r of rolls) {
-      if (r.t === 'ROLL' && r.target === null) expect(r.success).toBe(true);
-    }
+    // Base target is 5 (rollBaseTarget) — unlike the old per-battle ladder, there's no 5th-attempt
+    // auto-success (target 0): it just floors at 2 and every miss still costs a permanent point.
+    expect(targets).toEqual([5, 4, 3, 2, 2]);
+    expect(state.progress[kit.playerId].rollPenalty).toBe(5);
+  });
+
+  it('is shared between Sharp Shooting and Trap! — a miss on one lowers the other\'s target too', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    const missRng = { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
+    resolveFighterPending(state, kit, missRng); // one miss, penalty now 1
+
+    state.battle!.marker = 13;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
+    state.battle!.marker = 10;
+    state.battle!.bossSlot = 10;
+    processTrapsAtMarker(state, missRng);
+    const trapRoll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger').at(-1)!;
+    // Trap!'s own base is 6 — discounted by the 1 penalty Sharp Shooting's miss already banked.
+    expect(trapRoll.t === 'ROLL' && trapRoll.target).toBe(5);
+  });
+
+  it('does not reset on a success (unlike the old per-battle ladder)', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    const missRng = { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
+    resolveFighterPending(state, kit, missRng); // miss, penalty 1, next target 4
+    expect(state.progress[kit.playerId].rollPenalty).toBe(1);
+
+    const hitRng = { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
+    resolveFighterPending(state, kit, hitRng); // hits at target 4
+    expect(state.progress[kit.playerId].rollPenalty).toBe(1); // untouched by the success
+
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
+    resolveFighterPending(state, kit, missRng);
+    const roll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SharpShooting weak point').at(-1)!;
+    expect(roll.t === 'ROLL' && roll.target).toBe(4); // still discounted, not reset to base 5
   });
 });
 
@@ -273,27 +329,27 @@ describe('Vera mana — paid immediately at declare, never refunded (§5.1/§8)'
   });
 });
 
-describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact stop', () => {
+describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an exact stop', () => {
   it('rolls first: a miss deals no damage and does not cancel the boss pending action', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
-    // Set Trap is ⏱4, so slot 10 is only armable from marker 11–13 (see tests/trapSlots.test.ts).
+    // Trap! is ⏱4, so slot 10 is only armable from marker 11–13 (see tests/trapSlots.test.ts).
     state.battle!.marker = 13;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
     expect(state.battle!.traps).toHaveLength(1);
 
     state.battle!.marker = 10;
     state.battle!.bossSlot = 10;
     state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
     const bossHpBefore = state.battle!.bossHp;
-    // A die below the 5+ starting target is a miss — the trap springs (slot vacated) but does
+    // A die below the 6+ starting target is a miss — the trap springs (slot vacated) but does
     // nothing else: no damage, no cancel.
     processTrapsAtMarker(state, { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>);
     expect(state.battle!.bossHp).toBe(bossHpBefore);
     expect(state.battle!.traps).toHaveLength(0);
     expect(state.battle!.bossPending).not.toBeNull();
-    const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'SetTrap trigger');
+    const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger');
     expect(roll && roll.t === 'ROLL' && roll.success).toBe(false);
     const trigger = state.battle!.log.find((e) => e.t === 'RESOLVE_TRAP_TRIGGER');
     expect(trigger && trigger.t === 'RESOLVE_TRAP_TRIGGER' && trigger.dmg).toBe(0);
@@ -304,63 +360,123 @@ describe('Set Trap (§9 Kit) — placed immediately, triggers only on an exact s
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 13;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
     state.battle!.marker = 10;
     state.battle!.bossSlot = 10;
     state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
     const bossHpBefore = state.battle!.bossHp;
     processTrapsAtMarker(state, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
-    expect(state.battle!.bossHp).toBe(bossHpBefore - 4);
+    expect(state.battle!.bossHp).toBe(bossHpBefore - 5);
     expect(state.battle!.traps).toHaveLength(0);
     expect(state.battle!.bossPending).toBeNull();
-    const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'SetTrap trigger');
+    const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger');
     expect(roll && roll.t === 'ROLL' && roll.success).toBe(true);
-  });
-
-  it('eases the roll target after a miss, same escalating ladder as Quick Shot', () => {
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const kit = findFighter(state, 'Kit');
-
-    const armAndTrigger = (rng: ReturnType<typeof createRNG>) => {
-      // Rewind the marker so slot 10 sits inside Set Trap's ⏱4 window before each re-arm.
-      state.battle!.marker = 13;
-      declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
-      state.battle!.marker = 10;
-      state.battle!.bossSlot = 10;
-      state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
-      processTrapsAtMarker(state, rng);
-      return state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SetTrap trigger').at(-1)!;
-    };
-
-    // Force a miss: a die below the 5+ starting target leaves the move standing.
-    const miss = armAndTrigger({ ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>);
-    expect(miss.t === 'ROLL' && miss.target).toBe(5);
-    expect(miss.t === 'ROLL' && miss.success).toBe(false);
-    expect(state.battle!.bossPending).not.toBeNull();
-
-    // Next attempt is one easier, and a passing roll both deals damage and wipes the declared move.
-    const bossHpBeforeSecond = state.battle!.bossHp;
-    const hit = armAndTrigger({ ...createRNG(1), int: () => 4 } as ReturnType<typeof createRNG>);
-    expect(hit.t === 'ROLL' && hit.target).toBe(4);
-    expect(hit.t === 'ROLL' && hit.success).toBe(true);
-    expect(state.battle!.bossPending).toBeNull();
-    expect(state.battle!.bossHp).toBe(bossHpBeforeSecond - 4);
-    expect(kit.rollAttempt.SetTrap).toBe(0); // reset on success
   });
 
   it('expires without effect if the marker passes the slot without the boss stopping there', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
-    state.battle!.marker = 13; // slot 10 must be inside Set Trap's ⏱4 window to arm
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SetTrap', trapSlot: 10 });
+    state.battle!.marker = 13; // slot 10 must be inside Trap!'s ⏱4 window to arm
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 });
     state.battle!.marker = 10;
     state.battle!.bossSlot = 6; // boss is headed elsewhere, not stopping at 10
     const bossHpBefore = state.battle!.bossHp;
     processTrapsAtMarker(state, createRNG(1));
     expect(state.battle!.bossHp).toBe(bossHpBefore);
     expect(state.battle!.traps).toHaveLength(0);
+  });
+});
+
+describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early hits', () => {
+  it('schedules the two early hits at declare time, at the right slots and damage', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 20;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' });
+    expect(state.battle!.scheduledHits).toEqual([
+      { slot: 18, dmg: 2, ownerId: kit.playerId, skillId: 'MultiShot' },
+      { slot: 17, dmg: 3, ownerId: kit.playerId, skillId: 'MultiShot' },
+    ]);
+    expect(kit.pending?.landedAtSlot).toBe(16); // the primary (4 dmg) hit resolves here
+  });
+
+  it('fires each early hit unconditionally when the marker reaches its slot, then the primary hit resolves normally', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 20;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' });
+
+    let bossHp = state.battle!.bossHp;
+    state.battle!.marker = 18;
+    processScheduledHitsAtMarker(state);
+    expect(state.battle!.bossHp).toBe(bossHp - 2);
+    expect(state.battle!.scheduledHits).toHaveLength(1);
+
+    bossHp = state.battle!.bossHp;
+    state.battle!.marker = 17;
+    processScheduledHitsAtMarker(state);
+    expect(state.battle!.bossHp).toBe(bossHp - 3);
+    expect(state.battle!.scheduledHits).toHaveLength(0);
+
+    bossHp = state.battle!.bossHp;
+    state.battle!.marker = 16;
+    resolveFighterPending(state, kit, createRNG(1));
+    expect(state.battle!.bossHp).toBe(bossHp - 4);
+  });
+
+  it('every hit — early and primary alike — counts toward attackCountThisBattle (kit3)', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 20;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' });
+    state.battle!.marker = 18;
+    processScheduledHitsAtMarker(state);
+    state.battle!.marker = 17;
+    processScheduledHitsAtMarker(state);
+    state.battle!.marker = 16;
+    resolveFighterPending(state, kit, createRNG(1));
+    expect(kit.attackCountThisBattle).toBe(3);
+  });
+});
+
+describe('ManaCharge passive (Vera, v0.4.0) — Aura Charge grants +1 mana the instant it is declared', () => {
+  it('grants +1 mana on declaring Aura Charge', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    expect(vera.mana).toBe(0);
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'AuraCharge' });
+    expect(vera.mana).toBe(1);
+  });
+
+  it('does not trigger on Vera\'s damaging skills', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 });
+    expect(vera.mana).toBe(0);
+  });
+
+  it('caps at 3', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    vera.mana = 3;
+    declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'AuraCharge' });
+    expect(vera.mana).toBe(3);
+  });
+
+  it("does not fire for other characters' non-damaging skills (e.g. Matt's Guard)", () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId });
+    expect(vera.mana).toBe(0);
   });
 });
 

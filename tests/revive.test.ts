@@ -67,7 +67,7 @@ describe('death and revival placement (GAME_DESIGN_v0_3_0.md §5.4)', () => {
       const player = state.players.find((p) => p.id === d.playerId)!;
       // fixedDraftState() always assigns the first 4 CHAR_IDS in order, so only these ever appear
       // here — Dax/Mira are listed purely so this lookup type-checks against the full CharId union.
-      const first = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'Smite', Dax: 'Flurry', Mira: 'FrostBolt' }[player.charId];
+      const first = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'AuraSmite', Dax: 'Flurry', Mira: 'FrostBolt' }[player.charId];
       res = gen.next({ ...choice, skillId: first as never, ...(player.charId === 'Vera' ? { manaSpent: 0 } : {}) });
     }
 

@@ -47,8 +47,8 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
     tone: 'bad',
     label: { th: 'เกราะ', en: 'Armor' },
     desc: {
-      th: 'ลดดาเมจที่เข้าทุกครั้ง (ยกเว้น Smite และ Set Trap ที่ไม่สนเกราะ) · ถ้าโดนดาเมจหลังหักเกราะแล้วเกิน 12 เกราะจะแตก -1 ถาวร',
-      en: 'Reduces every incoming hit (except Smite and Set Trap, which ignore it). A hit dealing more than 12 after armor permanently breaks 1 point off.',
+      th: 'ลดดาเมจที่เข้าทุกครั้ง (ยกเว้น Aura Smite และ Trap! ที่ไม่สนเกราะ) · ถ้าโดนดาเมจหลังหักเกราะแล้วเกิน 12 เกราะจะแตก -1 ถาวร',
+      en: 'Reduces every incoming hit (except Aura Smite and Trap!, which ignore it). A hit dealing more than 12 after armor permanently breaks 1 point off.',
     },
   },
   sleepAura: {
@@ -72,10 +72,10 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
   manaShield: {
     icon: '💧',
     tone: 'good',
-    label: { th: 'ManaCharge', en: 'ManaCharge' },
+    label: { th: 'Mana Shield', en: 'Mana Shield' },
     desc: {
-      th: 'ได้มานาแล้ว และดาเมจที่เข้าลดลงแบบคงที่ จนถึงเทิร์นหน้าของตัวเอง',
-      en: 'Mana gained, and incoming damage is reduced by a flat amount until your next turn.',
+      th: 'ดาเมจที่เข้าลดลงแบบคงที่ จนถึงเทิร์นหน้าของตัวเอง (Vera ยังได้มานา +1 จากพาสซีฟ ManaCharge ด้วย)',
+      en: "Incoming damage is reduced by a flat amount until your next turn (Vera also gains +1 mana from her ManaCharge passive).",
     },
   },
   blessing: {
@@ -101,8 +101,8 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
     tone: 'good',
     label: { th: 'ถูกปกป้องอยู่', en: 'Guarded' },
     desc: {
-      th: 'ดาเมจที่เล็งมาที่คุณจะไปเข้าคนที่ปกป้องคุณแทน และคุณโจมตีแรงขึ้น จนถึงเทิร์นหน้าของเขา',
-      en: 'Damage aimed at you lands on your guardian instead, and you attack harder, until their next turn.',
+      th: 'ดาเมจที่เล็งมาที่คุณจะไปเข้าคนที่ปกป้องคุณแทน จนถึงเทิร์นหน้าของเขา',
+      en: 'Damage aimed at you lands on your guardian instead, until their next turn.',
     },
   },
   down: {
@@ -152,6 +152,6 @@ export function heroStatuses(battle: BattleState, f: Fighter): ActiveStatus[] {
   // Both ends of a Guard link get a badge — the ward needs to know their damage is being absorbed
   // just as much as the guardian needs to know they're absorbing it.
   if (battle.guard?.guardianId === f.playerId) out.push({ id: 'guarding' });
-  if (battle.guard?.wardId === f.playerId) out.push({ id: 'guarded', value: `+${battle.guard.wardAtk}` });
+  if (battle.guard?.wardId === f.playerId) out.push({ id: 'guarded' });
   return out;
 }

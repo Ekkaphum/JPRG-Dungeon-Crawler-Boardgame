@@ -20,7 +20,7 @@ export function fixedDraftState(seed = 12345): GameState {
   );
   state.players.forEach((p, i) => {
     p.charId = CHAR_IDS[i]; // Matt, Kit, Vera, Luna in that order
-    state.progress[p.id] = { playerId: p.id, charId: p.charId, isLv2: {}, expOnCard: {}, bankedExp: 0 };
+    state.progress[p.id] = { playerId: p.id, charId: p.charId, isLv2: {}, expOnCard: {}, bankedExp: 0, rollPenalty: 0 };
   });
   state.phase = 'BATTLE_INTRO';
   return state;
@@ -32,7 +32,7 @@ export function fixedDraftState(seed = 12345): GameState {
 export function setPlayerCharacter(state: GameState, playerId: number, charId: CharId) {
   const player = state.players.find((p) => p.id === playerId)!;
   player.charId = charId;
-  state.progress[playerId] = { playerId, charId, isLv2: {}, expOnCard: {}, bankedExp: 0 };
+  state.progress[playerId] = { playerId, charId, isLv2: {}, expOnCard: {}, bankedExp: 0, rollPenalty: 0 };
 }
 
 export function fourEasyBotSetup(): NewGameSetup {

@@ -84,6 +84,7 @@ export const en: Record<I18nKey, string> = {
   'detail.statuses': 'Active statuses',
   'detail.moves': 'All moves (d6)',
   'detail.skills': 'Skills',
+  'detail.passive': 'Passive (always active)',
   'detail.scoreConditions': 'Personal score conditions',
   'detail.claimed': 'Claimed {n}×',
   'detail.open': 'Details',

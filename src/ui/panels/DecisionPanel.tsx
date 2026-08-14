@@ -107,7 +107,7 @@ function DeclareActionPanel({
       {!skillId && (
         <div className="flex gap-2 flex-wrap">
           {def.skills.map((sid) => {
-            // Set Trap needs at least one free slot inside its own ⏱ window, and Guard needs a
+            // Trap! needs at least one free slot inside its own ⏱ window, and Guard needs a
             // living ally other than the caster — otherwise the picker would open with nothing
             // to choose.
             const disabled =
@@ -129,7 +129,15 @@ function DeclareActionPanel({
                 onClick={() => {
                   const s = SKILLS[sid];
                   // No extra params needed → submit immediately.
-                  if (s.kind === 'attack' || s.kind === 'attackGated' || s.kind === 'attackRoll' || s.kind === 'buffCounter' || s.kind === 'buffParty' || s.kind === 'buffMana') {
+                  if (
+                    s.kind === 'attack' ||
+                    s.kind === 'attackGated' ||
+                    s.kind === 'attackRoll' ||
+                    s.kind === 'multiHit' ||
+                    s.kind === 'buffCounter' ||
+                    s.kind === 'buffParty' ||
+                    s.kind === 'buffMana'
+                  ) {
                     submit({ kind: 'DECLARE_ACTION', skillId: sid });
                   } else {
                     setSkillId(sid);
@@ -208,7 +216,7 @@ function DeclareActionPanel({
         <div className="flex gap-2 flex-wrap items-center">
           <span className="text-xs text-gold-dim">{t('decision.trapSlot')}</span>
           {/* Must be options.trapSlots, never emptySlotsBelowMarker: a trap is only legal inside
-              Set Trap's own ⏱ window, and the engine rejects anything else outright. */}
+              Trap!'s own ⏱ window, and the engine rejects anything else outright. */}
           {decision.options.trapSlots.map((slot) => (
             <button key={slot} onClick={() => submit({ kind: 'DECLARE_ACTION', skillId, trapSlot: slot })} className="gold-frame rounded px-2 py-1 text-xs hover:bg-gold/10">
               {slot}

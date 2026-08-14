@@ -19,7 +19,7 @@ function fighterOf(state: ReturnType<typeof fixedDraftState>, playerId: number) 
 }
 
 describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
-  it('rewards QuickShot when it opens in time for a pending Fireball/Meteor', () => {
+  it('rewards SharpShooting when it opens in time for a pending Fireball/Meteor', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const { kit, vera } = ids(state);
@@ -27,8 +27,8 @@ describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
     // Vera declared Meteor (⏱7) at marker 20 → resolves at slot 13.
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
 
-    // Kit's QuickShot (⏱3) from marker 20 lands at 17 — well before Vera's 13, so it's open in time.
-    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
+    // Kit's Sharp Shooting (⏱3) from marker 20 lands at 17 — well before Vera's 13, so it's open in time.
+    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBeGreaterThan(0);
   });
 
@@ -41,7 +41,7 @@ describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
     // wait: to keep this realistic, declare Vera's pending to resolve *before* Kit even could.
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
     // Kit declaring now (marker 8) would land at 5 — after Vera already resolved at 13.
-    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
+    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBe(0);
   });
 
@@ -53,7 +53,7 @@ describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
     state.battle!.weakPointActive = true;
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
 
-    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
+    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBe(0);
   });
 
@@ -66,7 +66,7 @@ describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
     // Boss resolves at 15 — after Kit opens (17) but before Vera's Meteor (13) — clears the window.
     state.battle!.bossPending = { moveKey: 'A', die: 2, declaredAtSlot: 20, landedAtSlot: 15 };
 
-    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
+    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBe(0);
   });
 
@@ -77,29 +77,29 @@ describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
     state.battle!.marker = 20;
     fighterOf(state, matt).pending = { skillId: 'Slash', declaredAtSlot: 20, landedAtSlot: 16 };
 
-    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' });
+    const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBe(0);
   });
 
-  it('only applies to Kit declaring QuickShot, not other characters or skills', () => {
+  it('only applies to Kit declaring Sharp Shooting, not other characters or skills', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const { kit, vera } = ids(state);
     state.battle!.marker = 20;
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
 
-    expect(comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'TwinShot' })).toBe(0);
+    expect(comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'QuickShot' })).toBe(0);
     expect(comboSynergyBonus(state, ids(state).matt, { kind: 'DECLARE_ACTION', skillId: 'Slash' })).toBe(0);
   });
 });
 
 describe('comboSynergyBonus — Luna timing Blessing under an incoming big hit', () => {
-  it('rewards Blessing when Kit already has a pending QuickShot', () => {
+  it('rewards Blessing when Kit already has a pending Sharp Shooting', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const { luna, kit } = ids(state);
     state.battle!.marker = 20;
-    fighterOf(state, kit).pending = { skillId: 'QuickShot', declaredAtSlot: 20, landedAtSlot: 17 };
+    fighterOf(state, kit).pending = { skillId: 'SharpShooting', declaredAtSlot: 20, landedAtSlot: 17 };
 
     const bonus = comboSynergyBonus(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Blessing' });
     expect(bonus).toBeGreaterThan(0);
@@ -133,7 +133,7 @@ describe('comboSynergyBonus — Luna timing Blessing under an incoming big hit',
     const { luna, kit } = ids(state);
     state.battle!.marker = 20;
     state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: luna };
-    fighterOf(state, kit).pending = { skillId: 'QuickShot', declaredAtSlot: 20, landedAtSlot: 17 };
+    fighterOf(state, kit).pending = { skillId: 'SharpShooting', declaredAtSlot: 20, landedAtSlot: 17 };
 
     const bonus = comboSynergyBonus(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Blessing' });
     expect(bonus).toBe(0);

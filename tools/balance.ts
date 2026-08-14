@@ -119,7 +119,7 @@ async function main() {
         if (ev.t === 'RESOLVE_TRAP_TRIGGER') {
           trapSprung++;
           if (ev.dmg > 0) trapHits++;
-          dmgBySkill.SetTrap = (dmgBySkill.SetTrap ?? 0) + ev.dmg;
+          dmgBySkill.Trap = (dmgBySkill.Trap ?? 0) + ev.dmg;
         }
         if (ev.t === 'RESOLVE_TRAP_EXPIRE') trapExpires++;
         if (ev.t === 'ROLL' && ev.playerId !== 'boss') {
@@ -178,7 +178,7 @@ async function main() {
     console.log(`  ${purpose.padEnd(22)} ${String(r.tries).padStart(6)}  ${pct(r.ok, r.tries)}%`);
   }
 
-  const trapArmed = declares.SetTrap ?? 0;
+  const trapArmed = declares.Trap ?? 0;
   console.log(
     `\ntrap: armed ${trapArmed}, sprung ${trapSprung} (${pct(trapSprung, trapArmed)}%), ` +
       `hit ${trapHits} (${pct(trapHits, trapSprung)}% of sprung), expired unsprung ${trapExpires}`

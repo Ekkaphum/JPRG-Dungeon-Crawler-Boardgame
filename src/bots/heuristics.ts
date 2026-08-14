@@ -3,7 +3,7 @@ import { applySomnivarTax, bossMoveTargets, type Choice, type GameState } from '
 
 /** Rough per-⏱ value estimate for a candidate DECLARE_ACTION choice. Fully deterministic where
  *  the doc's numbers are deterministic (this ruleset hides nothing — GAME_DESIGN_v0_3_0.md §4.4)
- *  — the only genuine unknowns are QuickShot's dice roll and the boss's next d6, which this just
+ *  — the only genuine unknowns are Sharp Shooting's dice roll and the boss's next d6, which this just
  *  prices in as a flat expected-value bonus rather than simulating forward. */
 export function estimateChoiceValue(state: GameState, playerId: number, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>): number {
   const battle = state.battle!;
@@ -22,7 +22,7 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       // specifically, which would have made bots value Dax's Flurry (also multi-hit) at 1/3 of its
       // real damage and never pick it over single-hit alternatives.
       const hits = stats.secondary ?? 1;
-      const armor = choice.skillId === 'Smite' ? 0 : battle.armor;
+      const armor = def.ignoresArmor ? 0 : battle.armor;
       value = Math.max(0, stats.primary! + buffAtk - armor) * hits;
       break;
     }
@@ -41,6 +41,14 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
     case 'attackMana': {
       const total = stats.primary! + stats.secondary! * (choice.manaSpent ?? 0) + buffAtk;
       value = Math.max(0, total - battle.armor);
+      break;
+    }
+    case 'multiHit': {
+      // Multi Shot: the resolve-time primary hit plus every early hit (Kit's own — same armor/buff
+      // approximation as everything else here, priced at today's buffAtk even though the early hits
+      // actually land at different future slots).
+      const hits = [stats.primary!, ...(stats.earlyHits ?? []).map((h) => h.dmg)];
+      value = hits.reduce((sum, dmg) => sum + Math.max(0, dmg + buffAtk - battle.armor), 0);
       break;
     }
     case 'heal': {
@@ -104,12 +112,13 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   let bonus = 0;
 
   if (player.charId === 'Matt') {
-    // Slash at/below the HP tier is the >10-dmg hit matt1 wants, so it's worth reaching for the
-    // same way Berserk used to be (v0.3.2 folded the two cards into one).
-    if (choice.skillId === 'Slash' && fighter.hp <= 5) bonus += 2;
-    if (choice.skillId === 'Slash' && battle.bossHp <= 20) bonus += 1; // angling for Last Shot
-    // Guard is Matt's only *deliberate* way down to the HP band both matt3 ("end below 5, alive")
-    // and Slash's boosted tier need — taking hits for someone else is the point, not a cost.
+    // v0.4.0: the HP-gated bonus is Berserk now (PASSIVES.Matt, +4 to any attack under HP 7) rather
+    // than a tier baked into one card, so lean into the biggest hit available instead of Slash
+    // specifically — Power Strike is what turns "HP<7" into matt1's >10-dmg hit.
+    if (choice.skillId === 'PowerStrike' && fighter.hp < 7) bonus += 2;
+    if (choice.skillId === 'PowerStrike' && battle.bossHp <= 20) bonus += 1; // angling for Last Shot
+    // Guard is Matt's only *deliberate* way down into Berserk/matt3's low-HP band — taking hits for
+    // someone else is the point, not a cost.
     if (choice.skillId === 'Guard' && fighter.hp > 5) bonus += 0.5;
   }
   if (player.charId === 'Vera') {
@@ -117,6 +126,7 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   }
   if (player.charId === 'Kit') {
     if (choice.skillId === 'QuickShot') bonus += 1; // cheap ⏱, stacks attack count toward cond3
+    if (choice.skillId === 'SharpShooting') bonus += 0.5; // angling for kit1 (open a weak point)
   }
   if (player.charId === 'Luna') {
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;
@@ -154,7 +164,7 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
 
   let bonus = 0;
 
-  if (player.charId === 'Kit' && choice.skillId === 'QuickShot' && !battle.weakPointActive) {
+  if (player.charId === 'Kit' && choice.skillId === 'SharpShooting' && !battle.weakPointActive) {
     const veraPending = pendingOf('Vera');
     if (veraPending && isBigHit(veraPending.skillId)) {
       // Opens in time to still be up when Vera's hit resolves, and the boss's own already-rolled
@@ -199,7 +209,7 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
   if (player.charId === 'Luna' && choice.skillId === 'Blessing' && !battle.partyBuff) {
     const kitPending = pendingOf('Kit');
     const veraPending = pendingOf('Vera');
-    const weakPointComing = battle.weakPointActive || kitPending?.skillId === 'QuickShot';
+    const weakPointComing = battle.weakPointActive || kitPending?.skillId === 'SharpShooting';
     // Unlike weak point (turns on at resolve), Blessing is active from the moment it's *declared*
     // (now) until Luna's own resolve — so it covers Vera's hit only if Luna's expiry (this
     // candidate's landedAtSlot) falls at or after Vera's resolve, i.e. a *smaller* marker value.

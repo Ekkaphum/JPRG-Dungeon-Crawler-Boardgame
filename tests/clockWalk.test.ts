@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRNG, prepareBattle, runClockBattle, type Choice, type GameState, type PendingDecision } from '@engine/index';
 import { fixedDraftState } from './testUtils';
 
-const SIMPLE_SKILL: Record<string, string> = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'Smite' };
+const SIMPLE_SKILL: Record<string, string> = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'AuraSmite' };
 
 async function driveBattle(state: GameState, seed: number, chooser: (state: GameState, decision: PendingDecision) => Choice, maxSteps = 5000) {
   const rng = createRNG(seed);

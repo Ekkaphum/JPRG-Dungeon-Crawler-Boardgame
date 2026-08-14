@@ -30,6 +30,11 @@ export interface PlayerProgress {
   expOnCard: Partial<Record<SkillId, number>>;
   /** Unspent EXP tokens held in hand, not yet placed on a card. */
   bankedExp: number;
+  /** Kit's Skill Improvement passive (@content/characters PASSIVES.Kit): +1 per failed Sharp
+   *  Shooting/Trap! roll, never reset — persists across every battle in the game, unlike
+   *  Fighter.rollAttempt below which is per-battle. Shared across both skills on purpose (one
+   *  passive, one counter); each use still floors its own effective target at 2 (skills.ts). */
+  rollPenalty: number;
 }
 
 export type Phase = 'SETUP' | 'DRAFT' | 'BATTLE_INTRO' | 'CLOCK_RUN' | 'BATTLE_END' | 'SCORING' | 'ALL_LOSE';
@@ -97,6 +102,17 @@ export interface TrapToken {
   ownerId: PlayerId;
 }
 
+/** Kit's Multi Shot (kind: 'multiHit'): extra hits scheduled at declare time, fired unconditionally
+ *  — no dice, no boss-position requirement — the instant the marker reaches `slot`. The skill's own
+ *  `primary` hit still lands normally through the caster's own pending/resolve; this only covers the
+ *  earlier hits (SkillLevelStats.earlyHits in @content/characters). */
+export interface ScheduledHit {
+  slot: number;
+  dmg: number;
+  ownerId: PlayerId;
+  skillId: SkillId;
+}
+
 export interface ScoreEntry {
   playerId: PlayerId;
   conditionId: string;
@@ -149,6 +165,7 @@ export interface BattleState {
   bossStackSeq: number;
   bossPending: BossPendingAction | null;
   traps: TrapToken[];
+  scheduledHits: ScheduledHit[];
   weakPointActive: boolean;
   partyBuff: { atk: number; dmgReduction: number; ownerId: PlayerId } | null;
   guard: GuardLink | null;

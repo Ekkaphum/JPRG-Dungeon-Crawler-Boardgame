@@ -61,7 +61,7 @@ export function actionFlashFor(state: GameState, ev: ClockLogEvent): ActionFlash
       return { source: 'skill', skillId, isLv2: lv2(ev.playerId, skillId), tone: 'attack' };
     }
     case 'RESOLVE_TRAP_TRIGGER':
-      return { source: 'skill', skillId: 'SetTrap', isLv2: lv2(ev.ownerId, 'SetTrap'), tone: 'attack' };
+      return { source: 'skill', skillId: 'Trap', isLv2: lv2(ev.ownerId, 'Trap'), tone: 'attack' };
     case 'RESOLVE_HEAL':
       if (ev.wasted || ev.amount <= 0) return null;
       return { source: 'skill', skillId: 'Heal', isLv2: lv2(ev.playerId, 'Heal'), tone: 'heal' };
@@ -141,7 +141,7 @@ export function soundFor(ev: ClockLogEvent): Exclude<SoundName, 'tick'> | null {
     case 'REVIVE':
       return 'revive';
     case 'ROLL':
-      return ev.purpose === 'QuickShot weak point' && ev.success ? 'weakPoint' : null;
+      return ev.purpose.endsWith('weak point') && ev.success ? 'weakPoint' : null;
     case 'BOSS_MOVE':
       return 'bossMove';
     case 'SCORE':
@@ -184,6 +184,7 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
     bossStackSeq: battle.fighters.length,
     bossPending: null,
     traps: [],
+    scheduledHits: [],
     weakPointActive: false,
     partyBuff: null,
     guard: null,
@@ -219,6 +220,7 @@ export function cloneDisplay(battle: BattleState): BattleState {
     ...battle,
     log: [],
     traps: battle.traps.map((t) => ({ ...t })),
+    scheduledHits: battle.scheduledHits.map((h) => ({ ...h })),
     partyBuff: battle.partyBuff ? { ...battle.partyBuff } : null,
     guard: battle.guard ? { ...battle.guard } : null,
     bossPending: battle.bossPending ? { ...battle.bossPending } : null,
@@ -262,7 +264,11 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
     case 'RESOLVE_ATTACK': {
       if (ev.playerId !== 'boss') {
         const src = fighter(ev.playerId);
-        if (src) src.pending = null;
+        // Multi Shot's early hits (skills.ts's scheduledHits) also emit RESOLVE_ATTACK for this
+        // player without going through their `pending` at all — only clear it once the marker has
+        // actually reached where their declared action lands, so an early hit doesn't make the UI
+        // think the pawn has nothing pending several slots before its real resolve.
+        if (src && src.pending && b.marker === src.pending.landedAtSlot) src.pending = null;
       }
       if (ev.wasted) break;
       if (ev.targetId === 'boss') {
