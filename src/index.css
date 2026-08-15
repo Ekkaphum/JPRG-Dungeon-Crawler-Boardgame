@@ -545,7 +545,9 @@ html, body, #root {
 .hero-figures { isolation: isolate; }
 .hero-figure { overflow: visible; }
 .hero-sprite {
-  width: min(100%, 112px);
+  height: 100%;
+  max-height: 112px;
+  width: auto;
   aspect-ratio: 1;
   flex: 0 0 auto;
   background-image: var(--sprite-sheet);

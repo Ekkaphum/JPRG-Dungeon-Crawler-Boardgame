@@ -69,7 +69,7 @@ export function GameScreen() {
         <>
           {/* Battle stage — the only row that flexes. */}
           <div
-            className="battle-stage relative w-full flex-1 min-h-[190px] rounded-lg overflow-hidden gold-frame flex-shrink"
+            className="battle-stage relative w-full flex-1 min-h-[320px] sm:min-h-[260px] md:min-h-[190px] rounded-lg overflow-hidden gold-frame flex-shrink"
             // Sizing must be inline: `.gold-frame` uses the `background` shorthand, which resets
             // background-size/position and would otherwise beat the bg-cover/bg-center utilities,
             // leaving the backdrop pinned at natural size in the top-left corner.
@@ -81,10 +81,9 @@ export function GameScreen() {
               <div className="w-[38%] sm:w-[34%] h-full">
                 <BossFigure battle={shown} popups={session.popups.filter((p) => p.target === 'boss')} onSelect={() => setDetail({ kind: 'boss' })} />
               </div>
-              {/* The party stands shoulder-to-shoulder across the front of the arena. Keeping this
-                  as one wide layer (rather than a narrow right-hand column) prevents sprites and
-                  HP plates from stacking over each other on portrait phones. */}
-              <div className="hero-line absolute left-[39%] sm:left-[35%] right-2 bottom-2 h-[70%]">
+              {/* Four equal vertical slots keep the party in a top-to-bottom front line without
+                  letting large sprite frames overlap on portrait phones. */}
+              <div className="hero-line absolute right-2 top-2 bottom-2 w-[34%] sm:w-[28%]">
                 <HeroFigures state={state} battle={shown} popups={session.popups} actionFlash={session.actionFlash} onSelect={(playerId) => setDetail({ kind: 'hero', playerId })} />
               </div>
             </div>

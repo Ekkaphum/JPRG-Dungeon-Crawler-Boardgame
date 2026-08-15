@@ -5,7 +5,7 @@
   - Added a continuous four-frame idle loop and one four-frame action row for every active-roster skill. Playback now carries the acting player through to the UI, so only that hero performs the matching animation when the action lands or a buff is declared.
   - Added large centered sword, bow, fire, smash, healing, blessing, magic, and trap effects behind the existing skill announcement, with reduced-motion support.
   - Kept the painted cards in setup/detail views and retained the sigil fallback for disabled characters.
-  - Responsive follow-up: arranged all four battle sprites in one front-line row and anchored each HP plate directly below its hero, preventing overlap on portrait phones.
+  - Responsive follow-up: arranged all four battle sprites in equal top-to-bottom front-line slots and anchored each HP plate directly below its hero, preventing overlap on portrait phones.
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 

@@ -9,8 +9,8 @@ import { HeroSprite } from './HeroSprite';
 
 const EDGE_FADE = 'radial-gradient(ellipse 60% 62% at 50% 45%, #000 55%, transparent 98%)';
 
-/** Party front line: four heroes stand in one horizontal row with an HP plate locked below each
- *  sprite. The whole figure remains a button that opens the hero detail panel. */
+/** Party front line: four heroes stand in equal top-to-bottom slots with an HP plate locked below
+ *  each sprite. The whole figure remains a button that opens the hero detail panel. */
 export function HeroFigures({
   state,
   battle,
@@ -25,7 +25,7 @@ export function HeroFigures({
   onSelect?: (playerId: number) => void;
 }) {
   return (
-    <div className="hero-figures flex flex-row items-end justify-end h-full w-full gap-0.5 sm:gap-1">
+    <div className="hero-figures flex flex-col items-end justify-center h-full w-full gap-0.5">
       {state.players.map((p) => {
         const f = battle.fighters.find((x) => x.playerId === p.id)!;
         const mine = popups.filter((pop) => pop.target === p.id);
@@ -36,7 +36,7 @@ export function HeroFigures({
             key={p.id}
             onClick={() => onSelect?.(p.id)}
             title={p.name}
-            className="hero-figure relative flex-1 min-w-0 max-w-[132px] h-full flex flex-col items-center justify-end group cursor-pointer"
+            className="hero-figure relative flex-1 min-h-0 w-full flex flex-col items-center justify-end group cursor-pointer"
           >
             {p.charId === 'Dax' || p.charId === 'Mira' ? (
               <img
