@@ -93,6 +93,17 @@ export interface Fighter {
   reviveAtSlot: number | null;
   everDiedThisBattle: boolean;
   attackCountThisBattle: number;
+  /** Matt's matt3 ("บาดเจ็บสาหัสแต่ไม่ล้ม"): set the moment HP drops below half, never cleared for the
+   *  rest of the battle — so a heal back to full doesn't erase the fact that he took the beating.
+   *  Checked at declare/resolve time is wrong for this one on purpose; the condition is about the
+   *  *history* of the battle, not its final frame. */
+  everDroppedBelowHalfThisBattle: boolean;
+  /** Vera's vera3: whether she landed a hit at or above her vera1 impact threshold this battle.
+   *  Pairs with everDiedThisBattle so "survived" only scores when she also did her job. Keyed on the
+   *  damage threshold rather than the Meteor card specifically: requiring Meteor made the condition
+   *  unreachable for a party that never gives her the room to cast it, which is exactly the party
+   *  that is failing to protect her — it punished her twice for someone else's play. */
+  landedBigHitThisBattle: boolean;
 }
 
 export interface TrapToken {

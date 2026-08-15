@@ -87,6 +87,9 @@ export function applyDamageToFighter(state: GameState, fighter: Fighter, rawDama
   }
   dmg = Math.max(0, dmg);
   fighter.hp = Math.max(0, fighter.hp - dmg);
+  // Latched, never cleared until the next battle — matt3 asks whether he *was* beaten down at any
+  // point, so a later heal must not undo it. Strictly below half, so exactly half doesn't count.
+  if (fighter.hp * 2 < fighter.maxHp) fighter.everDroppedBelowHalfThisBattle = true;
   if (fighter.hp === 0) killFighter(state, fighter);
   return dmg;
 }

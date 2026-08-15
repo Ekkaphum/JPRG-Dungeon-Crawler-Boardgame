@@ -419,17 +419,27 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'matt2',
         charId: 'Matt',
         slot: 2,
-        points: 3,
-        perOccurrence: false,
-        desc: { th: 'เป็นคนตี Last Shot ปราบบอส', en: 'Land the Last Shot that defeats the boss' },
+        points: 2,
+        perOccurrence: true,
+        // v0.3.7: was "Land the Last Shot" (3pts), which is now the universal LAST_SHOT_POINTS bonus
+        // every character earns. Matt's protector role — the whole point of Guard — previously scored
+        // nothing at all despite Guard being declared ~1,800 times per 3,000 sim games.
+        desc: { th: 'ปกป้องเพื่อนสำเร็จ — Guard รับดาเมจแทนเพื่อน', en: 'Guard successfully takes a hit aimed at an ally' },
       },
       {
         id: 'matt3',
         charId: 'Matt',
         slot: 3,
-        points: 2,
+        points: 3,
         perOccurrence: false,
-        desc: { th: 'จบยกบอสด้วย HP ต่ำกว่า 5 (และไม่ตาย)', en: 'End the battle with HP below 5 (and alive)' },
+        // v0.3.7: was "end the battle with HP below 5 (and alive)" — fired 0.13 times per win, i.e.
+        // effectively dead, and it fought Berserk (which wants low HP *while attacking*, not at the
+        // final frame). This asks about the battle's history instead: he took the beating and stayed
+        // standing, which is the shonen fantasy stated as a rule.
+        desc: {
+          th: 'บาดเจ็บสาหัสแต่ไม่ล้ม — เคยลง HP ต่ำกว่าครึ่ง แต่จบยกโดยไม่เคยตาย',
+          en: 'Battered but unbroken: dropped below half HP at some point, yet never died all battle',
+        },
       },
     ],
   },
@@ -463,9 +473,17 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'kit3',
         charId: 'Kit',
         slot: 3,
+        // Raised to 3 alongside the 5 -> 8 bar, then measured back down to 2: at 8 attacks it fires
+        // ~0.96 times per win instead of 2.75, so 3 points made it a rare *spike* and Kit's win
+        // share jumped to 41.5%. Rarer and cheaper keeps it a goal without making him the runaway.
         points: 2,
         perOccurrence: false,
-        desc: { th: 'จบยกบอสโดยโจมตีบอสไปแล้ว 5 ครั้งขึ้นไป', en: 'End the battle having attacked the boss 5+ times' },
+        // v0.3.7: bar raised 5 -> 8 and value 2 -> 3. Multi Shot lands 3 separate attacks from one
+        // declare, so "5+" fired in 92% of battles — an automatic payout rather than a goal. 8 makes
+        // the continuous-fire fantasy something Kit actually builds toward, and the extra point
+        // raises his ceiling (he had the lowest score variance of the four, so he was consistently
+        // 2nd/3rd and rarely won).
+        desc: { th: 'จบยกบอสโดยโจมตีบอสไปแล้ว 8 ครั้งขึ้นไป', en: 'End the battle having attacked the boss 8+ times' },
       },
     ],
   },
@@ -496,22 +514,37 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'vera2',
         charId: 'Vera',
         slot: 2,
-        points: 3,
-        perOccurrence: false,
-        // Broadened from Meteor-only to any of Vera's skills, and points cut 4 -> 3 to compensate
-        // (2026-08-13). The identical broadening was tried and reverted on 2026-08-11 (see prior
-        // note in git history) because it overshot Vera to the highest scorer at 3-4pts. Landing
-        // it this time only as part of the larger equal-start/HP/⏱ rebalance pass — re-verify
-        // Vera's total against the other three after any further change. docs/BALANCE_NOTES.md.
-        desc: { th: 'เป็นคนตี Last Shot ปราบบอส', en: 'Land the Last Shot that defeats the boss' },
+        // 2 -> 1: this fires on the *same hit* as vera1 most of the time (a 2-mana Meteor is
+        // 19 damage, comfortably over vera1's 14), so at 2 points one action was paying her 3 and
+        // her conditions compounded instead of pulling in different directions — measured 42.8% win
+        // share under competitive (hard-bot) play. See docs/BALANCE_NOTES.md.
+        points: 1,
+        perOccurrence: true,
+        // v0.3.7: was "Land the Last Shot" (3pts), now the universal LAST_SHOT_POINTS bonus. This
+        // replaces it with the wizard fantasy stated as a rule: mana is only ever gained by spending
+        // a turn on Aura Charge (the ManaCharge passive), so a full 3-mana cast means she committed
+        // two turns to one spell and needed the party to keep her alive through the wind-up.
+        desc: {
+          th: 'ร่ายอัดพลัง — จ่ายมานา 2 ขึ้นไปแล้วเวทย์เข้าเป้า',
+          en: 'Charged cast: spend 2+ mana on a spell and land it',
+        },
       },
       {
         id: 'vera3',
         charId: 'Vera',
         slot: 3,
+        // 3 -> 2: at 3 this was the single largest personal payout in the game (7.38 pts/win under
+        // competitive play, against Matt's biggest at 5.20).
         points: 2,
         perOccurrence: false,
-        desc: { th: 'จบยกบอสโดยไม่ตาย', en: 'End the battle without dying' },
+        // v0.3.7: was a bare "end the battle without dying" (2pts) — at a 91.5% win rate that fired
+        // in 82% of battles and made up 39% of her score for doing nothing in particular, which is
+        // most of why she won 40.9% of games against Matt's 8.8%. Surviving now only pays when she
+        // also delivered the big spell she survived *for*.
+        desc: {
+          th: 'ร่ายใหญ่สำเร็จโดยรอด — จบยกโดยไม่ตาย และเคยทำ dmg ครั้งเดียวได้ 14 ขึ้นไปในยกนั้น',
+          en: 'End the battle without dying, having landed at least one 14+ damage hit during it',
+        },
       },
     ],
   },
@@ -545,6 +578,9 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'luna2',
         charId: 'Luna',
         slot: 2,
+        // Tried at 2 to compensate for Luna essentially never landing a Last Shot (0.04 pts/win
+        // against Kit's 2.65), but it overshot badly under competitive play — she went to a 38.8%
+        // win share. Back to 1; her Last Shot gap is real but small next to luna3's reliability.
         points: 1,
         perOccurrence: true,
         desc: {
@@ -556,7 +592,11 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'luna3',
         charId: 'Luna',
         slot: 3,
-        points: 3,
+        // 3 -> 2 (v0.3.7): the condition itself is right for her role, but at a 91.5% win rate it
+        // fired in ~70% of battles and accounted for 50% of Luna's entire score — the largest single
+        // payout in the game, mostly earned by the party simply not dying. Cutting the value trims
+        // her lead without touching what the condition rewards.
+        points: 2,
         perOccurrence: false,
         desc: { th: 'จบยกบอสโดยไม่มีใครในวงตายเลย', en: 'End the battle with no party member ever dying' },
       },
@@ -652,10 +692,29 @@ export function skillStats(id: SkillId, isLv2: boolean): SkillLevelStats {
   return isLv2 ? s.lv2 : s.lv1;
 }
 
+/** Universal Last Shot bonus (v0.3.7): whoever lands the killing blow on a boss scores this,
+ *  whatever character they are. Previously this was a *personal* condition worth 3 points that only
+ *  Matt (matt2) and Vera (vera2) had, so Kit and Luna scored nothing for the same act — measured at
+ *  a 4.6x win-share gap between Vera and Matt (docs/BALANCE_NOTES.md). Kept out of CHARACTERS[].score
+ *  on purpose: it belongs to no one character, and the end-of-game breakdown groups it the same way
+ *  'timeBonus' is grouped. */
+export const LAST_SHOT_POINTS = 2;
+export const LAST_SHOT_CONDITION_ID = 'lastShot';
+
+/** Mana Vera must commit to a single spell for vera2 to score. Every point of mana costs her a whole
+ *  turn on Aura Charge (the ManaCharge passive is the only source), so 2 already means she spent two
+ *  turns setting up one cast. Set to 3 at first and measured at 0.00 fires per win across 3,000
+ *  games — nobody ever banks that long — see docs/BALANCE_NOTES.md. */
+export const VERA_CHARGED_CAST_MANA = 2;
+
+/** Vera's "one big impact" bar — scores vera1 on every hit that reaches it, and latches the half of
+ *  vera3 that asks whether she actually delivered this battle. One threshold, both conditions. */
+export const VERA_BIG_HIT_DAMAGE = 14;
+
 /** Single source of truth for a personal score condition's point value — scoring.ts's pushScore()
  *  calls read through this instead of repeating the number, so a rebalance only ever needs to
- *  change it here. (Doesn't cover 'timeBonus', which isn't a personal condition — it's computed
- *  dynamically from the clock's remaining slots and split equally among all four players.) */
+ *  change it here. (Doesn't cover 'timeBonus'/'lastShot', which aren't personal conditions — the
+ *  first is computed from the clock's remaining slots, the second is the flat bonus above.) */
 export function scorePoints(conditionId: string): number {
   // ALL_CHAR_IDS, not CHAR_IDS: this must keep resolving Dax/Mira's own condition ids even while
   // they're excluded from the draft pool, since their content/tests still exist independently of

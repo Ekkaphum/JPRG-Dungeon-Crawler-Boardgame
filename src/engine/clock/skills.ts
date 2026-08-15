@@ -3,7 +3,7 @@
 
 import { CHARACTERS, SKILLS, skillStats, type SkillDef, type SkillId, type SkillLevelStats } from '@content/characters';
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter } from './damage';
-import { onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
+import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
 import type { Choice, Fighter, GameState } from './types';
 import type { RNG } from '../rng';
 
@@ -80,11 +80,11 @@ function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpos
  *  full damage pipeline (party/weak-point/Guard/Berserk buffs, boss armor, score hooks, log). Shared
  *  between the immediate path (declareSkill, for skills marked `immediate`) and the resolve-delayed
  *  path (resolveFighterPending, for everyone else) so both run through the exact same math. */
-function dealAttackFor(state: GameState, fighter: Fighter, skillId: SkillId, rawBase: number, ignoresArmor: boolean) {
+function dealAttackFor(state: GameState, fighter: Fighter, skillId: SkillId, rawBase: number, ignoresArmor: boolean, manaSpent = 0) {
   const battle = state.battle!;
   const outgoing = computeOutgoingPlayerDamage(battle, rawBase, fighter.playerId);
   const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor, skillId });
-  onPlayerDealtDamage(state, fighter.playerId, skillId, result.effective);
+  onPlayerDealtDamage(state, fighter.playerId, skillId, result.effective, manaSpent);
   battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: 'boss', dmg: result.effective, wasted: false });
   return result;
 }
@@ -297,8 +297,10 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       break;
     }
     case 'attackMana': {
-      const base = stats.primary! + stats.secondary! * (pending.manaSpent ?? 0);
-      dealAttack(base, false);
+      const manaSpent = pending.manaSpent ?? 0;
+      const base = stats.primary! + stats.secondary! * manaSpent;
+      // manaSpent is forwarded so vera2 ("fully charged cast") can see how much she committed.
+      dealAttackFor(state, fighter, skillId, base, false, manaSpent);
       break;
     }
     case 'multiHit': {
@@ -448,6 +450,12 @@ export function applyBossDamageToFighter(
   const { recipient, reduction } = redirectTarget(state, fighter);
   // Read before applying: dying clears the shield.
   const counterDmg = recipient.shield?.kind === 'counter' ? recipient.shield.counterDmg ?? 0 : 0;
+  // Scored before the damage lands, so a hit that kills the guardian still counts as protection
+  // delivered — he did take it for them. Only a genuine incoming hit counts (rawDamage > 0), and
+  // only when Guard actually moved it off someone else.
+  if (recipient.playerId !== fighter.playerId && rawDamage > 0) {
+    onGuardRedirected(state, recipient.playerId);
+  }
   const applied = applyDamageToFighter(state, recipient, Math.max(0, rawDamage - reduction));
   return { applied, counterDmg, recipient };
 }

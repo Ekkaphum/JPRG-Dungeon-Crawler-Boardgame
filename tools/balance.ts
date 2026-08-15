@@ -8,12 +8,20 @@
 // every stat here would silently describe only the last boss fought.
 import { createRNG, newGame, playGame, type NewGameSetup, type BossId, type CharId, type ClockLogEvent, type Choice, type PendingDecision } from '../src/engine';
 import { createMediumBot } from '../src/bots/medium';
+import { createHardBot } from '../src/bots/hard';
 import type { Agent } from '../src/bots/Agent';
 import { CHARACTERS } from '../src/content/characters';
 
+// Bot tier matters enormously for score-condition measurement: only the HARD bot consults
+// scoreConditionBonus(), so conditions that need deliberate setup (banking mana for Vera's charged
+// cast) never fire under medium bots, which play purely for the party. Pass 'hard' as argv[3] to
+// measure competitive play instead of altruistic play.
+const BOT_LEVEL = (process.argv[3] ?? 'medium') as 'medium' | 'hard';
+const makeBot = (i: number, rand: () => number) => (BOT_LEVEL === 'hard' ? createHardBot(i, rand) : createMediumBot(i, rand));
+
 function setup(): NewGameSetup {
   return {
-    players: Array.from({ length: 4 }, (_, i) => ({ name: `P${i}`, kind: 'bot' as const, botLevel: 'medium' as const })),
+    players: Array.from({ length: 4 }, (_, i) => ({ name: `P${i}`, kind: 'bot' as const, botLevel: BOT_LEVEL })),
     difficulty: 'standard',
   };
 }
@@ -21,7 +29,7 @@ function setup(): NewGameSetup {
 async function runOne(seed: number) {
   const rng = createRNG(seed);
   const state = newGame(setup(), seed);
-  const agents: Agent[] = state.players.map((p, i) => createMediumBot(i, createRNG(seed * 31 + i + 1).next));
+  const agents: Agent[] = state.players.map((p, i) => makeBot(i, createRNG(seed * 31 + i + 1).next));
   const gen = playGame(state, rng);
 
   const logs: ClockLogEvent[][] = [];
@@ -60,7 +68,9 @@ async function main() {
   const conditionPoints: Record<string, number> = {};
   const wonConditionHits: Record<string, number> = {};
   const wonConditionPoints: Record<string, number> = {};
-  const timeBonusByChar: Record<string, number> = {};
+  // conditionId -> charId -> points, for the payouts that belong to no single character
+  // ('timeBonus', and 'lastShot' since v0.3.7).
+  const sharedByChar: Record<string, Record<string, number>> = {};
   let bigHits = 0;
   let armorBrokeGames = 0;
 
@@ -146,9 +156,13 @@ async function main() {
       for (const entry of state.scoreLog) {
         wonConditionHits[entry.conditionId] = (wonConditionHits[entry.conditionId] ?? 0) + 1;
         wonConditionPoints[entry.conditionId] = (wonConditionPoints[entry.conditionId] ?? 0) + entry.points;
-        if (entry.conditionId === 'timeBonus') {
+        // 'timeBonus' and (since v0.3.7) 'lastShot' are the two payouts that aren't personal
+        // conditions, so conditionId alone can't attribute them — route both through the player's
+        // actual character or they vanish from the per-character totals below.
+        if (entry.conditionId === 'timeBonus' || entry.conditionId === 'lastShot') {
           const c = charOf[entry.playerId];
-          timeBonusByChar[c] = (timeBonusByChar[c] ?? 0) + entry.points;
+          sharedByChar[entry.conditionId] ??= {};
+          sharedByChar[entry.conditionId][c] = (sharedByChar[entry.conditionId][c] ?? 0) + entry.points;
         }
       }
     }
@@ -157,7 +171,7 @@ async function main() {
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(1) : '0.0');
 
-  console.log(`\n=== v0.3.0 balance sim — ${games} games, 4 medium bots ===`);
+  console.log(`\n=== balance sim — ${games} games, 4 ${BOT_LEVEL} bots ===`);
   console.log(`win rate: ${pct(wins, games)}%`);
   console.log('per-boss clear rate:');
   for (const boss of Object.keys(bossAttempts) as BossId[]) {
@@ -210,24 +224,36 @@ async function main() {
   // total (personal conditions + this character's slice of the shared timeBonus payout) — the
   // number that answers "is any one of Luna's/Vera's three conditions carrying her score, or is
   // one of them dead weight next to how much timeBonus alone hands out?"
-  const charTotalWon: Record<string, number> = { ...timeBonusByChar };
+  const charTotalWon: Record<string, number> = {};
+  for (const byChar of Object.values(sharedByChar)) {
+    for (const [c, pts] of Object.entries(byChar)) charTotalWon[c] = (charTotalWon[c] ?? 0) + pts;
+  }
   for (const [id, pts] of Object.entries(wonConditionPoints)) {
     const c = conditionChar[id];
     if (c) charTotalWon[c] = (charTotalWon[c] ?? 0) + pts;
   }
   console.log('\nscore conditions, won games only (id / char / fires per win / avg pts per win / share of char total):');
-  for (const id of [...Object.keys(conditionChar).sort(), 'timeBonus']) {
+  for (const id of [...Object.keys(conditionChar).sort(), 'lastShot', 'timeBonus']) {
     const hits = wonConditionHits[id] ?? 0;
-    const pts = id === 'timeBonus' ? Object.values(timeBonusByChar).reduce((a, b) => a + b, 0) : wonConditionPoints[id] ?? 0;
-    const c = id === 'timeBonus' ? 'ALL' : conditionChar[id] ?? '?';
-    const share = id === 'timeBonus' ? null : charTotalWon[c] ? (pts / charTotalWon[c]) * 100 : 0;
+    const isShared = id === 'timeBonus' || id === 'lastShot';
+    const pts = wonConditionPoints[id] ?? 0;
+    const c = isShared ? 'ALL' : conditionChar[id] ?? '?';
+    const share = isShared ? null : charTotalWon[c] ? (pts / charTotalWon[c]) * 100 : 0;
     console.log(
       `  ${id.padEnd(6)} ${c.padEnd(6)} ${(hits / Math.max(1, wins)).toFixed(2).padStart(6)}/win   ${(pts / Math.max(1, wins)).toFixed(2).padStart(6)} pts/win   ${share === null ? '  —' : share.toFixed(0).padStart(3) + '%'}`
     );
   }
-  console.log('\ntrue total per character in won games (personal conditions + their slice of timeBonus):');
+  console.log('\nshared payouts per character (pts/win) — these belong to no single condition slot:');
+  for (const id of Object.keys(sharedByChar)) {
+    const row = (Object.keys(scoreByChar) as CharId[])
+      .filter((c) => sharedByChar[id][c])
+      .map((c) => `${c} ${(sharedByChar[id][c] / Math.max(1, wins)).toFixed(2)}`)
+      .join('   ');
+    console.log(`  ${id.padEnd(10)} ${row}`);
+  }
+  console.log('\ntrue total per character in won games (personal conditions + shared payouts):');
   for (const charId of Object.keys(scoreByChar) as CharId[]) {
-    console.log(`  ${charId}: ${(charTotalWon[charId] / Math.max(1, wins)).toFixed(2)} pts/win`);
+    console.log(`  ${charId}: ${((charTotalWon[charId] ?? 0) / Math.max(1, wins)).toFixed(2)} pts/win`);
   }
 }
 

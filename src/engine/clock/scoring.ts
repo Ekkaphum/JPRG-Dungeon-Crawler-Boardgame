@@ -3,7 +3,7 @@
 // instant they happen; the "slot 3" end-of-battle conditions are checked once here after a boss
 // dies.
 
-import { scorePoints, type SkillId } from '@content/characters';
+import { LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
 import { pushScore, currentTotalScore } from './damage';
 import type { GameState, PlayerId } from './types';
 
@@ -17,15 +17,18 @@ function playerByChar(state: GameState, charId: string): PlayerId | null {
  *  characters' "Last Shot" bonuses — called right after any player-sourced hit on the boss
  *  resolves (not for trap damage, which has no attributable "player action"). Point values live in
  *  @content/characters (scorePoints()) — this is only the trigger logic, not the numbers. */
-export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillId: SkillId, effectiveDmg: number) {
+export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillId: SkillId, effectiveDmg: number, manaSpent = 0) {
   const battle = state.battle!;
   const charId = state.players.find((p) => p.id === playerId)!.charId;
 
   if (charId === 'Matt' && effectiveDmg > 10) {
     pushScore(state, { playerId, conditionId: 'matt1', points: scorePoints('matt1') });
   }
-  if (charId === 'Vera' && effectiveDmg >= 14) {
+  if (charId === 'Vera' && effectiveDmg >= VERA_BIG_HIT_DAMAGE) {
     pushScore(state, { playerId, conditionId: 'vera1', points: scorePoints('vera1') });
+    // Same threshold latches vera3's half — one "she actually delivered" bar, not two.
+    const f = battle.fighters.find((x) => x.playerId === playerId);
+    if (f) f.landedBigHitThisBattle = true;
   }
   if (battle.partyBuff && effectiveDmg > 15) {
     // Guarded rather than assumed safe: only Luna's own Blessing can set partyBuff, so this is
@@ -34,10 +37,19 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
     const lunaId = playerByChar(state, 'Luna');
     if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna2', points: scorePoints('luna2') });
   }
+  // Universal Last Shot bonus (v0.3.7) — every character, not just Matt and Vera as before. Fires
+  // here rather than in onBattleEndScoring so it lands on the exact hit that killed the boss, which
+  // is also what makes it correct when the killing blow comes from a trap or a counter-strike.
   if (battle.finishedBy === playerId) {
-    if (charId === 'Matt') pushScore(state, { playerId, conditionId: 'matt2', points: scorePoints('matt2') });
-    // No longer Meteor-only (2026-08-13) — see the note on vera2 in @content/characters.
-    if (charId === 'Vera') pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
+    pushScore(state, { playerId, conditionId: LAST_SHOT_CONDITION_ID, points: LAST_SHOT_POINTS });
+  }
+  // vera2: a charged cast that actually connected. manaSpent lives on the pending action, so the
+  // caller passes it through — see resolveFighterPending's attackMana branch. The bar is 2, not the
+  // full 3: mana only ever comes from spending a whole turn on Aura Charge, and a measured 3,000-game
+  // sim at 3 fired the condition exactly 0.00 times per win — nobody ever banks three turns' worth
+  // before casting, so the condition was dead on arrival.
+  if (charId === 'Vera' && manaSpent >= VERA_CHARGED_CAST_MANA && effectiveDmg > 0) {
+    pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
   }
   if (charId === 'Mira' && skillId === 'FrostBolt' && effectiveDmg > 10) {
     pushScore(state, { playerId, conditionId: 'mira2', points: scorePoints('mira2') });
@@ -64,6 +76,17 @@ export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
   pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2') });
 }
 
+/** matt2 (v0.3.7): Matt's Guard actually absorbed a hit that was aimed at an ally. Fires on the
+ *  redirect itself, not on the damage that survives Guard's reduction — soaking a hit down to 0 is
+ *  Guard working perfectly and must not score less than soaking it badly (same reasoning as Counter
+ *  Attack's "นับแม้ดาเมจที่เข้าจริงจะเป็น 0" rule). Looked up by character rather than assumed, since
+ *  a future character could own a guard-kind skill without owning matt2. */
+export function onGuardRedirected(state: GameState, guardianId: PlayerId) {
+  const charId = state.players.find((p) => p.id === guardianId)?.charId;
+  if (charId !== 'Matt') return;
+  pushScore(state, { playerId: guardianId, conditionId: 'matt2', points: scorePoints('matt2') });
+}
+
 /** Same character-lookup reasoning as onWeakPointOpened: Luna's Heal and Mira's Mending Wind both
  *  resolve through the same generic heal-kind path. */
 export function onHealResolved(state: GameState, healerId: PlayerId, targetId: PlayerId, actualAmount: number) {
@@ -83,13 +106,19 @@ export function onBattleEndScoring(state: GameState) {
 
   for (const p of state.players) {
     const f = battle.fighters.find((x) => x.playerId === p.id)!;
-    if (p.charId === 'Matt' && f.alive && f.hp < 5) {
+    // v0.3.7 matt3: took the beating and never went down. Uses the latched
+    // everDroppedBelowHalfThisBattle rather than his HP right now, so being healed back up after
+    // surviving a mauling still scores — the old "HP < 5 at the final frame" version fired 0.13
+    // times per win and pulled against Berserk.
+    if (p.charId === 'Matt' && !f.everDiedThisBattle && f.everDroppedBelowHalfThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'matt3', points: scorePoints('matt3') });
     }
-    if (p.charId === 'Kit' && f.attackCountThisBattle >= 5) {
+    // v0.3.7 kit3: 5 -> 8. Multi Shot lands 3 attacks per declare, so the old bar cleared itself.
+    if (p.charId === 'Kit' && f.attackCountThisBattle >= 8) {
       pushScore(state, { playerId: p.id, conditionId: 'kit3', points: scorePoints('kit3') });
     }
-    if (p.charId === 'Vera' && !f.everDiedThisBattle) {
+    // v0.3.7 vera3: surviving only pays if she also delivered the spell she was being protected for.
+    if (p.charId === 'Vera' && !f.everDiedThisBattle && f.landedBigHitThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'vera3', points: scorePoints('vera3') });
     }
     if (p.charId === 'Dax' && f.alive && f.hp > f.maxHp / 2) {

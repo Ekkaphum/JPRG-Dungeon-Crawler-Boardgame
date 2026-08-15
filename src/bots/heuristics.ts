@@ -1,4 +1,4 @@
-import { SKILLS, skillStats, type CharId } from '@content/characters';
+import { SKILLS, VERA_CHARGED_CAST_MANA, skillStats, type CharId } from '@content/characters';
 import { applySomnivarTax, bossMoveTargets, type Choice, type GameState } from '@engine/index';
 
 /** Rough per-⏱ value estimate for a candidate DECLARE_ACTION choice. Fully deterministic where
@@ -101,6 +101,35 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
   return value / Math.max(1, timeCost);
 }
 
+/** Rough post-armor damage a candidate attack would land, used only to spot "this could be the
+ *  killing blow" for the shared Last Shot bonus (v0.3.7). Deliberately optimistic and approximate —
+ *  it prices the buffs that are live *now* and ignores dice, same simplification estimateChoiceValue
+ *  makes. Returns 0 for anything that isn't a direct attack. */
+function estimateFinishingDamage(state: GameState, playerId: number, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>): number {
+  const battle = state.battle!;
+  const fighter = battle.fighters.find((f) => f.playerId === playerId)!;
+  const isLv2 = !!state.progress[playerId]?.isLv2[choice.skillId];
+  const stats = skillStats(choice.skillId, isLv2);
+  const def = SKILLS[choice.skillId];
+  let buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPointActive ? 4 : 0);
+  if (fighter.charId === 'Matt' && fighter.hp < 7) buffAtk += 4; // Berserk
+  const armor = def.ignoresArmor ? 0 : battle.armor;
+  const perHit = (base: number) => Math.max(0, base + buffAtk - armor);
+
+  switch (def.kind) {
+    case 'attack':
+      return perHit(stats.primary ?? 0) * (stats.secondary ?? 1);
+    case 'attackRoll':
+      return perHit(stats.primary ?? 0);
+    case 'attackMana':
+      return perHit((stats.primary ?? 0) + (stats.secondary ?? 0) * (choice.manaSpent ?? 0));
+    case 'multiHit':
+      return perHit(stats.primary ?? 0) + (stats.earlyHits ?? []).reduce((sum, h) => sum + perHit(h.dmg), 0);
+    default:
+      return 0;
+  }
+}
+
 /** Extra nudge toward a bot's own personal score conditions — without this, heuristic bots play
  *  purely for the party's survival and never compete for points the way the doc's human players
  *  are expected to (see docs/10-v0.3.0-rulings and the v0.2.0 lesson in HANDOFF.md §15.4 about
@@ -111,21 +140,42 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   const player = state.players.find((p) => p.id === playerId)!;
   let bonus = 0;
 
+  // Everyone now shares the Last Shot bonus (v0.3.7), so angling for the kill is no longer a
+  // Matt/Vera-only nudge — any character with a real chance to finish the boss should reach for it.
+  const finisher = estimateFinishingDamage(state, playerId, choice);
+  if (finisher > 0 && battle.bossHp <= finisher) bonus += 2;
+
   if (player.charId === 'Matt') {
-    // v0.4.0: the HP-gated bonus is Berserk now (PASSIVES.Matt, +4 to any attack under HP 7) rather
-    // than a tier baked into one card, so lean into the biggest hit available instead of Slash
-    // specifically — Power Strike is what turns "HP<7" into matt1's >10-dmg hit.
+    // matt1 (>10 in one hit) is reachable specifically when Berserk is live, and Power Strike is the
+    // card that gets there.
     if (choice.skillId === 'PowerStrike' && fighter.hp < 7) bonus += 2;
-    if (choice.skillId === 'PowerStrike' && battle.bossHp <= 20) bonus += 1; // angling for Last Shot
-    // Guard is Matt's only *deliberate* way down into Berserk/matt3's low-HP band — taking hits for
-    // someone else is the point, not a cost.
-    if (choice.skillId === 'Guard' && fighter.hp > 5) bonus += 0.5;
+    // v0.3.7: Guard is now Matt's biggest *scoring* card, not just a defensive one — matt2 pays 2
+    // per absorbed hit, and eating those hits is also what drives him under half HP for matt3.
+    // Priced well above the old 0.5 to reflect that it is now his main point engine.
+    if (choice.skillId === 'Guard') bonus += 1;
   }
   if (player.charId === 'Vera') {
-    if (choice.skillId === 'Meteor' && battle.bossHp <= 30) bonus += 3; // angling for the Meteor-finish bonus
+    // v0.3.7: vera2 wants a *fully charged* cast (all 3 mana) and vera3 wants a Meteor to have
+    // connected, so the nudge is toward charging up and spending it on the big spell — not toward
+    // sniping the last hit, which the shared finisher bonus above already covers.
+    const manaSpent = choice.manaSpent ?? 0;
+    // Kept deliberately small. Every one of these bonuses is added to estimateChoiceValue's per-⏱
+    // figure, which is itself only ~1-5, so anything at 3+ stops being a nudge and starts dictating
+    // the whole decision — tried at 3 and Vera's win share went to 84.9% purely on bot weighting,
+    // which measures the heuristic rather than the design.
+    if (manaSpent >= VERA_CHARGED_CAST_MANA) bonus += 1.5;
+    // Banking mana is itself a scoring move for her now: estimateChoiceValue always prefers spending
+    // whatever she holds (more mana = more damage right now), so without this she never accumulates
+    // enough to clear vera2's bar at all — measured 0.00 fires per win before this nudge existed.
+    if (choice.skillId === 'AuraCharge' && fighter.mana < VERA_CHARGED_CAST_MANA) bonus += 1.5;
+    // vera3 wants a 14+ hit banked, not Meteor specifically — but Meteor is the surest way there.
+    if (choice.skillId === 'Meteor' && !fighter.landedBigHitThisBattle) bonus += 1;
   }
   if (player.charId === 'Kit') {
-    if (choice.skillId === 'QuickShot') bonus += 1; // cheap ⏱, stacks attack count toward cond3
+    // kit3's bar is 8 attacks now, so cheap repeatable attacks matter more, and Multi Shot is worth
+    // 3 of them from a single declare.
+    if (choice.skillId === 'QuickShot') bonus += 1;
+    if (choice.skillId === 'MultiShot') bonus += 1;
     if (choice.skillId === 'SharpShooting') bonus += 0.5; // angling for kit1 (open a weak point)
   }
   if (player.charId === 'Luna') {

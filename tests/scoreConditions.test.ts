@@ -1,6 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { prepareBattle, onPlayerDealtDamage, onWeakPointOpened, onTrapTriggered, onHealResolved } from '@engine/index';
-import { scorePoints } from '@content/characters';
+import {
+  prepareBattle,
+  onPlayerDealtDamage,
+  onWeakPointOpened,
+  onTrapTriggered,
+  onHealResolved,
+  declareSkill,
+  dealDamageToFighterFromBoss,
+  createRNG,
+} from '@engine/index';
+import { scorePoints, ALL_CHAR_IDS, CHARACTERS, LAST_SHOT_POINTS, VERA_CHARGED_CAST_MANA } from '@content/characters';
 import { fixedDraftState } from './testUtils';
 
 // onPlayerDealtDamage/onWeakPointOpened/onTrapTriggered/onHealResolved had zero test coverage
@@ -16,9 +25,9 @@ function findFighter(state: ReturnType<typeof fixedDraftState>, charId: string) 
 describe('scorePoints — single source of truth for condition values', () => {
   it('reads the point value straight off the character definition', () => {
     expect(scorePoints('vera1')).toBe(1);
-    expect(scorePoints('vera2')).toBe(3);
+    expect(scorePoints('vera2')).toBe(1);
     expect(scorePoints('luna1')).toBe(3);
-    expect(scorePoints('matt2')).toBe(3);
+    expect(scorePoints('matt2')).toBe(2);
   });
 
   it('throws on an unknown condition id rather than returning a silent default', () => {
@@ -78,45 +87,24 @@ describe('onPlayerDealtDamage — matt1/vera1 damage thresholds', () => {
   });
 });
 
-describe('onPlayerDealtDamage — Last Shot bonuses (matt2/vera2)', () => {
-  it('matt2 fires for Matt landing the Last Shot with any skill', () => {
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
-    state.battle!.finishedBy = matt.playerId;
+describe('Last Shot — one universal bonus for every character (v0.3.7)', () => {
+  // Was a personal condition worth 3 points that only Matt (matt2) and Vera (vera2) owned, so Kit
+  // and Luna scored nothing for the identical act. Now a flat LAST_SHOT_POINTS for whoever lands it.
+  for (const charId of ['Matt', 'Kit', 'Vera', 'Luna'] as const) {
+    it(`awards ${LAST_SHOT_POINTS} points to ${charId} for landing the killing blow`, () => {
+      const state = fixedDraftState();
+      prepareBattle(state);
+      const f = findFighter(state, charId);
+      state.battle!.finishedBy = f.playerId;
 
-    onPlayerDealtDamage(state, matt.playerId, 'Slash', 9);
-    const entry = state.scoreLog.find((e) => e.conditionId === 'matt2');
-    expect(entry?.points).toBe(3);
-  });
+      onPlayerDealtDamage(state, f.playerId, 'Slash', 9);
+      const entries = state.scoreLog.filter((e) => e.conditionId === 'lastShot' && e.playerId === f.playerId);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].points).toBe(LAST_SHOT_POINTS);
+    });
+  }
 
-  it('vera2 fires for a Meteor Last Shot', () => {
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
-    state.battle!.finishedBy = vera.playerId;
-
-    onPlayerDealtDamage(state, vera.playerId, 'Meteor', 20);
-    const entry = state.scoreLog.find((e) => e.conditionId === 'vera2');
-    expect(entry?.points).toBe(3);
-  });
-
-  it('vera2 fires for a Fireball Last Shot too — broadened from Meteor-only (2026-08-13)', () => {
-    // Broadened to any skill and points cut 4 -> 3 to compensate, as part of the larger
-    // equal-start/HP/⏱ rebalance pass — see docs/BALANCE_NOTES.md. The identical broadening was
-    // tried and reverted standalone on 2026-08-11 for overshooting Vera's total; re-verify against
-    // the other three characters' totals after any further change to this condition.
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
-    state.battle!.finishedBy = vera.playerId;
-
-    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 20);
-    const entry = state.scoreLog.find((e) => e.conditionId === 'vera2');
-    expect(entry?.points).toBe(3);
-  });
-
-  it('neither Last Shot bonus fires for whoever did NOT land the killing blow', () => {
+  it('does not fire for whoever did NOT land the killing blow', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
@@ -124,7 +112,86 @@ describe('onPlayerDealtDamage — Last Shot bonuses (matt2/vera2)', () => {
     state.battle!.finishedBy = matt.playerId; // Matt finished it, not Vera
 
     onPlayerDealtDamage(state, vera.playerId, 'Meteor', 20);
+    expect(state.scoreLog.some((e) => e.conditionId === 'lastShot')).toBe(false);
+  });
+
+  it('is no longer a personal condition on anyone\'s character sheet', () => {
+    for (const charId of ALL_CHAR_IDS) {
+      expect(CHARACTERS[charId].score.some((c) => c.desc.en.includes('Last Shot'))).toBe(false);
+    }
+  });
+});
+
+describe('vera2 — charged cast (v0.3.7)', () => {
+  it('fires at the charge threshold when the spell connects', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 14, VERA_CHARGED_CAST_MANA);
+    expect(state.scoreLog.some((e) => e.conditionId === 'vera2')).toBe(true);
+  });
+
+  it('does not fire below the charge threshold', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 11, VERA_CHARGED_CAST_MANA - 1);
     expect(state.scoreLog.some((e) => e.conditionId === 'vera2')).toBe(false);
+  });
+
+  it('does not fire when a charged spell deals no damage', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    onPlayerDealtDamage(state, vera.playerId, 'Fireball', 0, VERA_CHARGED_CAST_MANA);
+    expect(state.scoreLog.some((e) => e.conditionId === 'vera2')).toBe(false);
+  });
+
+  it('a 14+ damage hit latches the flag vera3 reads at end of battle', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    expect(vera.landedBigHitThisBattle).toBe(false);
+    onPlayerDealtDamage(state, vera.playerId, 'Meteor', 18, 3);
+    expect(vera.landedBigHitThisBattle).toBe(true);
+  });
+});
+
+describe('matt2 — Guard absorbing a hit meant for an ally (v0.3.7)', () => {
+  it('scores when Guard redirects a boss hit onto Matt', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
+
+    dealDamageToFighterFromBoss(state, vera, 10);
+    const entries = state.scoreLog.filter((e) => e.conditionId === 'matt2');
+    expect(entries).toHaveLength(1);
+    expect(entries[0].playerId).toBe(matt.playerId);
+  });
+
+  it('scores per hit absorbed, not once per Guard', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
+
+    dealDamageToFighterFromBoss(state, vera, 5);
+    dealDamageToFighterFromBoss(state, vera, 5);
+    expect(state.scoreLog.filter((e) => e.conditionId === 'matt2')).toHaveLength(2);
+  });
+
+  it('does not score for damage Matt takes on his own account', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    const vera = findFighter(state, 'Vera');
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
+
+    dealDamageToFighterFromBoss(state, matt, 10); // his own share of an AoE, not a redirect
+    expect(state.scoreLog.some((e) => e.conditionId === 'matt2')).toBe(false);
   });
 });
 

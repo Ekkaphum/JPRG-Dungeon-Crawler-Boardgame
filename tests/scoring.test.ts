@@ -29,7 +29,7 @@ describe("Luna cond3 — 'no one ever died' (§5.4: revived still counts as havi
     onBattleEndScoring(state);
     const lunaScore = state.scoreLog.filter((e) => e.playerId === luna.playerId && e.conditionId === 'luna3');
     expect(lunaScore).toHaveLength(1);
-    expect(lunaScore[0].points).toBe(3);
+    expect(lunaScore[0].points).toBe(2); // 3 -> 2 in v0.3.7 (it was 50% of Luna's whole score)
   });
 
   it('does not crash when Luna simply is not in the game (regression: playerByChar used to assume she always was)', () => {
@@ -47,36 +47,92 @@ describe("Luna cond3 — 'no one ever died' (§5.4: revived still counts as havi
   });
 });
 
-describe('Matt/Kit/Vera slot-3 end-of-battle conditions', () => {
-  it('matt3: alive and HP < 5 at battle end', () => {
+describe('Matt/Kit/Vera slot-3 end-of-battle conditions (v0.3.7)', () => {
+  const scored = (state: ReturnType<typeof fixedDraftState>, playerId: number, conditionId: string) =>
+    state.scoreLog.some((e) => e.playerId === playerId && e.conditionId === conditionId);
+
+  it('matt3: dropped below half HP at some point and never died', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Matt');
-    matt.hp = 3;
+    matt.everDroppedBelowHalfThisBattle = true;
+    matt.hp = matt.maxHp; // healed all the way back — the condition is about history, not final HP
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(state.scoreLog.some((e) => e.playerId === matt.playerId && e.conditionId === 'matt3')).toBe(true);
+    expect(scored(state, matt.playerId, 'matt3')).toBe(true);
   });
 
-  it('kit3: attacked the boss 5+ times this battle', () => {
+  it('matt3: does NOT fire if he never dropped below half, however low he ends', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    matt.hp = 3; // low now, but the latch was never set — he was never actually beaten down
+    state.battle!.outcome = 'boss_defeated';
+    onBattleEndScoring(state);
+    expect(scored(state, matt.playerId, 'matt3')).toBe(false);
+  });
+
+  it('matt3: does NOT fire if he died, even after reviving', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    matt.everDroppedBelowHalfThisBattle = true;
+    killFighter(state, matt);
+    reviveFighter(state, matt);
+    state.battle!.outcome = 'boss_defeated';
+    onBattleEndScoring(state);
+    expect(scored(state, matt.playerId, 'matt3')).toBe(false);
+  });
+
+  it('kit3: attacked the boss 8+ times this battle (bar raised from 5)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
-    kit.attackCountThisBattle = 5;
+    kit.attackCountThisBattle = 8;
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(state.scoreLog.some((e) => e.playerId === kit.playerId && e.conditionId === 'kit3')).toBe(true);
+    expect(scored(state, kit.playerId, 'kit3')).toBe(true);
   });
 
-  it('vera3: never died this battle (dying and reviving still disqualifies)', () => {
+  it('kit3: 7 attacks is no longer enough', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    kit.attackCountThisBattle = 7;
+    state.battle!.outcome = 'boss_defeated';
+    onBattleEndScoring(state);
+    expect(scored(state, kit.playerId, 'kit3')).toBe(false);
+  });
+
+  it('vera3: survived AND landed a 14+ damage hit', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
+    vera.landedBigHitThisBattle = true;
+    state.battle!.outcome = 'boss_defeated';
+    onBattleEndScoring(state);
+    expect(scored(state, vera.playerId, 'vera3')).toBe(true);
+  });
+
+  it('vera3: surviving alone is no longer enough without a big hit', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    state.battle!.outcome = 'boss_defeated';
+    onBattleEndScoring(state);
+    expect(scored(state, vera.playerId, 'vera3')).toBe(false);
+  });
+
+  it('vera3: a banked big hit does not save it if she died (revived still disqualifies)', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const vera = findFighter(state, 'Vera');
+    vera.landedBigHitThisBattle = true;
     killFighter(state, vera);
     reviveFighter(state, vera);
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(state.scoreLog.some((e) => e.playerId === vera.playerId && e.conditionId === 'vera3')).toBe(false);
+    expect(scored(state, vera.playerId, 'vera3')).toBe(false);
   });
 });
 

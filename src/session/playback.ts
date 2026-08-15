@@ -208,6 +208,8 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
         reviveAtSlot: null,
         everDiedThisBattle: false,
         attackCountThisBattle: 0,
+        everDroppedBelowHalfThisBattle: false,
+        landedBigHitThisBattle: false,
       };
     }),
   };
