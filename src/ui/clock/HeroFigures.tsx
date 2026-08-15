@@ -9,9 +9,8 @@ import { HeroSprite } from './HeroSprite';
 
 const EDGE_FADE = 'radial-gradient(ellipse 60% 62% at 50% 45%, #000 55%, transparent 98%)';
 
-/** Party column on the right of the stage: each hero is a figure with its status pills floating
- *  over its head and an HP tag under its feet, and the whole thing is a button that opens the
- *  hero's detail panel. */
+/** Party front line: four heroes stand in one horizontal row with an HP plate locked below each
+ *  sprite. The whole figure remains a button that opens the hero detail panel. */
 export function HeroFigures({
   state,
   battle,
@@ -25,10 +24,9 @@ export function HeroFigures({
   actionFlash?: ActionFlash | null;
   onSelect?: (playerId: number) => void;
 }) {
-  const offsets = ['5%', '14%', '2%', '11%'];
   return (
-    <div className="hero-figures flex flex-col items-end justify-center h-full w-full gap-0.5">
-      {state.players.map((p, i) => {
+    <div className="hero-figures flex flex-row items-end justify-end h-full w-full gap-0.5 sm:gap-1">
+      {state.players.map((p) => {
         const f = battle.fighters.find((x) => x.playerId === p.id)!;
         const mine = popups.filter((pop) => pop.target === p.id);
         const hpPct = Math.max(0, Math.min(100, (f.hp / f.maxHp) * 100));
@@ -38,8 +36,7 @@ export function HeroFigures({
             key={p.id}
             onClick={() => onSelect?.(p.id)}
             title={p.name}
-            className="hero-figure relative flex-1 min-h-0 w-full flex flex-col items-end justify-end group cursor-pointer"
-            style={{ paddingRight: offsets[i % offsets.length] }}
+            className="hero-figure relative flex-1 min-w-0 max-w-[132px] h-full flex flex-col items-center justify-end group cursor-pointer"
           >
             {p.charId === 'Dax' || p.charId === 'Mira' ? (
               <img
@@ -50,12 +47,12 @@ export function HeroFigures({
                 style={{ WebkitMaskImage: EDGE_FADE, maskImage: EDGE_FADE, opacity: f.alive ? 1 : 0.3, filter: f.alive ? undefined : 'grayscale(0.8)' }}
               />
             ) : (
-              <div className="hero-sprite-wrap flex-1 min-h-0 w-full flex items-center justify-end">
+              <div className="hero-sprite-wrap flex-1 min-h-0 w-full flex items-end justify-center">
                 <HeroSprite charId={p.charId} skillId={activeFlash?.skillId ?? null} actionId={activeFlash?.id} alive={f.alive} />
               </div>
             )}
             {/* HP tag under the figure, with status pills sitting to the left of the name. */}
-            <div className="hero-hp-plate w-[132px] max-w-full bg-black/75 rounded px-1 py-[2px] border border-gold-dim/40">
+            <div className="hero-hp-plate w-full max-w-[118px] flex-shrink-0 bg-black/75 rounded px-1 py-[2px] border border-gold-dim/40">
               <div className="flex items-center gap-1 leading-none">
                 <StatusBadges statuses={heroStatuses(battle, f)} />
                 <span className="text-[9px] gold-text truncate">{p.name}</span>

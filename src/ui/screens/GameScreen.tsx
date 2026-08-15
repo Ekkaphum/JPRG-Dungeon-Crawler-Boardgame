@@ -77,12 +77,14 @@ export function GameScreen() {
           >
             <div className="battle-stage-shade absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/35" />
 
-            <div className="absolute inset-0 flex items-stretch p-2 gap-2">
+            <div className="absolute inset-0 p-2">
               <div className="w-[38%] sm:w-[34%] h-full">
                 <BossFigure battle={shown} popups={session.popups.filter((p) => p.target === 'boss')} onSelect={() => setDetail({ kind: 'boss' })} />
               </div>
-              <div className="flex-1" />
-              <div className="w-[34%] sm:w-[28%] h-full">
+              {/* The party stands shoulder-to-shoulder across the front of the arena. Keeping this
+                  as one wide layer (rather than a narrow right-hand column) prevents sprites and
+                  HP plates from stacking over each other on portrait phones. */}
+              <div className="hero-line absolute left-[39%] sm:left-[35%] right-2 bottom-2 h-[70%]">
                 <HeroFigures state={state} battle={shown} popups={session.popups} actionFlash={session.actionFlash} onSelect={(playerId) => setDetail({ kind: 'hero', playerId })} />
               </div>
             </div>

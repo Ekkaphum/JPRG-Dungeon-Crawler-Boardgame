@@ -541,6 +541,9 @@ html, body, #root {
 .action-flash { animation: action-flash 1.4s ease-out forwards; }
 
 .hero-sprite-wrap { overflow: visible; }
+.hero-line { z-index: 2; }
+.hero-figures { isolation: isolate; }
+.hero-figure { overflow: visible; }
 .hero-sprite {
   width: min(100%, 112px);
   aspect-ratio: 1;
