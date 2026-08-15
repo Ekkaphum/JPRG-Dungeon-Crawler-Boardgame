@@ -46,7 +46,7 @@ export function HeroDetailModal({
           </div>
           <div className="text-xs text-gold-dim mt-1">
             {t('game.hp')} {f.hp}/{f.maxHp}
-            {p.charId === 'Vera' && <span className="ml-2">💧 {t('game.mana')} {f.mana}/3</span>}
+            {p.charId === 'Liora' && <span className="ml-2">💧 {t('game.mana')} {f.mana}/3</span>}
           </div>
           <div className="text-xs text-gold-dim mt-1">{t('game.marker', { n: f.slot })}</div>
           {pending && (

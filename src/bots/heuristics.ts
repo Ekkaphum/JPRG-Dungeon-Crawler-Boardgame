@@ -80,7 +80,7 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       const ownHeadroom = fighter.hp / fighter.maxHp;
       // The attack buff handed to the ward is the part that is always worth something, so price it
       // like the party buff it resembles; the absorption on top scales with how much trouble the
-      // ward is actually in and how much room Matt has left to take hits.
+      // ward is actually in and how much room Eric has left to take hits.
       value = (stats.secondary ?? 0) * 1.2 + wardFragility * 4 * ownHeadroom;
       break;
     }
@@ -114,7 +114,7 @@ function estimateFinishingDamage(state: GameState, playerId: number, choice: Ext
   const stats = skillStats(choice.skillId, isLv2);
   const def = SKILLS[choice.skillId];
   let buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPointActive ? 4 : 0);
-  if (fighter.charId === 'Matt' && fighter.hp < 7) buffAtk += 4; // Berserk
+  if (fighter.charId === 'Eric' && fighter.hp < 7) buffAtk += 4; // Berserk
   const armor = def.ignoresArmor ? 0 : battle.armor;
   const perHit = (base: number) => Math.max(0, base + buffAtk - armor);
 
@@ -143,27 +143,27 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   let bonus = 0;
 
   // Everyone now shares the Last Shot bonus (v0.3.7), so angling for the kill is no longer a
-  // Matt/Vera-only nudge — any character with a real chance to finish the boss should reach for it.
+  // Eric/Liora-only nudge — any character with a real chance to finish the boss should reach for it.
   const finisher = estimateFinishingDamage(state, playerId, choice);
   if (finisher > 0 && battle.bossHp <= finisher) bonus += 2;
 
-  if (player.charId === 'Matt') {
+  if (player.charId === 'Eric') {
     // matt1 (>10 in one hit) is reachable specifically when Berserk is live, and Power Strike is the
     // card that gets there.
     if (choice.skillId === 'PowerStrike' && fighter.hp < 7) bonus += 2;
-    // v0.3.7: Guard is now Matt's biggest *scoring* card, not just a defensive one — matt2 pays 2
+    // v0.3.7: Guard is now Eric's biggest *scoring* card, not just a defensive one — matt2 pays 2
     // per absorbed hit, and eating those hits is also what drives him under half HP for matt3.
     // Priced well above the old 0.5 to reflect that it is now his main point engine.
     if (choice.skillId === 'Guard') bonus += 1;
   }
-  if (player.charId === 'Vera') {
+  if (player.charId === 'Liora') {
     // v0.3.7: vera2 wants a *fully charged* cast (all 3 mana) and vera3 wants a Meteor to have
     // connected, so the nudge is toward charging up and spending it on the big spell — not toward
     // sniping the last hit, which the shared finisher bonus above already covers.
     const manaSpent = choice.manaSpent ?? 0;
     // Kept deliberately small. Every one of these bonuses is added to estimateChoiceValue's per-⏱
     // figure, which is itself only ~1-5, so anything at 3+ stops being a nudge and starts dictating
-    // the whole decision — tried at 3 and Vera's win share went to 84.9% purely on bot weighting,
+    // the whole decision — tried at 3 and Liora's win share went to 84.9% purely on bot weighting,
     // which measures the heuristic rather than the design.
     if (manaSpent >= VERA_CHARGED_CAST_MANA) bonus += 1.5;
     // Banking mana is itself a scoring move for her now: estimateChoiceValue always prefers spending
@@ -217,9 +217,9 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
   let bonus = 0;
 
   if (player.charId === 'Kit' && choice.skillId === 'SharpShooting' && !battle.weakPointActive) {
-    const veraPending = pendingOf('Vera');
+    const veraPending = pendingOf('Liora');
     if (veraPending && isBigHit(veraPending.skillId)) {
-      // Opens in time to still be up when Vera's hit resolves, and the boss's own already-rolled
+      // Opens in time to still be up when Liora's hit resolves, and the boss's own already-rolled
       // next move (if any) won't clear it first.
       const opensInTime = landedAtSlot >= veraPending.landedAtSlot;
       const bossWontInterrupt = bossNextResolvesAt === undefined || bossNextResolvesAt < veraPending.landedAtSlot;
@@ -227,12 +227,12 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
     }
   }
 
-  // Matt's Guard is the clearest case of the "read the board" play GAME_DESIGN.md §8 describes for
+  // Eric's Guard is the clearest case of the "read the board" play GAME_DESIGN.md §8 describes for
   // his kit: the boss's next move is already rolled and public, so who it will hit is knowable, not
   // a guess. Reward guarding exactly that player — and only while Guard would still be up when the
-  // move lands (it expires at Matt's own next visit, so it covers anything resolving at or above
+  // move lands (it expires at Eric's own next visit, so it covers anything resolving at or above
   // his landing slot).
-  if (player.charId === 'Matt' && choice.skillId === 'Guard' && battle.bossPending) {
+  if (player.charId === 'Eric' && choice.skillId === 'Guard' && battle.bossPending) {
     const fighter = battle.fighters.find((f) => f.playerId === playerId)!;
     const doomed = bossMoveTargets(state, battle.bossPending.moveKey);
     const coversTheHit = landedAtSlot <= battle.bossPending.landedAtSlot;
@@ -241,7 +241,7 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
       // ("nobody died") is a party-wide payout, and a dead teammate is several lost actions.
       const ward = battle.fighters.find((f) => f.playerId === choice.targetPlayerId)!;
       // Stepping in front of a *focused* hit is the whole point. Doing it into an AoE is close to
-      // pointless — Matt takes his own share anyway and then the ward's on top, so it converts one
+      // pointless — Eric takes his own share anyway and then the ward's on top, so it converts one
       // survivable hit on two people into one potentially lethal hit on him.
       //
       // Sized against what Guard actually buys, not against how good it feels: absorbing a hit the
@@ -260,11 +260,11 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
 
   if (player.charId === 'Luna' && choice.skillId === 'Blessing' && !battle.partyBuff) {
     const kitPending = pendingOf('Kit');
-    const veraPending = pendingOf('Vera');
+    const veraPending = pendingOf('Liora');
     const weakPointComing = battle.weakPointActive || kitPending?.skillId === 'SharpShooting';
     // Unlike weak point (turns on at resolve), Blessing is active from the moment it's *declared*
-    // (now) until Luna's own resolve — so it covers Vera's hit only if Luna's expiry (this
-    // candidate's landedAtSlot) falls at or after Vera's resolve, i.e. a *smaller* marker value.
+    // (now) until Luna's own resolve — so it covers Liora's hit only if Luna's expiry (this
+    // candidate's landedAtSlot) falls at or after Liora's resolve, i.e. a *smaller* marker value.
     const bigHitComing = !!veraPending && isBigHit(veraPending.skillId) && landedAtSlot <= veraPending.landedAtSlot;
     if (weakPointComing || bigHitComing) bonus += 5;
   }

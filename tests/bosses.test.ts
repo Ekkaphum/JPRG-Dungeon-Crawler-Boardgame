@@ -36,7 +36,7 @@ describe('Ragorath — Rage (§9①)', () => {
     expect(battle.bossId).toBe('Ragorath');
     battle.rage = 3;
     battle.bossPending = { moveKey: 'B', die: 4, declaredAtSlot: 20, landedAtSlot: 15 };
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     const hpBefore = matt.hp;
     resolveBossPending(state, createRNG(1));
     expect(matt.hp).toBe(hpBefore - 7); // base 4 + rage 3
@@ -64,7 +64,7 @@ describe('Somnivar — sleep tax + push moves (§9②)', () => {
 
   it('adds +2 slots to any player skill with base ⏱ >= 5', () => {
     const state = somnivarState();
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
     const marker = state.battle!.marker;
     vera.mana = 0;
     declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Meteor', manaSpent: 0 }, createRNG(1));
@@ -73,7 +73,7 @@ describe('Somnivar — sleep tax + push moves (§9②)', () => {
 
   it('does not tax skills with base ⏱ < 5', () => {
     const state = somnivarState();
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
     const marker = state.battle!.marker;
     declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 0 }, createRNG(1));
     expect(vera.pending!.landedAtSlot).toBe(marker - 3);
@@ -82,7 +82,7 @@ describe('Somnivar — sleep tax + push moves (§9②)', () => {
   it('move A (drowsy breath) hits everyone and pushes every player pawn down 1', () => {
     const state = somnivarState();
     const battle = state.battle!;
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     const slotBefore = matt.slot;
     const hpBefore = matt.hp;
     battle.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 22, landedAtSlot: 18 };
@@ -94,7 +94,7 @@ describe('Somnivar — sleep tax + push moves (§9②)', () => {
   it('move C (eternal slumber) deals no damage and pushes everyone down 4', () => {
     const state = somnivarState();
     const battle = state.battle!;
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     const slotBefore = matt.slot;
     const hpBefore = matt.hp;
     battle.bossPending = { moveKey: 'C', die: 6, declaredAtSlot: 22, landedAtSlot: 14 };
@@ -134,7 +134,7 @@ describe('Aurelius — armor break + Golden Throne heal (§9③)', () => {
   it('Judgment (move C) doubles damage against anyone below half HP', () => {
     const state = aureliusState();
     const battle = state.battle!;
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     const kit = findFighter(state, 'Kit');
     // Inflate maxHp so the 14-damage hit doesn't clamp at 0 and mask the pre-clamp value.
     matt.maxHp = 100;

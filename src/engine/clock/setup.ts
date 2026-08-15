@@ -21,7 +21,7 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
     name: p.name,
     kind: p.kind,
     botLevel: p.botLevel,
-    charId: 'Matt', // placeholder — overwritten by runDraft()
+    charId: 'Eric', // placeholder — overwritten by runDraft()
   }));
   return {
     phase: 'DRAFT',

@@ -14,7 +14,7 @@ function isLv2(state: GameState, fighter: Fighter, skillId: SkillId): boolean {
 /** Slash's "ยิ่งใกล้ตายยิ่งแรง" damage tier (GAME_DESIGN.md §8). Checked only at *resolve*, not at
  *  declare: v0.3.2 folded Berserk into Slash, so this no longer gates whether the action happens at
  *  all — it only picks which of the two damage numbers lands. A Luna heal arriving mid-flight now
- *  downgrades Matt's hit (11 → 6) instead of deleting it outright; see docs/RULINGS.md §7. */
+ *  downgrades Eric's hit (11 → 6) instead of deleting it outright; see docs/RULINGS.md §7. */
 const ATTACK_GATED_HP_THRESHOLD = 5;
 
 /** How many clock slots a sprung Trap! pushes the boss's declared move back by (v0.3.9 — it used to
@@ -204,7 +204,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     case 'guard':
       // Declare-immediate (docs/RULINGS.md §5 group B): the protection has to be up *before* the
       // boss's already-announced move lands, or reading the boss — the whole point of §4.4 — would
-      // buy Matt nothing. Only one link can exist at a time; a second Guard replaces the first.
+      // buy Eric nothing. Only one link can exist at a time; a second Guard replaces the first.
       battle.guard = {
         guardianId: fighter.playerId,
         wardId: choice.targetPlayerId!,
@@ -250,12 +250,12 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     fighter.pending.resolved = true;
   }
 
-  // Vera's ManaCharge passive (@content/characters PASSIVES.Vera): declaring any of her own
+  // Liora's ManaCharge passive (@content/characters PASSIVES.Liora): declaring any of her own
   // non-damaging actions (Aura Charge is currently the only one) grants +1 mana, cap 3. Kept
   // separate from Aura Charge's own `buffMana` handling above (its primary is 0) so the passive
   // reads as what it is — an always-on trait, not a property baked into one specific card.
   const DAMAGING_KINDS = new Set(['attack', 'attackGated', 'attackRoll', 'attackMana', 'multiHit']);
-  if (fighter.charId === 'Vera' && !DAMAGING_KINDS.has(def.kind)) {
+  if (fighter.charId === 'Liora' && !DAMAGING_KINDS.has(def.kind)) {
     fighter.mana = Math.min(3, fighter.mana + 1);
   }
 }
@@ -290,7 +290,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       break;
     }
     case 'attackGated': {
-      // Slash: the HP<=5 tier is re-checked here, at resolve, so it reflects the damage Matt has
+      // Slash: the HP<=5 tier is re-checked here, at resolve, so it reflects the damage Eric has
       // actually taken while the swing was in flight — including a Luna heal that pulls him back
       // above the line. The action never fizzles now (v0.3.2); it just lands for the lower number.
       const boosted = fighter.hp <= ATTACK_GATED_HP_THRESHOLD && stats.secondary != null;
@@ -435,7 +435,7 @@ export function processScheduledHitsAtMarker(state: GameState) {
   }
 }
 
-/** Where damage aimed at `fighter` actually lands, after Matt's Guard. Returns the ward's guardian
+/** Where damage aimed at `fighter` actually lands, after Eric's Guard. Returns the ward's guardian
  *  when a link is up and the guardian is still standing, otherwise the original target.
  *
  *  Deliberately *not* recursive: a guardian who is themselves being guarded still eats their ward's
@@ -485,7 +485,7 @@ export function resolveQueuedCounter(state: GameState, fighter: Fighter, counter
   const battle = state.battle!;
   if (counterDmg <= 0 || battle.outcome !== 'in_progress') return;
   // Each character has at most one buffCounter-kind skill in their kit — look up which one this
-  // fighter actually has (Matt's Counter Attack, Dax's Riposte, ...) instead of assuming Matt's.
+  // fighter actually has (Eric's Counter Attack, Dax's Riposte, ...) instead of assuming Eric's.
   // Previously hardcoded to 'CounterAttack' always, which would have mislabeled Dax's ripostes in
   // the log/UI and made a Riposte-specific score condition unreachable.
   const counterSkillId = CHARACTERS[fighter.charId].skills.find((sid) => SKILLS[sid].kind === 'buffCounter') ?? 'CounterAttack';

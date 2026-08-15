@@ -99,7 +99,23 @@ export function saveSettings(s: Settings) {
 
 export function loadStats(): Stats {
   if (typeof localStorage === 'undefined') return emptyStats();
-  return safeParse(localStorage.getItem(STATS_KEY), emptyStats());
+  const stats = safeParse(localStorage.getItem(STATS_KEY), emptyStats());
+  // v0.3.10 renamed two character IDs. Merge legacy counters into the new keys so existing
+  // browser statistics survive the rename instead of appearing to reset.
+  const migrateCounters = (record: Partial<Record<CharId, number>>) => {
+    const legacy = record as Record<string, number | undefined>;
+    if (legacy.Matt != null) {
+      record.Eric = (record.Eric ?? 0) + legacy.Matt;
+      delete legacy.Matt;
+    }
+    if (legacy.Vera != null) {
+      record.Liora = (record.Liora ?? 0) + legacy.Vera;
+      delete legacy.Vera;
+    }
+  };
+  migrateCounters(stats.charDeaths);
+  migrateCounters(stats.charLastShots);
+  return stats;
 }
 export function saveStats(s: Stats) {
   localStorage.setItem(STATS_KEY, JSON.stringify(s));
@@ -111,6 +127,17 @@ export function loadSaveFile(): SaveFile | null {
   if (!raw) return null;
   try {
     const save = JSON.parse(raw) as SaveFile;
+    // Keep saves written before the character rename loadable. Only character-ID fields are
+    // migrated; a human player who happened to name themselves "Matt" or "Vera" is untouched.
+    const migrateCharId = (id: unknown): CharId => (id === 'Matt' ? 'Eric' : id === 'Vera' ? 'Liora' : id as CharId);
+    for (const player of save.snapshot.players) player.charId = migrateCharId(player.charId);
+    for (const progress of Object.values(save.snapshot.progress)) progress.charId = migrateCharId(progress.charId);
+    for (const fighter of save.snapshot.battle?.fighters ?? []) fighter.charId = migrateCharId(fighter.charId);
+    if (save.snapshot.pending?.kind === 'CHOOSE_CHARACTER') {
+      save.snapshot.pending.available = save.snapshot.pending.available.map(migrateCharId);
+    } else if (save.snapshot.pending?.kind === 'DECLARE_ACTION') {
+      save.snapshot.pending.options.charId = migrateCharId(save.snapshot.pending.options.charId);
+    }
     // v0.3.5 and earlier stored Kit's Skill Improvement as one shared number. Preserve the earned
     // improvement when loading that save, but split it into the two independent counters now used.
     for (const progress of Object.values(save.snapshot.progress)) {

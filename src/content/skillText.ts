@@ -66,8 +66,8 @@ export function skillEffectText(skillId: SkillId, isLv2: boolean, lang: Lang): s
       return th ? `สกิลพื้นฐาน ไม่มีเงื่อนไข — โจมตีบอส ${p} ดาเมจ, ⏱${s.time}` : `Common attack, no conditions — deal ${p} damage to the boss, ⏱${s.time}.`;
     case 'PowerStrike':
       return th
-        ? `โจมตีบอส ${p} ดาเมจ — ขณะ HP ต่ำกว่า 7 พาสซีฟ Berserk เพิ่มดาเมจนี้ (และทุกดาเมจของ Matt) อีก +4`
-        : `Deal ${p} damage to the boss — while HP is below 7, the Berserk passive adds +4 to this (and every) Matt attack.`;
+        ? `โจมตีบอส ${p} ดาเมจ — ขณะ HP ต่ำกว่า 7 พาสซีฟ Berserk เพิ่มดาเมจนี้ (และทุกดาเมจของ Eric) อีก +4`
+        : `Deal ${p} damage to the boss — while HP is below 7, the Berserk passive adds +4 to this (and every) Eric attack.`;
     case 'Guard':
       return th
         ? `ทันทีที่ประกาศ: เลือกเพื่อน 1 คน (ไม่ใช่ตัวเอง) จนถึงเทิร์นหน้าของคุณ — ดาเมจทั้งหมดที่เขาจะได้รับ มาเข้าคุณแทนโดยลดลง ${p} · ท่าที่ตีทุกคน (AoE) คุณจะกินทั้งของตัวเองและของเขา`

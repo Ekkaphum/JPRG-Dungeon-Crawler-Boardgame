@@ -63,7 +63,7 @@ describe('1. party wipe ends the battle immediately, even with time left', () =>
     for (const f of state.battle!.fighters) killFighter(state, f);
     expect(state.battle!.outcome).toBe('party_wiped');
 
-    const ownSkill: Record<string, string> = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'AuraSmite' };
+    const ownSkill: Record<string, string> = { Eric: 'Slash', Kit: 'QuickShot', Liora: 'Fireball', Luna: 'AuraSmite' };
     while (!res.done) {
       const d: PendingDecision = res.value;
       if (d.kind !== 'DECLARE_ACTION') throw new Error(`unexpected decision kind ${d.kind}`);
@@ -80,7 +80,7 @@ describe('10. death is idempotent', () => {
   it('does not count, log or reschedule death when an already-dead fighter is hit again', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     applyDamageToFighter(state, matt, matt.hp);
     const deaths = state.deathCounts[matt.playerId];
     const deathLogs = state.battle!.log.filter((e) => e.t === 'DEATH' && e.playerId === matt.playerId).length;
@@ -246,7 +246,7 @@ describe('4. Last Shot is tallied off battle.finishedBy, not matt2/vera2 score e
     expect(state.lastShotCounts[luna.playerId]).toBe(1);
   });
 
-  it('determineWinner tie-breaks on the cumulative count, favoring a non-Matt/Vera finisher', () => {
+  it('determineWinner tie-breaks on the cumulative count, favoring a non-Eric/Liora finisher', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = state.players.find((p) => p.charId === 'Luna')!;
@@ -275,7 +275,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
   it('rejects mana spend unless it is a finite integer in [0, 3] and affordable', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
     vera.mana = 1;
     expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: 2 }, createRNG(1))).toThrow(/illegal mana spend/);
     expect(() => declareSkill(state, vera, { kind: 'DECLARE_ACTION', skillId: 'Fireball', manaSpent: -1 }, createRNG(1))).toThrow(/illegal mana spend/);
@@ -293,7 +293,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
     expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: 999 }, createRNG(1))).toThrow(/illegal Heal target/);
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId }, createRNG(1))).not.toThrow();
   });
 
@@ -301,7 +301,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     killFighter(state, matt);
     expect(() => declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Heal', targetPlayerId: matt.playerId }, createRNG(1))).toThrow(
       /target must be alive when declared/
@@ -311,7 +311,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
   it('rejects a Guard aimed at the caster themselves', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: matt.playerId }, createRNG(1))).toThrow(
       /different, living ally/
     );
@@ -320,7 +320,7 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
   it('rejects a Guard with no target at all', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     expect(() => declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard' }, createRNG(1))).toThrow(/different, living ally/);
   });
 });

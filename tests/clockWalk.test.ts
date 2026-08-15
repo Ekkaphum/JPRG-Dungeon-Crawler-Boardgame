@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRNG, prepareBattle, runClockBattle, type Choice, type GameState, type PendingDecision } from '@engine/index';
 import { fixedDraftState } from './testUtils';
 
-const SIMPLE_SKILL: Record<string, string> = { Matt: 'Slash', Kit: 'QuickShot', Vera: 'Fireball', Luna: 'AuraSmite' };
+const SIMPLE_SKILL: Record<string, string> = { Eric: 'Slash', Kit: 'QuickShot', Liora: 'Fireball', Luna: 'AuraSmite' };
 
 async function driveBattle(state: GameState, seed: number, chooser: (state: GameState, decision: PendingDecision) => Choice, maxSteps = 5000) {
   const rng = createRNG(seed);
@@ -19,7 +19,7 @@ function defaultChooser(state: GameState, decision: PendingDecision): Choice {
   if (decision.kind !== 'DECLARE_ACTION') throw new Error('unexpected decision kind in battle-only test');
   const player = state.players.find((p) => p.id === decision.playerId)!;
   const skillId = SIMPLE_SKILL[player.charId] as never;
-  if (player.charId === 'Vera') return { kind: 'DECLARE_ACTION', skillId, manaSpent: 0 };
+  if (player.charId === 'Liora') return { kind: 'DECLARE_ACTION', skillId, manaSpent: 0 };
   return { kind: 'DECLARE_ACTION', skillId };
 }
 
@@ -70,12 +70,12 @@ describe('clock walk — ordering and stacking (GAME_DESIGN_v0_3_0.md §4.1)', (
     prepareBattle(state);
     const rng = createRNG(3);
     const gen = runClockBattle(state, rng);
-    // marker walks down to 23, where every hero stacks (equal-start, 2026-08-13) — Matt
+    // marker walks down to 23, where every hero stacks (equal-start, 2026-08-13) — Eric
     // (stackSeq 0, drafted first in fixedDraftState) is the first to declare.
     const first = gen.next();
     expect(first.done).toBe(false);
     const decision = first.value as Extract<PendingDecision, { kind: 'DECLARE_ACTION' }>;
-    expect(decision.options.charId).toBe('Matt');
+    expect(decision.options.charId).toBe('Eric');
     // No RESOLVE_* events should exist yet — only the first DECLARE.
     const resolves = state.battle!.log.filter((e) => e.t.startsWith('RESOLVE_'));
     expect(resolves.length).toBe(0);

@@ -13,7 +13,7 @@ function playerByChar(state: GameState, charId: string): PlayerId | null {
   return state.players.find((p) => p.charId === charId)?.id ?? null;
 }
 
-/** Matt cond1 (dmg>10), Vera cond1 (dmg>=14), Luna cond2 (blessed ally dmg>15), and both
+/** Eric cond1 (dmg>10), Liora cond1 (dmg>=14), Luna cond2 (blessed ally dmg>15), and both
  *  characters' "Last Shot" bonuses — called right after any player-sourced hit on the boss
  *  resolves (not for trap damage, which has no attributable "player action"). Point values live in
  *  @content/characters (scorePoints()) — this is only the trigger logic, not the numbers. */
@@ -21,16 +21,16 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   const battle = state.battle!;
   const charId = state.players.find((p) => p.id === playerId)!.charId;
 
-  if (charId === 'Matt' && effectiveDmg > 10) {
+  if (charId === 'Eric' && effectiveDmg > 10) {
     pushScore(state, { playerId, conditionId: 'matt1', points: scorePoints('matt1') });
   }
-  if (charId === 'Vera' && effectiveDmg >= VERA_BIG_HIT_DAMAGE) {
+  if (charId === 'Liora' && effectiveDmg >= VERA_BIG_HIT_DAMAGE) {
     pushScore(state, { playerId, conditionId: 'vera1', points: scorePoints('vera1') });
   }
   // vera3's half: her signature spell actually went off this battle. Keyed on Meteor connecting
   // rather than on any big hit — a fully-charged Fireball can clear vera1's damage bar, but only
   // Meteor is the ⏱7 wind-up the whole "protect me while I cast" fantasy is about.
-  if (charId === 'Vera' && skillId === 'Meteor' && effectiveDmg > 0) {
+  if (charId === 'Liora' && skillId === 'Meteor' && effectiveDmg > 0) {
     const f = battle.fighters.find((x) => x.playerId === playerId);
     if (f) f.landedMeteorThisBattle = true;
   }
@@ -41,7 +41,7 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
     const lunaId = playerByChar(state, 'Luna');
     if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna2', points: scorePoints('luna2') });
   }
-  // Universal Last Shot bonus (v0.3.7) — every character, not just Matt and Vera as before. Fires
+  // Universal Last Shot bonus (v0.3.7) — every character, not just Eric and Liora as before. Fires
   // here rather than in onBattleEndScoring so it lands on the exact hit that killed the boss, which
   // is also what makes it correct when the killing blow comes from a trap or a counter-strike.
   if (battle.finishedBy === playerId) {
@@ -52,7 +52,7 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   // full 3: mana only ever comes from spending a whole turn on Aura Charge, and a measured 3,000-game
   // sim at 3 fired the condition exactly 0.00 times per win — nobody ever banks three turns' worth
   // before casting, so the condition was dead on arrival.
-  if (charId === 'Vera' && manaSpent >= VERA_CHARGED_CAST_MANA && effectiveDmg > 0) {
+  if (charId === 'Liora' && manaSpent >= VERA_CHARGED_CAST_MANA && effectiveDmg > 0) {
     pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
   }
   if (charId === 'Mira' && skillId === 'FrostBolt' && effectiveDmg > 10) {
@@ -80,14 +80,14 @@ export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
   pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2') });
 }
 
-/** matt2 (v0.3.7): Matt's Guard actually absorbed a hit that was aimed at an ally. Fires on the
+/** matt2 (v0.3.7): Eric's Guard actually absorbed a hit that was aimed at an ally. Fires on the
  *  redirect itself, not on the damage that survives Guard's reduction — soaking a hit down to 0 is
  *  Guard working perfectly and must not score less than soaking it badly (same reasoning as Counter
  *  Attack's "นับแม้ดาเมจที่เข้าจริงจะเป็น 0" rule). Looked up by character rather than assumed, since
  *  a future character could own a guard-kind skill without owning matt2. */
 export function onGuardRedirected(state: GameState, guardianId: PlayerId) {
   const charId = state.players.find((p) => p.id === guardianId)?.charId;
-  if (charId !== 'Matt') return;
+  if (charId !== 'Eric') return;
   pushScore(state, { playerId: guardianId, conditionId: 'matt2', points: scorePoints('matt2') });
 }
 
@@ -114,7 +114,7 @@ export function onBattleEndScoring(state: GameState) {
     // everDroppedBelowHalfThisBattle rather than his HP right now, so being healed back up after
     // surviving a mauling still scores — the old "HP < 5 at the final frame" version fired 0.13
     // times per win and pulled against Berserk.
-    if (p.charId === 'Matt' && !f.everDiedThisBattle && f.everDroppedBelowHalfThisBattle) {
+    if (p.charId === 'Eric' && !f.everDiedThisBattle && f.everDroppedBelowHalfThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'matt3', points: scorePoints('matt3') });
     }
     // v0.3.7 kit3: 5 -> 8. Multi Shot lands 3 attacks per declare, so the old bar cleared itself.
@@ -122,7 +122,7 @@ export function onBattleEndScoring(state: GameState) {
       pushScore(state, { playerId: p.id, conditionId: 'kit3', points: scorePoints('kit3') });
     }
     // v0.3.7 vera3: surviving only pays if she also delivered the spell she was being protected for.
-    if (p.charId === 'Vera' && !f.everDiedThisBattle && f.landedMeteorThisBattle) {
+    if (p.charId === 'Liora' && !f.everDiedThisBattle && f.landedMeteorThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'vera3', points: scorePoints('vera3') });
     }
     if (p.charId === 'Dax' && f.alive && f.hp > f.maxHp / 2) {
@@ -174,9 +174,9 @@ export function determineWinner(state: GameState): FinalScores {
   const totals: Record<PlayerId, number> = {};
   for (const p of state.players) totals[p.id] = currentTotalScore(state, p.id);
 
-  // §1: "จำนวนครั้งที่ตี Last Shot" — every character's kill counts, not just Matt's and
-  // Vera's-via-Meteor's own point conditions (matt2/vera2), which only fire for a subset of Last
-  // Shots and miss Kit, Luna, Dax, Mira, and Vera's other skills entirely. state.lastShotCounts is
+  // §1: "จำนวนครั้งที่ตี Last Shot" — every character's kill counts, not just Eric's and
+  // Liora's-via-Meteor's own point conditions (matt2/vera2), which only fire for a subset of Last
+  // Shots and miss Kit, Luna, Dax, Mira, and Liora's other skills entirely. state.lastShotCounts is
   // tallied directly off battle.finishedBy at the end of every battle (walk.ts) for exactly this.
   const lastShotCounts: Record<PlayerId, number> = {};
   for (const p of state.players) {

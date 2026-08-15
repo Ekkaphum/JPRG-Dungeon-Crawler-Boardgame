@@ -170,9 +170,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (p) stats.charDeaths[p.charId] = (stats.charDeaths[p.charId] ?? 0) + (count ?? 0);
     }
     // state.lastShotCounts is tallied straight off battle.finishedBy at the end of every battle
-    // (walk.ts) — every character's kill counts here, not just Matt's and Vera's-via-Meteor's own
+    // (walk.ts) — every character's kill counts here, not just Eric's and Liora's-via-Meteor's own
     // point conditions (matt2/vera2), which used to be the only source for this stat and silently
-    // undercounted Kit, Luna, Dax, Mira, and Vera's other skills.
+    // undercounted Kit, Luna, Dax, Mira, and Liora's other skills.
     for (const [playerIdStr, count] of Object.entries(state.lastShotCounts)) {
       const p = state.players.find((pl) => pl.id === Number(playerIdStr));
       if (p) stats.charLastShots[p.charId] = (stats.charLastShots[p.charId] ?? 0) + (count ?? 0);

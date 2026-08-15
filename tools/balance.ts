@@ -13,7 +13,7 @@ import type { Agent } from '../src/bots/Agent';
 import { CHARACTERS } from '../src/content/characters';
 
 // Bot tier matters enormously for score-condition measurement: only the HARD bot consults
-// scoreConditionBonus(), so conditions that need deliberate setup (banking mana for Vera's charged
+// scoreConditionBonus(), so conditions that need deliberate setup (banking mana for Liora's charged
 // cast) never fire under medium bots, which play purely for the party. Pass 'hard' as argv[3] to
 // measure competitive play instead of altruistic play.
 const BOT_LEVEL = (process.argv[3] ?? 'medium') as 'medium' | 'hard';
@@ -59,7 +59,7 @@ async function main() {
   let wins = 0;
   const bossCleared: Partial<Record<BossId, number>> = {};
   const bossAttempts: Partial<Record<BossId, number>> = {};
-  const scoreByChar: Record<CharId, number[]> = { Matt: [], Kit: [], Vera: [], Luna: [], Dax: [], Mira: [] };
+  const scoreByChar: Record<CharId, number[]> = { Eric: [], Kit: [], Liora: [], Luna: [], Dax: [], Mira: [] };
   // Per-condition breakdown (all games, not just wins) — how often each of the 12 score
   // conditions actually fires and how many points it hands out in total, which the per-character
   // total above can't distinguish (e.g. a per-occurrence condition firing often vs. a rare
@@ -222,7 +222,7 @@ async function main() {
   // The figures that actually decide winners: only games the party won, normalized per winning
   // game rather than per game overall, plus each condition's share of its own character's *true*
   // total (personal conditions + this character's slice of the shared timeBonus payout) — the
-  // number that answers "is any one of Luna's/Vera's three conditions carrying her score, or is
+  // number that answers "is any one of Luna's/Liora's three conditions carrying her score, or is
   // one of them dead weight next to how much timeBonus alone hands out?"
   const charTotalWon: Record<string, number> = {};
   for (const byChar of Object.values(sharedByChar)) {

@@ -11,36 +11,36 @@ import { fixedDraftState } from './testUtils';
 
 function ids(state: ReturnType<typeof fixedDraftState>) {
   const byChar = (c: string) => state.players.find((p) => p.charId === c)!.id;
-  return { matt: byChar('Matt'), kit: byChar('Kit'), vera: byChar('Vera'), luna: byChar('Luna') };
+  return { matt: byChar('Eric'), kit: byChar('Kit'), vera: byChar('Liora'), luna: byChar('Luna') };
 }
 
 function fighterOf(state: ReturnType<typeof fixedDraftState>, playerId: number) {
   return state.battle!.fighters.find((f) => f.playerId === playerId)!;
 }
 
-describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
+describe('comboSynergyBonus — Kit opening weak point for Liora', () => {
   it('rewards SharpShooting when it opens in time for a pending Fireball/Meteor', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const { kit, vera } = ids(state);
     state.battle!.marker = 20;
-    // Vera declared Meteor (⏱7) at marker 20 → resolves at slot 13.
+    // Liora declared Meteor (⏱7) at marker 20 → resolves at slot 13.
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
 
-    // Kit's Sharp Shooting (⏱3) from marker 20 lands at 17 — well before Vera's 13, so it's open in time.
+    // Kit's Sharp Shooting (⏱3) from marker 20 lands at 17 — well before Liora's 13, so it's open in time.
     const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBeGreaterThan(0);
   });
 
-  it('does not reward it if the weak point would open too late to still be up at Vera\'s resolve', () => {
+  it('does not reward it if the weak point would open too late to still be up at Liora\'s resolve', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const { kit, vera } = ids(state);
     state.battle!.marker = 8;
-    // Vera's Meteor already resolves at 13 (declared earlier, marker has since moved to 8) —
-    // wait: to keep this realistic, declare Vera's pending to resolve *before* Kit even could.
+    // Liora's Meteor already resolves at 13 (declared earlier, marker has since moved to 8) —
+    // wait: to keep this realistic, declare Liora's pending to resolve *before* Kit even could.
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
-    // Kit declaring now (marker 8) would land at 5 — after Vera already resolved at 13.
+    // Kit declaring now (marker 8) would land at 5 — after Liora already resolved at 13.
     const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBe(0);
   });
@@ -63,7 +63,7 @@ describe('comboSynergyBonus — Kit opening weak point for Vera', () => {
     const { kit, vera } = ids(state);
     state.battle!.marker = 20;
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
-    // Boss resolves at 15 — after Kit opens (17) but before Vera's Meteor (13) — clears the window.
+    // Boss resolves at 15 — after Kit opens (17) but before Liora's Meteor (13) — clears the window.
     state.battle!.bossPending = { moveKey: 'A', die: 2, declaredAtSlot: 20, landedAtSlot: 15 };
 
     const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });

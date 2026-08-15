@@ -71,7 +71,7 @@ function HeroRow({
       <span className="text-xs font-mono text-gold-bright w-14 text-right flex-shrink-0">
         {f.hp}/{f.maxHp}
       </span>
-      <span className="text-[10px] font-mono text-gold-dim w-8 text-right flex-shrink-0">{p.charId === 'Vera' ? `💧${f.mana}` : ''}</span>
+      <span className="text-[10px] font-mono text-gold-dim w-8 text-right flex-shrink-0">{p.charId === 'Liora' ? `💧${f.mana}` : ''}</span>
       <span className="text-xs font-mono text-gold-bright w-7 text-right flex-shrink-0">{score}p</span>
       <span className="text-[9px] text-gold-dim w-24 truncate hidden sm:block">
         {!f.alive

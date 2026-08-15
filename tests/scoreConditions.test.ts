@@ -39,7 +39,7 @@ describe('onPlayerDealtDamage — matt1/vera1 damage thresholds', () => {
   it('matt1 fires above 10 damage, not at exactly 10', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
 
     onPlayerDealtDamage(state, matt.playerId, 'Slash', 10);
     expect(state.scoreLog.some((e) => e.conditionId === 'matt1')).toBe(false);
@@ -54,7 +54,7 @@ describe('onPlayerDealtDamage — matt1/vera1 damage thresholds', () => {
     // qualifies on its own — see docs/BALANCE_NOTES.md.
     const state = fixedDraftState();
     prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
 
     onPlayerDealtDamage(state, vera.playerId, 'Fireball', 13);
     expect(state.scoreLog.some((e) => e.conditionId === 'vera1')).toBe(false);
@@ -88,9 +88,9 @@ describe('onPlayerDealtDamage — matt1/vera1 damage thresholds', () => {
 });
 
 describe('Last Shot — one universal bonus for every character (v0.3.7)', () => {
-  // Was a personal condition worth 3 points that only Matt (matt2) and Vera (vera2) owned, so Kit
+  // Was a personal condition worth 3 points that only Eric (matt2) and Liora (vera2) owned, so Kit
   // and Luna scored nothing for the identical act. Now a flat LAST_SHOT_POINTS for whoever lands it.
-  for (const charId of ['Matt', 'Kit', 'Vera', 'Luna'] as const) {
+  for (const charId of ['Eric', 'Kit', 'Liora', 'Luna'] as const) {
     it(`awards ${LAST_SHOT_POINTS} points to ${charId} for landing the killing blow`, () => {
       const state = fixedDraftState();
       prepareBattle(state);
@@ -107,9 +107,9 @@ describe('Last Shot — one universal bonus for every character (v0.3.7)', () =>
   it('does not fire for whoever did NOT land the killing blow', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
-    const vera = findFighter(state, 'Vera');
-    state.battle!.finishedBy = matt.playerId; // Matt finished it, not Vera
+    const matt = findFighter(state, 'Eric');
+    const vera = findFighter(state, 'Liora');
+    state.battle!.finishedBy = matt.playerId; // Eric finished it, not Liora
 
     onPlayerDealtDamage(state, vera.playerId, 'Meteor', 20);
     expect(state.scoreLog.some((e) => e.conditionId === 'lastShot')).toBe(false);
@@ -126,7 +126,7 @@ describe('vera2 — charged cast (v0.3.7)', () => {
   it('fires at the charge threshold when the spell connects', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
     onPlayerDealtDamage(state, vera.playerId, 'Fireball', 14, VERA_CHARGED_CAST_MANA);
     expect(state.scoreLog.some((e) => e.conditionId === 'vera2')).toBe(true);
   });
@@ -134,7 +134,7 @@ describe('vera2 — charged cast (v0.3.7)', () => {
   it('does not fire below the charge threshold', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
     onPlayerDealtDamage(state, vera.playerId, 'Fireball', 11, VERA_CHARGED_CAST_MANA - 1);
     expect(state.scoreLog.some((e) => e.conditionId === 'vera2')).toBe(false);
   });
@@ -142,7 +142,7 @@ describe('vera2 — charged cast (v0.3.7)', () => {
   it('does not fire when a charged spell deals no damage', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
     onPlayerDealtDamage(state, vera.playerId, 'Fireball', 0, VERA_CHARGED_CAST_MANA);
     expect(state.scoreLog.some((e) => e.conditionId === 'vera2')).toBe(false);
   });
@@ -150,7 +150,7 @@ describe('vera2 — charged cast (v0.3.7)', () => {
   it('a 14+ damage hit latches the flag vera3 reads at end of battle', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const vera = findFighter(state, 'Vera');
+    const vera = findFighter(state, 'Liora');
     expect(vera.landedMeteorThisBattle).toBe(false);
     onPlayerDealtDamage(state, vera.playerId, 'Meteor', 18, 3);
     expect(vera.landedMeteorThisBattle).toBe(true);
@@ -158,11 +158,11 @@ describe('vera2 — charged cast (v0.3.7)', () => {
 });
 
 describe('matt2 — Guard absorbing a hit meant for an ally (v0.3.7)', () => {
-  it('scores when Guard redirects a boss hit onto Matt', () => {
+  it('scores when Guard redirects a boss hit onto Eric', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
-    const vera = findFighter(state, 'Vera');
+    const matt = findFighter(state, 'Eric');
+    const vera = findFighter(state, 'Liora');
     declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
 
     dealDamageToFighterFromBoss(state, vera, 10);
@@ -174,8 +174,8 @@ describe('matt2 — Guard absorbing a hit meant for an ally (v0.3.7)', () => {
   it('scores per hit absorbed, not once per Guard', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
-    const vera = findFighter(state, 'Vera');
+    const matt = findFighter(state, 'Eric');
+    const vera = findFighter(state, 'Liora');
     declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
 
     dealDamageToFighterFromBoss(state, vera, 5);
@@ -183,11 +183,11 @@ describe('matt2 — Guard absorbing a hit meant for an ally (v0.3.7)', () => {
     expect(state.scoreLog.filter((e) => e.conditionId === 'matt2')).toHaveLength(2);
   });
 
-  it('does not score for damage Matt takes on his own account', () => {
+  it('does not score for damage Eric takes on his own account', () => {
     const state = fixedDraftState();
     prepareBattle(state);
-    const matt = findFighter(state, 'Matt');
-    const vera = findFighter(state, 'Vera');
+    const matt = findFighter(state, 'Eric');
+    const vera = findFighter(state, 'Liora');
     declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'Guard', targetPlayerId: vera.playerId }, createRNG(1));
 
     dealDamageToFighterFromBoss(state, matt, 10); // his own share of an AoE, not a redirect
@@ -222,7 +222,7 @@ describe('per-occurrence conditions — kit1/kit2/luna1', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     onHealResolved(state, luna.playerId, matt.playerId, 1);
     expect(state.scoreLog.find((e) => e.conditionId === 'luna1')?.points).toBe(3);
   });
@@ -231,7 +231,7 @@ describe('per-occurrence conditions — kit1/kit2/luna1', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
-    const matt = findFighter(state, 'Matt');
+    const matt = findFighter(state, 'Eric');
     onHealResolved(state, luna.playerId, matt.playerId, 0);
     expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
   });

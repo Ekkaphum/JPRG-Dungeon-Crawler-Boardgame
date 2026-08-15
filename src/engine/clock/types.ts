@@ -51,7 +51,7 @@ export interface PendingAction {
   resolved?: boolean;
 }
 
-/** Matt's Guard: an active redirect link, not a shield. Lives on the battle rather than on either
+/** Eric's Guard: an active redirect link, not a shield. Lives on the battle rather than on either
  *  fighter because the effect is read from the *ward's* side (damage aimed at them lands on the
  *  guardian instead) while its lifetime is owned by the *guardian's* pawn. */
 export interface GuardLink {
@@ -86,19 +86,19 @@ export interface Fighter {
   pending: PendingAction | null;
   /** Dice-ladder attempt counter per skill, resets every battle (§5.2). */
   rollAttempt: Partial<Record<SkillId, number>>;
-  mana: number; // Vera only, 0..3
+  mana: number; // Liora only, 0..3
   shield: Shield | null;
   /** Set the instant this fighter dies; cleared on revival. null once revival slot is computed
    *  but not yet reached is NOT how this works — see BattleState.deadWaiting below instead. */
   reviveAtSlot: number | null;
   everDiedThisBattle: boolean;
   attackCountThisBattle: number;
-  /** Matt's matt3 ("บาดเจ็บสาหัสแต่ไม่ล้ม"): set the moment HP drops below half, never cleared for the
+  /** Eric's matt3 ("บาดเจ็บสาหัสแต่ไม่ล้ม"): set the moment HP drops below half, never cleared for the
    *  rest of the battle — so a heal back to full doesn't erase the fact that he took the beating.
    *  Checked at declare/resolve time is wrong for this one on purpose; the condition is about the
    *  *history* of the battle, not its final frame. */
   everDroppedBelowHalfThisBattle: boolean;
-  /** Vera's vera3: whether a Meteor of hers actually connected (>0 effective damage) this battle.
+  /** Liora's vera3: whether a Meteor of hers actually connected (>0 effective damage) this battle.
    *  Pairs with everDiedThisBattle so "survived" only scores when she also got her signature ⏱7
    *  spell off — the one the party is supposed to be protecting her through. */
   landedMeteorThisBattle: boolean;
@@ -136,7 +136,7 @@ export type ClockLogEvent =
    *  damage at all (Golden Throne, Eternal Slumber). */
   | { t: 'BOSS_MOVE'; bossId: BossId; moveKey: 'A' | 'B' | 'C' }
   /** `targetId` is who actually *took* the damage. When Guard redirected it, `redirectedFrom` names
-   *  the player it was originally aimed at — so the log reads "Matt took 12 (for Kit)" rather than
+   *  the player it was originally aimed at — so the log reads "Eric took 12 (for Kit)" rather than
    *  silently reporting a hit on someone the boss never chose. */
   | {
       t: 'RESOLVE_ATTACK';
@@ -201,9 +201,9 @@ export interface GameState {
    *  flag resets every battle and isn't enough to report a whole game's death count). */
   deathCounts: Partial<Record<PlayerId, number>>;
   /** Cross-battle count of who actually landed the killing blow on a boss — the §1 tie-break reads
-   *  this directly instead of counting `matt2`/`vera2` score entries, which only exist for Matt's
-   *  and Vera-via-Meteor's own point conditions and miss every other character's (and every other
-   *  Vera skill's) Last Shot entirely. `battle.finishedBy` itself resets to null every new battle
+   *  this directly instead of counting `matt2`/`vera2` score entries, which only exist for Eric's
+   *  and Liora-via-Meteor's own point conditions and miss every other character's (and every other
+   *  Liora skill's) Last Shot entirely. `battle.finishedBy` itself resets to null every new battle
    *  (prepareBattle), so it has to be tallied here the instant each battle ends. */
   lastShotCounts: Partial<Record<PlayerId, number>>;
   pending: PendingDecision | null;

@@ -28,7 +28,7 @@ function findFighter(state: ReturnType<typeof fixedDraftState>, playerId: number
 describe('Dax score conditions', () => {
   it('dax1: onWeakPointOpened credits Dax, not kit1', () => {
     const state = fixedDraftState();
-    setPlayerCharacter(state, 0, 'Dax'); // player 0 was Matt
+    setPlayerCharacter(state, 0, 'Dax'); // player 0 was Eric
     prepareBattle(state);
     const dax = findFighter(state, 0);
 
@@ -68,7 +68,7 @@ describe('Dax score conditions', () => {
     expect(scored?.points).toBe(scorePoints('dax2'));
   });
 
-  it("Matt's Counter Attack still logs as 'CounterAttack' — the lookup resolves to his own skill", () => {
+  it("Eric's Counter Attack still logs as 'CounterAttack' — the lookup resolves to his own skill", () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 0);

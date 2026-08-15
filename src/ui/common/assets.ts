@@ -6,7 +6,7 @@ import { hasSigil, sigilDataUri } from './charSigils';
 // the underlying files (see PLAN_v0.3.0.md §2) — the frozen public/versions/ builds hardcode
 // absolute /assets/... paths to them. Only the original 4 have painted art; Dax/Mira (2026-08-11)
 // render an SVG sigil instead — see charSigils.ts for why.
-const CHAR_ART: Partial<Record<CharId, string>> = { Matt: 'Knight', Kit: 'Ranger', Vera: 'Wizard', Luna: 'Cleric' };
+const CHAR_ART: Partial<Record<CharId, string>> = { Eric: 'Knight', Kit: 'Ranger', Liora: 'Wizard', Luna: 'Cleric' };
 const BOSS_ART: Record<BossId, string> = { Ragorath: 'Wrath', Somnivar: 'Sloth', Aurelius: 'Pride' };
 
 export function charImageUrl(charId: CharId): string {

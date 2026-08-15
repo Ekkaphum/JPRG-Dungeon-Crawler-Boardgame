@@ -3,8 +3,8 @@ import { createEasyBot } from '@bots/easy';
 import type { Agent } from '@bots/Agent';
 import { CHAR_IDS, type CharId } from '@content/characters';
 
-/** Builds a 4-player game with a fixed, known Matt/Kit/Vera/Luna → player 0..3 assignment,
- *  bypassing the random draft so tests can address "Matt's fighter" deterministically. */
+/** Builds a 4-player game with a fixed, known Eric/Kit/Liora/Luna → player 0..3 assignment,
+ *  bypassing the random draft so tests can address "Eric's fighter" deterministically. */
 export function fixedDraftState(seed = 12345): GameState {
   const state = newGame(
     {
@@ -19,7 +19,7 @@ export function fixedDraftState(seed = 12345): GameState {
     seed
   );
   state.players.forEach((p, i) => {
-    p.charId = CHAR_IDS[i]; // Matt, Kit, Vera, Luna in that order
+    p.charId = CHAR_IDS[i]; // Eric, Kit, Liora, Luna in that order
     state.progress[p.id] = { playerId: p.id, charId: p.charId, isLv2: {}, expOnCard: {}, bankedExp: 0, rollPenalty: {} };
   });
   state.phase = 'BATTLE_INTRO';

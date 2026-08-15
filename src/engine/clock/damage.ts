@@ -6,13 +6,13 @@ import { BOSSES } from '@content/bosses3';
 import { CHARACTERS, type SkillId } from '@content/characters';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
-/** Berserk's threshold (@content/characters PASSIVES.Matt) — always-on, checked here rather than
- *  once at declare so a mid-flight heal that pulls Matt back above it drops the bonus, same resolve-
+/** Berserk's threshold (@content/characters PASSIVES.Eric) — always-on, checked here rather than
+ *  once at declare so a mid-flight heal that pulls Eric back above it drops the bonus, same resolve-
  *  time timing the old Slash HP tier used. */
 const BERSERK_HP_THRESHOLD = 7;
 
 /** Outgoing damage a player deals to the boss: base + party Blessing atk buff + weak-point bonus +
- *  Matt's Berserk passive.
+ *  Eric's Berserk passive.
  *  "ทุกคน" buffs never apply to the boss (GAME_DESIGN_v0_3_0.md §5.1) so this is player-only. */
 export function computeOutgoingPlayerDamage(battle: BattleState, base: number, attackerId?: number): number {
   let dmg = base;
@@ -20,7 +20,7 @@ export function computeOutgoingPlayerDamage(battle: BattleState, base: number, a
   if (battle.weakPointActive) dmg += 4;
   if (attackerId != null) {
     const attacker = battle.fighters.find((f) => f.playerId === attackerId);
-    if (attacker?.charId === 'Matt' && attacker.alive && attacker.hp < BERSERK_HP_THRESHOLD) dmg += 4;
+    if (attacker?.charId === 'Eric' && attacker.alive && attacker.hp < BERSERK_HP_THRESHOLD) dmg += 4;
   }
   return dmg;
 }
@@ -73,8 +73,8 @@ export function applyDamageToBoss(
  *  "triggered" even when the final damage rounds down to 0 (GAME_DESIGN_v0_3_0.md §8: "นับแม้ดาเมจ
  *  ที่เข้าจริงจะเป็น 0"). Returns the actual damage applied. */
 export function applyDamageToFighter(state: GameState, fighter: Fighter, rawDamage: number): number {
-  // An AoE resolves one target at a time. Guard can redirect an earlier target's share onto Matt
-  // and kill him before the loop reaches Matt's own share; that later share must not kill/log/count
+  // An AoE resolves one target at a time. Guard can redirect an earlier target's share onto Eric
+  // and kill him before the loop reaches Eric's own share; that later share must not kill/log/count
   // the same fighter again.
   if (!fighter.alive) return 0;
   const battle = state.battle!;

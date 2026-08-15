@@ -74,8 +74,8 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
     tone: 'good',
     label: { th: 'Mana Shield', en: 'Mana Shield' },
     desc: {
-      th: 'ดาเมจที่เข้าลดลงแบบคงที่ จนถึงเทิร์นหน้าของตัวเอง (Vera ยังได้มานา +1 จากพาสซีฟ ManaCharge ด้วย)',
-      en: "Incoming damage is reduced by a flat amount until your next turn (Vera also gains +1 mana from her ManaCharge passive).",
+      th: 'ดาเมจที่เข้าลดลงแบบคงที่ จนถึงเทิร์นหน้าของตัวเอง (Liora ยังได้มานา +1 จากพาสซีฟ ManaCharge ด้วย)',
+      en: "Incoming damage is reduced by a flat amount until your next turn (Liora also gains +1 mana from her ManaCharge passive).",
     },
   },
   blessing: {

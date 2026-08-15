@@ -5,19 +5,19 @@
 // Dax/Mira (2026-08-11): added to make the draft pool bigger than the table so the last pick is
 // never forced. Temporarily disabled (2026-08-12) — GAME_DESIGN.md/README still describe a
 // 4-character roster (4 character sheets, 12 skill cards, Aurelius's armor-break combo analysis
-// assuming Kit+Luna+Vera are all at the table), and having them silently draftable contradicted
+// assuming Kit+Luna+Liora are all at the table), and having them silently draftable contradicted
 // that document. Their data/skills/score conditions and all engine support stay in place — this is
 // the only line that needs to change to re-enable them once the docs are updated to match, or a
 // content pass reconciles the two. See docs/BALANCE_NOTES.md.
-export type CharId = 'Matt' | 'Kit' | 'Vera' | 'Luna' | 'Dax' | 'Mira';
-export const CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna'];
+export type CharId = 'Eric' | 'Kit' | 'Liora' | 'Luna' | 'Dax' | 'Mira';
+export const CHAR_IDS: CharId[] = ['Eric', 'Kit', 'Liora', 'Luna'];
 /** Full roster including disabled characters — for anything that must enumerate every CharId
  *  regardless of draft availability (Record<CharId,...> exhaustiveness, tests). Never use this for
  *  the draft pool itself; that's CHAR_IDS above. */
-export const ALL_CHAR_IDS: CharId[] = ['Matt', 'Kit', 'Vera', 'Luna', 'Dax', 'Mira'];
+export const ALL_CHAR_IDS: CharId[] = ['Eric', 'Kit', 'Liora', 'Luna', 'Dax', 'Mira'];
 
 export type SkillId =
-  // Matt
+  // Eric
   | 'Slash'
   | 'PowerStrike'
   | 'Guard'
@@ -27,7 +27,7 @@ export type SkillId =
   | 'SharpShooting'
   | 'Trap'
   | 'MultiShot'
-  // Vera
+  // Liora
   | 'AirPush'
   | 'Fireball'
   | 'AuraCharge'
@@ -49,14 +49,14 @@ export type SkillId =
 /** Which resolution family a skill belongs to — see docs/RULINGS.md §5. */
 export type SkillKind =
   | 'attack' // Slash, Power Strike, Quick Shot, Air Push, Hitting, Aura Smite, Twin Shot, Smite — plain damage to boss, resolves next visit
-  | 'attackGated' // (unused since v0.4.0 — Matt's HP-gated damage is now the always-on Berserk passive instead of a per-skill tier)
+  | 'attackGated' // (unused since v0.4.0 — Eric's HP-gated damage is now the always-on Berserk passive instead of a per-skill tier)
   | 'attackRoll' // Sharp Shooting, Focus — attack + dice roll → weak point buff, resolves next visit
   | 'attackMana' // Fireball, Meteor, Frost Bolt — attack scaled by mana paid, resolves next visit
   | 'multiHit' // Multi Shot — one hit at resolve + extra hits scheduled at earlier slots (see earlyHits)
   | 'heal' // Heal, Mending Wind — targeted heal, resolves next visit
   | 'buffCounter' // Counter Attack, Riposte — immediate self-shield + conditional counter-strike
   | 'buffParty' // Blessing — immediate party-wide atk/defense buff
-  | 'buffMana' // Aura Charge, Arcane Ward — immediate self-shield; Vera's own mana gain comes from her ManaCharge passive, not this
+  | 'buffMana' // Aura Charge, Arcane Ward — immediate self-shield; Liora's own mana gain comes from her ManaCharge passive, not this
   | 'guard' // Guard — immediate damage-redirect link from an ally onto the caster
   | 'trap'; // Trap!, Set Trap — immediate token placement
 
@@ -111,13 +111,13 @@ export interface PassiveDef {
  *  the mechanic naturally sits (damage.ts for Berserk, skills.ts for the roll-penalty and mana
  *  passives) rather than through a generic dispatch table — four one-off effects don't earn one. */
 export const PASSIVES: Partial<Record<CharId, PassiveDef>> = {
-  Matt: {
+  Eric: {
     id: 'Berserk',
-    charId: 'Matt',
+    charId: 'Eric',
     name: { th: 'Berserk', en: 'Berserk' },
     desc: {
-      th: 'ทำงานเองตลอดเวลา: ขณะ HP ต่ำกว่า 7 พลังโจมตีของ Matt ทุกครั้ง +4 (เช็คในเวลาที่การโจมตีเกิดผล; สกิล ⚡ จึงเช็คตอนประกาศ)',
-      en: "Always active: while Matt's HP is below 7, every attack deals +4 (checked when the hit takes effect, so ⚡ skills check on declare).",
+      th: 'ทำงานเองตลอดเวลา: ขณะ HP ต่ำกว่า 7 พลังโจมตีของ Eric ทุกครั้ง +4 (เช็คในเวลาที่การโจมตีเกิดผล; สกิล ⚡ จึงเช็คตอนประกาศ)',
+      en: "Always active: while Eric's HP is below 7, every attack deals +4 (checked when the hit takes effect, so ⚡ skills check on declare).",
     },
   },
   Kit: {
@@ -129,13 +129,13 @@ export const PASSIVES: Partial<Record<CharId, PassiveDef>> = {
       en: "Every failed Sharp Shooting or Trap! roll permanently lowers only that skill's target by 1, tracked separately across boss fights down to a floor of 2.",
     },
   },
-  Vera: {
+  Liora: {
     id: 'ManaCharge',
-    charId: 'Vera',
+    charId: 'Liora',
     name: { th: 'ManaCharge', en: 'ManaCharge' },
     desc: {
-      th: 'ทำงานเองตลอดเวลา: ทุกครั้งที่ Vera ประกาศแอคชันที่ไม่สร้างดาเมจให้บอส (เช่น Aura Charge) เธอได้มานา +1 (สูงสุด 3) — Fireball/Meteor จ่ายมานานี้ได้ +3 ดาเมจต่อหน่วย',
-      en: "Always active: whenever Vera declares a non-damaging action (Aura Charge), she gains +1 mana (cap 3) — Fireball/Meteor spend it for +3 damage per point.",
+      th: 'ทำงานเองตลอดเวลา: ทุกครั้งที่ Liora ประกาศแอคชันที่ไม่สร้างดาเมจให้บอส (เช่น Aura Charge) เธอได้มานา +1 (สูงสุด 3) — Fireball/Meteor จ่ายมานานี้ได้ +3 ดาเมจต่อหน่วย',
+      en: "Always active: whenever Liora declares a non-damaging action (Aura Charge), she gains +1 mana (cap 3) — Fireball/Meteor spend it for +3 damage per point.",
     },
   },
   Luna: {
@@ -175,7 +175,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   // uses everywhere else in this file; only Lv1 was specified.
   Slash: {
     id: 'Slash',
-    charId: 'Matt',
+    charId: 'Eric',
     kind: 'attack',
     immediate: true,
     name: { th: 'Slash', en: 'Slash' },
@@ -184,7 +184,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   PowerStrike: {
     id: 'PowerStrike',
-    charId: 'Matt',
+    charId: 'Eric',
     kind: 'attack',
     immediate: true,
     name: { th: 'Power Strike', en: 'Power Strike' },
@@ -193,18 +193,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   Guard: {
     id: 'Guard',
-    charId: 'Matt',
+    charId: 'Eric',
     kind: 'guard',
     name: { th: 'Guard', en: 'Guard' },
-    // primary = flat reduction on damage redirected onto Matt. No more `secondary`/wardAtk (the
-    // ward no longer gets an attack buff) — the redesign frames Guard as pure protection: Matt
+    // primary = flat reduction on damage redirected onto Eric. No more `secondary`/wardAtk (the
+    // ward no longer gets an attack buff) — the redesign frames Guard as pure protection: Eric
     // takes the hit instead of them, full stop.
     lv1: { time: 5, primary: 4 },
     lv2: { time: 5, primary: 6 },
   },
   CounterAttack: {
     id: 'CounterAttack',
-    charId: 'Matt',
+    charId: 'Eric',
     kind: 'buffCounter',
     name: { th: 'Counter Attack', en: 'Counter Attack' },
     // primary = incoming-damage reduction %, secondary = counter-strike damage
@@ -264,7 +264,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   AirPush: {
     id: 'AirPush',
-    charId: 'Vera',
+    charId: 'Liora',
     kind: 'attack',
     immediate: true,
     name: { th: 'Air Push', en: 'Air Push' },
@@ -273,17 +273,17 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   Fireball: {
     id: 'Fireball',
-    charId: 'Vera',
+    charId: 'Liora',
     kind: 'attackMana',
     name: { th: 'Fireball', en: 'Fireball' },
-    // primary = base damage, secondary = damage per mana point. Mana itself comes from Vera's
+    // primary = base damage, secondary = damage per mana point. Mana itself comes from Liora's
     // ManaCharge passive (see PASSIVES), not from anything Fireball does.
     lv1: { time: 3, primary: 5, secondary: 3 },
     lv2: { time: 3, primary: 8, secondary: 3 },
   },
   AuraCharge: {
     id: 'AuraCharge',
-    charId: 'Vera',
+    charId: 'Liora',
     kind: 'buffMana',
     name: { th: 'Aura Charge', en: 'Aura Charge' },
     // primary intentionally 0 — the mana gain is the ManaCharge *passive* firing off this
@@ -294,7 +294,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   Meteor: {
     id: 'Meteor',
-    charId: 'Vera',
+    charId: 'Liora',
     kind: 'attackMana',
     name: { th: 'Meteor', en: 'Meteor' },
     lv1: { time: 7, primary: 13, secondary: 3 },
@@ -354,7 +354,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     charId: 'Dax',
     kind: 'buffCounter',
     name: { th: 'Riposte', en: 'Riposte' },
-    // A lighter parry than Matt's Counter Attack: less damage reduction and a smaller riposte,
+    // A lighter parry than Eric's Counter Attack: less damage reduction and a smaller riposte,
     // but ⏱4 instead of ⏱5.
     lv1: { time: 4, primary: 40, secondary: 8 },
     lv2: { time: 4, primary: 45, secondary: 12 },
@@ -387,8 +387,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     kind: 'buffMana',
     name: { th: 'Arcane Ward', en: 'Arcane Ward' },
     // primary = mana gained, secondary = incoming-damage reduction (flat). Reduction raised to
-    // match Vera's ManaCharge (2026-08-11): the original, weaker numbers made Mira noticeably more
-    // likely to die than Vera despite 1 more base HP — mira3 ("never died") fired at 0.24/win vs
+    // match Liora's ManaCharge (2026-08-11): the original, weaker numbers made Mira noticeably more
+    // likely to die than Liora despite 1 more base HP — mira3 ("never died") fired at 0.24/win vs
     // vera3's 1.30/win in a 3000-game sim. See docs/BALANCE_NOTES.md.
     lv1: { time: 3, primary: 1, secondary: 3 },
     lv2: { time: 3, primary: 1, secondary: 5 },
@@ -407,18 +407,18 @@ export const SKILLS: Record<SkillId, SkillDef> = {
 };
 
 export const CHARACTERS: Record<CharId, CharacterDef> = {
-  Matt: {
-    id: 'Matt',
+  Eric: {
+    id: 'Eric',
     job: { th: 'Knight', en: 'Knight' },
     hp: 16,
     startSlot: 23,
     reviveHp: 8,
-    // v0.4.0: common attack + 3 cards, plus the always-on Berserk passive (PASSIVES.Matt).
+    // v0.4.0: common attack + 3 cards, plus the always-on Berserk passive (PASSIVES.Eric).
     skills: ['Slash', 'PowerStrike', 'Guard', 'CounterAttack'],
     score: [
       {
         id: 'matt1',
-        charId: 'Matt',
+        charId: 'Eric',
         slot: 1,
         points: 1,
         perOccurrence: true,
@@ -426,18 +426,18 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
       },
       {
         id: 'matt2',
-        charId: 'Matt',
+        charId: 'Eric',
         slot: 2,
         points: 2,
         perOccurrence: true,
         // v0.3.7: was "Land the Last Shot" (3pts), which is now the universal LAST_SHOT_POINTS bonus
-        // every character earns. Matt's protector role — the whole point of Guard — previously scored
+        // every character earns. Eric's protector role — the whole point of Guard — previously scored
         // nothing at all despite Guard being declared ~1,800 times per 3,000 sim games.
         desc: { th: 'ปกป้องเพื่อนสำเร็จ — Guard รับดาเมจแทนเพื่อน', en: 'Guard successfully takes a hit aimed at an ally' },
       },
       {
         id: 'matt3',
-        charId: 'Matt',
+        charId: 'Eric',
         slot: 3,
         points: 3,
         perOccurrence: false,
@@ -502,20 +502,20 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
       },
     ],
   },
-  Vera: {
-    id: 'Vera',
+  Liora: {
+    id: 'Liora',
     job: { th: 'Wizard', en: 'Wizard' },
     hp: 11,
     startSlot: 23,
     reviveHp: 6,
-    // ① Fireball ② ManaCharge ③ Meteor. Vera is the template's one sanctioned "supports only
+    // ① Fireball ② ManaCharge ③ Meteor. Liora is the template's one sanctioned "supports only
     // herself" case (§8.0) — she is the payload the other three set up, not a setter-upper.
-    // v0.4.0: common attack + 3 cards, plus the always-on ManaCharge passive (PASSIVES.Vera).
+    // v0.4.0: common attack + 3 cards, plus the always-on ManaCharge passive (PASSIVES.Liora).
     skills: ['AirPush', 'Fireball', 'AuraCharge', 'Meteor'],
     score: [
       {
         id: 'vera1',
-        charId: 'Vera',
+        charId: 'Liora',
         slot: 1,
         points: 1,
         perOccurrence: true,
@@ -527,7 +527,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
       },
       {
         id: 'vera2',
-        charId: 'Vera',
+        charId: 'Liora',
         slot: 2,
         // 2 -> 1: this fires on the *same hit* as vera1 most of the time (a 2-mana Meteor is
         // 19 damage, comfortably over vera1's 14), so at 2 points one action was paying her 3 and
@@ -546,15 +546,15 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
       },
       {
         id: 'vera3',
-        charId: 'Vera',
+        charId: 'Liora',
         slot: 3,
         // 3 -> 2: at 3 this was the single largest personal payout in the game (7.38 pts/win under
-        // competitive play, against Matt's biggest at 5.20).
+        // competitive play, against Eric's biggest at 5.20).
         points: 2,
         perOccurrence: false,
         // v0.3.7: was a bare "end the battle without dying" (2pts) — at a 91.5% win rate that fired
         // in 82% of battles and made up 39% of her score for doing nothing in particular, which is
-        // most of why she won 40.9% of games against Matt's 8.8%. Surviving now only pays when she
+        // most of why she won 40.9% of games against Eric's 8.8%. Surviving now only pays when she
         // also delivered the big spell she survived *for*.
         desc: {
           th: 'ร่ายใหญ่สำเร็จโดยรอด — จบยกโดยไม่ตาย และได้ใช้ Meteor เข้าเป้าในยกนั้น',
@@ -659,7 +659,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     startSlot: 20,
     reviveHp: 4,
     // ① Frost Bolt ② Mending Wind ③ Arcane Ward — but ③ is a template violation, not a signature:
-    // Arcane Ward is `buffMana` with the same numbers as Vera's ManaCharge, so Mira has nothing
+    // Arcane Ward is `buffMana` with the same numbers as Liora's ManaCharge, so Mira has nothing
     // that is *hers*. This is the same character the sim already flags as the roster's outlier
     // (0.99 pts/win vs. everyone else's 5-8, docs/BALANCE_NOTES.md) — the role template (§8.0) and
     // the balance data agree, and she stays out of CHAR_IDS until she has a real slot ③.
@@ -690,7 +690,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         // sim: attackMana's value estimate always rewards spending more mana with nothing modeling
         // a reason to hold back, so bots almost never end a battle with any banked regardless of
         // the bar. Switched to survival, the same condition shape that already performs well for
-        // Vera (vera3, ~49% of her total) — Mira is nearly as fragile (9 HP vs Vera's 8).
+        // Liora (vera3, ~49% of her total) — Mira is nearly as fragile (9 HP vs Liora's 8).
         points: 2,
         perOccurrence: false,
         desc: { th: 'จบยกบอสโดยไม่ตาย', en: 'End the battle without dying' },
@@ -709,20 +709,20 @@ export function skillStats(id: SkillId, isLv2: boolean): SkillLevelStats {
 
 /** Universal Last Shot bonus (v0.3.7): whoever lands the killing blow on a boss scores this,
  *  whatever character they are. Previously this was a *personal* condition worth 3 points that only
- *  Matt (matt2) and Vera (vera2) had, so Kit and Luna scored nothing for the same act — measured at
- *  a 4.6x win-share gap between Vera and Matt (docs/BALANCE_NOTES.md). Kept out of CHARACTERS[].score
+ *  Eric (matt2) and Liora (vera2) had, so Kit and Luna scored nothing for the same act — measured at
+ *  a 4.6x win-share gap between Liora and Eric (docs/BALANCE_NOTES.md). Kept out of CHARACTERS[].score
  *  on purpose: it belongs to no one character, and the end-of-game breakdown groups it the same way
  *  'timeBonus' is grouped. */
 export const LAST_SHOT_POINTS = 2;
 export const LAST_SHOT_CONDITION_ID = 'lastShot';
 
-/** Mana Vera must commit to a single spell for vera2 to score. Every point of mana costs her a whole
+/** Mana Liora must commit to a single spell for vera2 to score. Every point of mana costs her a whole
  *  turn on Aura Charge (the ManaCharge passive is the only source), so 2 already means she spent two
  *  turns setting up one cast. Set to 3 at first and measured at 0.00 fires per win across 3,000
  *  games — nobody ever banks that long — see docs/BALANCE_NOTES.md. */
 export const VERA_CHARGED_CAST_MANA = 2;
 
-/** Vera's "one big impact" bar — scores vera1 on every hit that reaches it, and latches the half of
+/** Liora's "one big impact" bar — scores vera1 on every hit that reaches it, and latches the half of
  *  vera3 that asks whether she actually delivered this battle. One threshold, both conditions. */
 export const VERA_BIG_HIT_DAMAGE = 14;
 

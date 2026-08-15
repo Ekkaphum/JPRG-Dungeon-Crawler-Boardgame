@@ -2,9 +2,9 @@ import type { CharId, SkillId } from '@engine/index';
 import type { CSSProperties } from 'react';
 
 const ACTION_ROW: Record<CharId, Partial<Record<SkillId, number>>> = {
-  Matt: { Slash: 1, PowerStrike: 2, Guard: 3, CounterAttack: 4 },
+  Eric: { Slash: 1, PowerStrike: 2, Guard: 3, CounterAttack: 4 },
   Kit: { QuickShot: 1, SharpShooting: 2, Trap: 3, MultiShot: 4 },
-  Vera: { AirPush: 1, Fireball: 2, AuraCharge: 3, Meteor: 4 },
+  Liora: { AirPush: 1, Fireball: 2, AuraCharge: 3, Meteor: 4 },
   Luna: { Hitting: 1, AuraSmite: 2, Blessing: 3, Heal: 4 },
   Dax: {},
   Mira: {},

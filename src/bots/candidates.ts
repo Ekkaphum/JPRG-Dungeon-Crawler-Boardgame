@@ -38,7 +38,7 @@ export function declareCandidates(state: GameState, decision: Extract<PendingDec
   }
 
   // Fallback: if every skill got filtered out for some edge-case reason (e.g. a last-survivor
-  // Matt whose only untargeted options were filtered), offer the target-free attack skills
+  // Eric whose only untargeted options were filtered), offer the target-free attack skills
   // unconditionally so the game never stalls.
   if (out.length === 0) {
     for (const skillId of charDef.skills) {
