@@ -209,7 +209,7 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
         everDiedThisBattle: false,
         attackCountThisBattle: 0,
         everDroppedBelowHalfThisBattle: false,
-        landedBigHitThisBattle: false,
+        landedMeteorThisBattle: false,
       };
     }),
   };

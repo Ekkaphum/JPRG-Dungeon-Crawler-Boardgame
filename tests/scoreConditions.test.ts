@@ -151,9 +151,9 @@ describe('vera2 — charged cast (v0.3.7)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
-    expect(vera.landedBigHitThisBattle).toBe(false);
+    expect(vera.landedMeteorThisBattle).toBe(false);
     onPlayerDealtDamage(state, vera.playerId, 'Meteor', 18, 3);
-    expect(vera.landedBigHitThisBattle).toBe(true);
+    expect(vera.landedMeteorThisBattle).toBe(true);
   });
 });
 
@@ -207,12 +207,15 @@ describe('per-occurrence conditions — kit1/kit2/luna1', () => {
     expect(entries.every((e) => e.points === 1)).toBe(true);
   });
 
-  it('kit2 (trap triggered) awards 1 point per occurrence', () => {
+  it('kit2 (trap triggered) awards 2 points per occurrence (raised from 1 in v0.3.8)', () => {
+    // The trap's frequency is effectively fixed by Kit's Skill Improvement passive rather than by
+    // anything tunable on the condition, so point value is the only lever left — see the note on
+    // kit2 in @content/characters.
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     onTrapTriggered(state, kit.playerId);
-    expect(state.scoreLog.find((e) => e.conditionId === 'kit2')?.points).toBe(1);
+    expect(state.scoreLog.find((e) => e.conditionId === 'kit2')?.points).toBe(2);
   });
 
   it('luna1 (Heal restoring >=1 HP) awards the rebalanced 3 points, not the old 1', () => {

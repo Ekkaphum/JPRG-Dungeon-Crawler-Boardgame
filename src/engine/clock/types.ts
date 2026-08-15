@@ -98,12 +98,10 @@ export interface Fighter {
    *  Checked at declare/resolve time is wrong for this one on purpose; the condition is about the
    *  *history* of the battle, not its final frame. */
   everDroppedBelowHalfThisBattle: boolean;
-  /** Vera's vera3: whether she landed a hit at or above her vera1 impact threshold this battle.
-   *  Pairs with everDiedThisBattle so "survived" only scores when she also did her job. Keyed on the
-   *  damage threshold rather than the Meteor card specifically: requiring Meteor made the condition
-   *  unreachable for a party that never gives her the room to cast it, which is exactly the party
-   *  that is failing to protect her — it punished her twice for someone else's play. */
-  landedBigHitThisBattle: boolean;
+  /** Vera's vera3: whether a Meteor of hers actually connected (>0 effective damage) this battle.
+   *  Pairs with everDiedThisBattle so "survived" only scores when she also got her signature ⏱7
+   *  spell off — the one the party is supposed to be protecting her through. */
+  landedMeteorThisBattle: boolean;
 }
 
 export interface TrapToken {

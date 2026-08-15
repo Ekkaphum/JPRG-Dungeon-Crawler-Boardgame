@@ -127,7 +127,7 @@ export function prepareBattle(state: GameState) {
         everDiedThisBattle: false,
         attackCountThisBattle: 0,
         everDroppedBelowHalfThisBattle: false,
-        landedBigHitThisBattle: false,
+        landedMeteorThisBattle: false,
       };
     }),
   };

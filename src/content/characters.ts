@@ -239,7 +239,16 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     // Armed on one of the 3 slots ahead of Kit's own pawn (legalTrapSlots derives this from `time`
     // — 4 gives exactly 3 legal slots, marker-1..marker-3). On a hit: `primary` damage (ignores
     // armor) and, on a successful roll, the boss's queued move is cancelled outright.
-    lv1: { time: 4, primary: 5, rollBaseTarget: 6 },
+    // Lv1 rollBaseTarget 6 -> 5 (v0.3.8), Lv2 deliberately left at 5. Measured: Kit's *placement* is
+    // essentially never the problem — the boss stopped on the armed slot 99.4% of the time — but the
+    // trigger roll passed only 35.3%, so kit2 fired 0.12 times per win, and the Skill Improvement
+    // penalty never accumulated enough to help (Trap is declared ~0.4 times per game, so its counter
+    // barely moves). The roll stays the gate on purpose: springing a trap cancels the boss's entire
+    // declared move, the single most powerful party-wide effect in the ruleset, so it must not become
+    // reliable — this makes the lottery less punishing without removing it. Changed as one isolated
+    // variable so the sim measures this and nothing else; that leaves Lv2 giving damage (5 -> 7) but
+    // no roll improvement, which is a known, accepted consequence rather than an oversight.
+    lv1: { time: 4, primary: 5, rollBaseTarget: 5 },
     lv2: { time: 4, primary: 7, rollBaseTarget: 5 },
   },
   MultiShot: {
@@ -465,7 +474,13 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'kit2',
         charId: 'Kit',
         slot: 2,
-        points: 1,
+        // 1 -> 2 (v0.3.8). The condition itself is right and stays as-is: the trap has to actually
+        // spring. But its frequency is effectively fixed — the boss stops on the armed slot 99.4% of
+        // the time, so the only variable is the trigger roll, and that is already governed by Kit's
+        // Skill Improvement passive rather than by anything tunable here (lowering the base 6 -> 5
+        // moved the success rate only 35.3% -> 38.8%). With frequency locked at ~0.13 fires per win,
+        // point value is the one lever left, and kit2 was contributing 1% of Kit's score.
+        points: 2,
         perOccurrence: true,
         desc: { th: 'กับดักทำงานสำเร็จ', en: 'A trap successfully triggers' },
       },
@@ -542,8 +557,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         // most of why she won 40.9% of games against Matt's 8.8%. Surviving now only pays when she
         // also delivered the big spell she survived *for*.
         desc: {
-          th: 'ร่ายใหญ่สำเร็จโดยรอด — จบยกโดยไม่ตาย และเคยทำ dmg ครั้งเดียวได้ 14 ขึ้นไปในยกนั้น',
-          en: 'End the battle without dying, having landed at least one 14+ damage hit during it',
+          th: 'ร่ายใหญ่สำเร็จโดยรอด — จบยกโดยไม่ตาย และได้ใช้ Meteor เข้าเป้าในยกนั้น',
+          en: 'End the battle without dying, having landed at least one Meteor during it',
         },
       },
     ],

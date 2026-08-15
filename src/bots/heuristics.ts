@@ -169,7 +169,7 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
     // enough to clear vera2's bar at all — measured 0.00 fires per win before this nudge existed.
     if (choice.skillId === 'AuraCharge' && fighter.mana < VERA_CHARGED_CAST_MANA) bonus += 1.5;
     // vera3 wants a 14+ hit banked, not Meteor specifically — but Meteor is the surest way there.
-    if (choice.skillId === 'Meteor' && !fighter.landedBigHitThisBattle) bonus += 1;
+    if (choice.skillId === 'Meteor' && !fighter.landedMeteorThisBattle) bonus += 1;
   }
   if (player.charId === 'Kit') {
     // kit3's bar is 8 attacks now, so cheap repeatable attacks matter more, and Multi Shot is worth

@@ -108,7 +108,7 @@ describe('Matt/Kit/Vera slot-3 end-of-battle conditions (v0.3.7)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
-    vera.landedBigHitThisBattle = true;
+    vera.landedMeteorThisBattle = true;
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
     expect(scored(state, vera.playerId, 'vera3')).toBe(true);
@@ -127,7 +127,7 @@ describe('Matt/Kit/Vera slot-3 end-of-battle conditions (v0.3.7)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Vera');
-    vera.landedBigHitThisBattle = true;
+    vera.landedMeteorThisBattle = true;
     killFighter(state, vera);
     reviveFighter(state, vera);
     state.battle!.outcome = 'boss_defeated';

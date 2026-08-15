@@ -26,9 +26,13 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   }
   if (charId === 'Vera' && effectiveDmg >= VERA_BIG_HIT_DAMAGE) {
     pushScore(state, { playerId, conditionId: 'vera1', points: scorePoints('vera1') });
-    // Same threshold latches vera3's half — one "she actually delivered" bar, not two.
+  }
+  // vera3's half: her signature spell actually went off this battle. Keyed on Meteor connecting
+  // rather than on any big hit — a fully-charged Fireball can clear vera1's damage bar, but only
+  // Meteor is the ⏱7 wind-up the whole "protect me while I cast" fantasy is about.
+  if (charId === 'Vera' && skillId === 'Meteor' && effectiveDmg > 0) {
     const f = battle.fighters.find((x) => x.playerId === playerId);
-    if (f) f.landedBigHitThisBattle = true;
+    if (f) f.landedMeteorThisBattle = true;
   }
   if (battle.partyBuff && effectiveDmg > 15) {
     // Guarded rather than assumed safe: only Luna's own Blessing can set partyBuff, so this is
@@ -118,7 +122,7 @@ export function onBattleEndScoring(state: GameState) {
       pushScore(state, { playerId: p.id, conditionId: 'kit3', points: scorePoints('kit3') });
     }
     // v0.3.7 vera3: surviving only pays if she also delivered the spell she was being protected for.
-    if (p.charId === 'Vera' && !f.everDiedThisBattle && f.landedBigHitThisBattle) {
+    if (p.charId === 'Vera' && !f.everDiedThisBattle && f.landedMeteorThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'vera3', points: scorePoints('vera3') });
     }
     if (p.charId === 'Dax' && f.alive && f.hp > f.maxHp / 2) {

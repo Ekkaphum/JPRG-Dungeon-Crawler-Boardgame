@@ -157,5 +157,5 @@ export function resetFighterForNewBattle(fighter: Fighter, charId: Fighter['char
   fighter.everDiedThisBattle = false;
   fighter.attackCountThisBattle = 0;
   fighter.everDroppedBelowHalfThisBattle = false;
-  fighter.landedBigHitThisBattle = false;
+  fighter.landedMeteorThisBattle = false;
 }

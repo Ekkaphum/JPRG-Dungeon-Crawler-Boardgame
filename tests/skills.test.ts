@@ -352,8 +352,8 @@ describe("Skill Improvement passive (Kit) — separate persistent ladders, never
     state.battle!.bossSlot = 10;
     processTrapsAtMarker(state, missRng);
     const trapRoll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger').at(-1)!;
-    // Trap! still uses its untouched base 6; Sharp Shooting's miss belongs only to Sharp Shooting.
-    expect(trapRoll.t === 'ROLL' && trapRoll.target).toBe(6);
+    // Trap! still uses its own untouched base; Sharp Shooting's miss belongs only to Sharp Shooting.
+    expect(trapRoll.t === 'ROLL' && trapRoll.target).toBe(skillStats('Trap', false).rollBaseTarget);
     expect(state.progress[kit.playerId].rollPenalty).toEqual({ SharpShooting: 1, Trap: 1 });
   });
 
@@ -403,7 +403,7 @@ describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an ex
     state.battle!.bossSlot = 10;
     state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
     const bossHpBefore = state.battle!.bossHp;
-    // A die below the 6+ starting target is a miss — the trap springs (slot vacated) but does
+    // A die below the starting target is a miss — the trap springs (slot vacated) but does
     // nothing else: no damage, no cancel.
     processTrapsAtMarker(state, { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>);
     expect(state.battle!.bossHp).toBe(bossHpBefore);
