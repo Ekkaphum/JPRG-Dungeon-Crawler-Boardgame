@@ -97,7 +97,18 @@ export function loadSaveFile(): SaveFile | null {
   const raw = localStorage.getItem(SAVE_KEY);
   if (!raw) return null;
   try {
-    return JSON.parse(raw);
+    const save = JSON.parse(raw) as SaveFile;
+    // v0.3.5 and earlier stored Kit's Skill Improvement as one shared number. Preserve the earned
+    // improvement when loading that save, but split it into the two independent counters now used.
+    for (const progress of Object.values(save.snapshot.progress)) {
+      const legacy = progress.rollPenalty as unknown;
+      if (typeof legacy === 'number') {
+        progress.rollPenalty = { SharpShooting: legacy, Trap: legacy };
+      } else if (!legacy || typeof legacy !== 'object') {
+        progress.rollPenalty = {};
+      }
+    }
+    return save;
   } catch {
     return null;
   }

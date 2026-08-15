@@ -30,11 +30,9 @@ export interface PlayerProgress {
   expOnCard: Partial<Record<SkillId, number>>;
   /** Unspent EXP tokens held in hand, not yet placed on a card. */
   bankedExp: number;
-  /** Kit's Skill Improvement passive (@content/characters PASSIVES.Kit): +1 per failed Sharp
-   *  Shooting/Trap! roll, never reset — persists across every battle in the game, unlike
-   *  Fighter.rollAttempt below which is per-battle. Shared across both skills on purpose (one
-   *  passive, one counter); each use still floors its own effective target at 2 (skills.ts). */
-  rollPenalty: number;
+  /** Kit's Skill Improvement passive: each failed roll permanently improves only that skill.
+   *  Sharp Shooting and Trap! have separate counters; both persist across boss battles. */
+  rollPenalty: Partial<Record<'SharpShooting' | 'Trap', number>>;
 }
 
 export type Phase = 'SETUP' | 'DRAFT' | 'BATTLE_INTRO' | 'CLOCK_RUN' | 'BATTLE_END' | 'SCORING' | 'ALL_LOSE';

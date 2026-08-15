@@ -45,20 +45,19 @@ export function legalTrapSlots(state: GameState, fighter: Fighter): number[] {
 }
 
 /** Dice check shared by Sharp Shooting's weak point and Trap!'s cancel. Kit's Skill Improvement
- *  passive (@content/characters PASSIVES.Kit) replaces the old per-skill "ladder" for him alone:
- *  instead of a per-attempt target that resets to the base the moment it lands, every miss on
- *  *either* skill permanently lowers PlayerProgress.rollPenalty (floor of 2, never resets, carries
- *  across battles). Any other roll-using character (Dax's Focus) keeps the original per-battle,
+ *  passive replaces the old per-battle ladder: each miss permanently lowers only the skill that
+ *  rolled (floor 2, never resets, carries across battles). Sharp Shooting and Trap! never improve
+ *  one another. Any other roll-using character (Dax's Focus) keeps the original per-battle,
  *  per-skill, reset-on-success ladder with its 5th-attempt auto-success. */
 function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpose: string, rng: RNG): boolean {
   const battle = state.battle!;
   const base = skillStats(skillId, isLv2(state, fighter, skillId)).rollBaseTarget ?? 5;
-  const usesSkillImprovement = fighter.charId === 'Kit';
+  const improvementSkill = fighter.charId === 'Kit' && (skillId === 'SharpShooting' || skillId === 'Trap') ? skillId : null;
   const progress = state.progress[fighter.playerId];
 
   let target: number;
-  if (usesSkillImprovement) {
-    target = Math.max(2, base - (progress?.rollPenalty ?? 0));
+  if (improvementSkill) {
+    target = Math.max(2, base - (progress?.rollPenalty[improvementSkill] ?? 0));
   } else {
     const attempt = fighter.rollAttempt[skillId] ?? 0;
     target = attempt >= 4 ? 0 : Math.max(1, base - attempt);
@@ -68,8 +67,8 @@ function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpos
   const success = target === 0 || die >= target;
   battle.log.push({ t: 'ROLL', playerId: fighter.playerId, purpose, die, target: target || null, success });
 
-  if (usesSkillImprovement) {
-    if (!success && progress) progress.rollPenalty += 1;
+  if (improvementSkill) {
+    if (!success && progress) progress.rollPenalty[improvementSkill] = (progress.rollPenalty[improvementSkill] ?? 0) + 1;
   } else {
     const attempt = fighter.rollAttempt[skillId] ?? 0;
     fighter.rollAttempt[skillId] = success ? 0 : attempt + 1;

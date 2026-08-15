@@ -110,6 +110,11 @@ export const en: Record<I18nKey, string> = {
   'scoring.tieBreak.hp': '(decided by remaining HP)',
   'scoring.playAgain': 'Play Again',
   'scoring.backToMenu': 'Back to Menu',
+  'scoring.breakdown.title': 'Where every point came from',
+  'scoring.breakdown.subtitle': 'Grouped by player, boss, and completed condition · × is the number of triggers',
+  'scoring.breakdown.total': 'Total {n}',
+  'scoring.breakdown.timeBonus': 'Clock time bonus',
+  'scoring.breakdown.noScore': 'No points earned',
 
   'allLose.title': 'Party Wipe',
   'allLose.message': 'The clock hit midnight before the boss died — the run ends here, everyone loses together, no advancing to the next boss',

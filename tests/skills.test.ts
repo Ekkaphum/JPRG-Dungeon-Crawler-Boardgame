@@ -315,7 +315,7 @@ describe('Counter Attack (§8 Matt) — immediate shield, conditional counter-st
   });
 });
 
-describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, never resets, floors at 2", () => {
+describe("Skill Improvement passive (Kit) — separate persistent ladders, never reset, floor at 2", () => {
   it('permanently lowers Sharp Shooting\'s target by 1 per miss, no auto-success, floors at 2', () => {
     // Sharp Shooting is `immediate` (v0.4.1) — its roll happens right at declareSkill now, so the
     // rng controlling the die goes into declareSkill directly, not a later resolveFighterPending.
@@ -327,21 +327,24 @@ describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, n
     const targets: (number | null)[] = [];
     for (let i = 0; i < 5; i++) {
       declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng);
+      resolveFighterPending(state, kit, missRng); // no-op if ⚡; resolves here if the A/B toggle is delayed
       const roll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SharpShooting weak point').at(-1)!;
       targets.push(roll.t === 'ROLL' ? roll.target : null);
     }
     // Base target is 5 (rollBaseTarget) — unlike the old per-battle ladder, there's no 5th-attempt
     // auto-success (target 0): it just floors at 2 and every miss still costs a permanent point.
     expect(targets).toEqual([5, 4, 3, 2, 2]);
-    expect(state.progress[kit.playerId].rollPenalty).toBe(5);
+    expect(state.progress[kit.playerId].rollPenalty.SharpShooting).toBe(5);
+    expect(state.progress[kit.playerId].rollPenalty.Trap).toBeUndefined();
   });
 
-  it('is shared between Sharp Shooting and Trap! — a miss on one lowers the other\'s target too', () => {
+  it('keeps Sharp Shooting and Trap! separate — a miss on one does not lower the other', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     const missRng = { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng); // one miss, penalty now 1
+    resolveFighterPending(state, kit, missRng);
 
     state.battle!.marker = 13;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
@@ -349,8 +352,9 @@ describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, n
     state.battle!.bossSlot = 10;
     processTrapsAtMarker(state, missRng);
     const trapRoll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger').at(-1)!;
-    // Trap!'s own base is 6 — discounted by the 1 penalty Sharp Shooting's miss already banked.
-    expect(trapRoll.t === 'ROLL' && trapRoll.target).toBe(5);
+    // Trap! still uses its untouched base 6; Sharp Shooting's miss belongs only to Sharp Shooting.
+    expect(trapRoll.t === 'ROLL' && trapRoll.target).toBe(6);
+    expect(state.progress[kit.playerId].rollPenalty).toEqual({ SharpShooting: 1, Trap: 1 });
   });
 
   it('does not reset on a success (unlike the old per-battle ladder)', () => {
@@ -359,13 +363,16 @@ describe("Skill Improvement passive (Kit, v0.4.0) — persistent roll penalty, n
     const kit = findFighter(state, 'Kit');
     const missRng = { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng); // miss, penalty 1, next target 4
-    expect(state.progress[kit.playerId].rollPenalty).toBe(1);
+    resolveFighterPending(state, kit, missRng);
+    expect(state.progress[kit.playerId].rollPenalty.SharpShooting).toBe(1);
 
     const hitRng = { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, hitRng); // hits at target 4
-    expect(state.progress[kit.playerId].rollPenalty).toBe(1); // untouched by the success
+    resolveFighterPending(state, kit, hitRng);
+    expect(state.progress[kit.playerId].rollPenalty.SharpShooting).toBe(1); // untouched by the success
 
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' }, missRng);
+    resolveFighterPending(state, kit, missRng);
     const roll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'SharpShooting weak point').at(-1)!;
     expect(roll.t === 'ROLL' && roll.target).toBe(4); // still discounted, not reset to base 5
   });

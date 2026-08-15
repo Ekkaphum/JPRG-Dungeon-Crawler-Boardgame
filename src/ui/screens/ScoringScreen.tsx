@@ -2,6 +2,7 @@ import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
 import { sceneImageUrl } from '@ui/common/assets';
 import { BattleSummaryPanel } from '@ui/panels/BattleSummaryPanel';
+import { ScoreBreakdownPanel } from '@ui/panels/ScoreBreakdownPanel';
 
 export function ScoringScreen() {
   const t = useT();
@@ -24,7 +25,7 @@ export function ScoringScreen() {
       <div className="fixed inset-0 bg-gradient-to-b from-black/65 via-black/30 to-black/75" />
       <div className="fixed inset-0 victory-glow" />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center gap-6 p-6">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-start gap-6 p-6 py-8">
         <h2 className="text-3xl font-display gold-text drop-shadow-[0_0_14px_rgba(240,210,122,0.65)]">{t('scoring.title')}</h2>
         <div className="text-lg text-gold-bright">
           {t('scoring.winner')}: {players.find((p) => p.id === winnerId)?.name}{' '}
@@ -50,6 +51,7 @@ export function ScoringScreen() {
         </div>
 
         <BattleSummaryPanel state={session.state} tone="win" />
+        <ScoreBreakdownPanel state={session.state} />
 
         <div className="flex gap-3">
           <button onClick={() => setScreen('setup')} className="gold-frame rounded-lg px-6 py-2 hover:bg-gold/10">

@@ -125,8 +125,8 @@ export const PASSIVES: Partial<Record<CharId, PassiveDef>> = {
     charId: 'Kit',
     name: { th: 'Skill Improvement', en: 'Skill Improvement' },
     desc: {
-      th: 'ทุกครั้งที่ทอยลูกเต๋าของ Sharp Shooting หรือ Trap! ไม่สำเร็จ เกณฑ์ที่ต้องทอยของทั้งสองสกิลจะลดลง 1 แต้ม สะสมไปตลอดทั้งเกม (ข้ามยกบอส) จนถึงค่าต่ำสุด 2',
-      en: "Every failed Sharp Shooting or Trap! roll permanently lowers both skills' target by 1, stacking across the whole game (not reset between boss fights), down to a floor of 2.",
+      th: 'ทุกครั้งที่ Sharp Shooting หรือ Trap! ทอยไม่สำเร็จ เกณฑ์ของสกิลที่พลาดจะลดลง 1 แต้มแยกกัน สะสมข้ามยกบอสจนต่ำสุด 2 — การพลาดของใบหนึ่งไม่อัพเกรดอีกใบ',
+      en: "Every failed Sharp Shooting or Trap! roll permanently lowers only that skill's target by 1, tracked separately across boss fights down to a floor of 2.",
     },
   },
   Vera: {

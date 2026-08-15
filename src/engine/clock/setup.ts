@@ -76,7 +76,7 @@ function assignCharacter(state: GameState, playerId: PlayerId, charId: CharId) {
     isLv2: {},
     expOnCard: {},
     bankedExp: 0,
-    rollPenalty: 0,
+    rollPenalty: {},
   };
 }
 

@@ -3,6 +3,7 @@ import { useT } from '@content/i18n/useT';
 import { BOSSES } from '@content/bosses3';
 import { bossImageUrl, sceneImageUrl } from '@ui/common/assets';
 import { BattleSummaryPanel } from '@ui/panels/BattleSummaryPanel';
+import { ScoreBreakdownPanel } from '@ui/panels/ScoreBreakdownPanel';
 
 export function AllLoseScreen() {
   const t = useT();
@@ -30,7 +31,7 @@ export function AllLoseScreen() {
       <div className="fixed inset-0 bg-black/70" />
       <div className="fixed inset-0 defeat-vignette" />
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center gap-6 p-6">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-start gap-6 p-6 py-8">
         <h2 className="text-3xl font-display text-boss drop-shadow-[0_0_16px_rgba(192,57,43,0.75)]">{t('allLose.title')}</h2>
 
         {failedAt && (
@@ -47,6 +48,7 @@ export function AllLoseScreen() {
         <p className="text-gold-dim max-w-md text-center text-sm">{t(partyWiped ? 'allLose.messagePartyWiped' : 'allLose.message')}</p>
 
         {session && <BattleSummaryPanel state={session.state} tone="lose" />}
+        {session && <ScoreBreakdownPanel state={session.state} />}
 
         <div className="flex gap-3">
           <button onClick={() => setScreen('setup')} className="gold-frame rounded-lg px-6 py-2 hover:bg-gold/10">

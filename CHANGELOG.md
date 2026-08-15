@@ -4,6 +4,11 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-15
 
+- **v0.3.6 — detailed final scoring + independent Kit dice progression**
+  - Both victory and party-loss screens now show the complete score history grouped by player, boss, and scoring condition, including repeated-trigger counts, actual points awarded, zero-point time bonuses, and players who earned no points.
+  - Kit's Skill Improvement now tracks Sharp Shooting and Trap! separately: a failed roll lowers only that skill's target, both counters persist across bosses, and neither resets after a success. Legacy saves with the former shared counter migrate its earned value to both skills.
+  - Added focused tests for score grouping, independent roll progression, and legacy-save migration; verified the full three-boss result screen in a live all-bot browser playthrough.
+
 - **v0.3.5 — death/Multi Shot lifecycle hardening + fixed Blessing duration**
   - Damage against an already-dead fighter is now ignored, and `killFighter` is idempotent, preventing Guard+AoE from counting, logging, or scheduling the same death more than once.
   - Kit's death immediately removes every remaining scheduled Multi Shot hit. Hits already resolved remain; revival cannot resume the cancelled action. Each hit still receives buffs and counts as an attack separately by design.

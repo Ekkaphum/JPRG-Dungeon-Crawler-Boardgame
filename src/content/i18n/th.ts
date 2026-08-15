@@ -108,6 +108,11 @@ export const th = {
   'scoring.tieBreak.hp': '(ตัดสินด้วย HP เหลือตอนจบ)',
   'scoring.playAgain': 'เล่นอีกครั้ง',
   'scoring.backToMenu': 'กลับเมนู',
+  'scoring.breakdown.title': 'ที่มาของคะแนนทั้งหมด',
+  'scoring.breakdown.subtitle': 'แยกตามผู้เล่น บอส และเงื่อนไขที่ทำสำเร็จ · × คือจำนวนครั้ง',
+  'scoring.breakdown.total': 'รวม {n}',
+  'scoring.breakdown.timeBonus': 'โบนัสเวลาที่เหลือ',
+  'scoring.breakdown.noScore': 'ยังไม่ได้คะแนน',
 
   'allLose.title': 'แพ้ทั้งวง',
   'allLose.message': 'นาฬิกาถึงเที่ยงคืนก่อนบอสจะตาย — จบเกมทันที ทุกคนแพ้ร่วมกัน ไม่ได้ไปต่อบอสตัวถัดไป',
