@@ -566,6 +566,28 @@ html, body, #root {
 @keyframes hero-sprite-frames { from { background-position-x: 0%; } to { background-position-x: 100%; } }
 @keyframes hero-action-punch { 0% { transform: translateX(6px) scale(.96); } 38% { transform: translateX(-8px) scale(1.08); } 100% { transform: translateX(0) scale(1); } }
 
+.boss-sprite-wrap { overflow: visible; }
+.boss-sprite {
+  height: 100%;
+  max-height: 245px;
+  width: auto;
+  aspect-ratio: 350.5 / 374;
+  flex: 0 0 auto;
+  background-image: var(--boss-sprite-sheet);
+  background-repeat: no-repeat;
+  background-size: 400% 300%;
+  background-position-x: 0%;
+  background-position-y: var(--boss-sprite-row);
+  image-rendering: pixelated;
+  filter: drop-shadow(0 12px 10px rgba(0,0,0,.88));
+  transform-origin: 50% 92%;
+}
+.boss-sprite--idle { animation: boss-sprite-frames 1.15s steps(3) infinite; }
+.boss-sprite--action { animation: boss-sprite-frames .9s steps(3) 1 forwards, boss-action-punch .9s ease-out 1; }
+.group:hover .boss-sprite { filter: brightness(1.16) drop-shadow(0 12px 10px rgba(0,0,0,.88)); }
+@keyframes boss-sprite-frames { from { background-position-x: 0%; } to { background-position-x: 100%; } }
+@keyframes boss-action-punch { 0% { transform: translateX(-5px) scale(.96); } 45% { transform: translateX(10px) scale(1.06); } 100% { transform: translateX(0) scale(1); } }
+
 .action-effect {
   --effect-main: #ff795f;
   --effect-hot: #ffe5a3;

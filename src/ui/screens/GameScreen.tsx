@@ -73,13 +73,18 @@ export function GameScreen() {
             // Sizing must be inline: `.gold-frame` uses the `background` shorthand, which resets
             // background-size/position and would otherwise beat the bg-cover/bg-center utilities,
             // leaving the backdrop pinned at natural size in the top-left corner.
-            style={{ backgroundImage: `url(${sceneImageUrl()})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            style={{ backgroundImage: `url(${sceneImageUrl(shown.bossId)})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
           >
             <div className="battle-stage-shade absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/35" />
 
             <div className="absolute inset-0 p-2">
               <div className="w-[38%] sm:w-[34%] h-full">
-                <BossFigure battle={shown} popups={session.popups.filter((p) => p.target === 'boss')} onSelect={() => setDetail({ kind: 'boss' })} />
+                <BossFigure
+                  battle={shown}
+                  popups={session.popups.filter((p) => p.target === 'boss')}
+                  actionFlash={session.actionFlash}
+                  onSelect={() => setDetail({ kind: 'boss' })}
+                />
               </div>
               {/* Four equal vertical slots keep the party in a top-to-bottom front line without
                   letting large sprite frames overlap on portrait phones. */}

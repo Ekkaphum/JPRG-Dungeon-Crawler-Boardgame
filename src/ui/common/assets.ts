@@ -16,11 +16,11 @@ export function charImageUrl(charId: CharId): string {
 export function bossImageUrl(bossId: BossId): string {
   return `/assets/bosses/${BOSS_ART[bossId]}.webp`;
 }
-/** Wide battle backdrop built from the full arena artwork in ../../boardgen/Board_v2.png. The
- *  source art is portrait, so rather than cropping it into a letterbox (which read as a chopped-up
- *  collage) the whole painting sits centred at full height with a blurred, darkened enlargement of
- *  itself filling the flanks. Distinct file from board.webp so the frozen 0.1.0/0.2.0 builds, which
- *  reference /assets/board/board.webp, are unaffected. */
-export function sceneImageUrl(): string {
-  return `/assets/board/arena.webp`;
+export function bossSpriteUrl(bossId: BossId): string {
+  return `/assets/sprites/bosses/${bossId}.webp`;
+}
+/** Each active boss owns a themed wide arena; screens without a current boss keep the shared
+ *  fallback arena so scoring and generic defeat states remain well-defined. */
+export function sceneImageUrl(bossId?: BossId): string {
+  return bossId ? `/assets/backgrounds/${bossId}.webp` : `/assets/board/arena.webp`;
 }
