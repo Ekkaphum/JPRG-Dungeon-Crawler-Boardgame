@@ -56,8 +56,8 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
     tone: 'bad',
     label: { th: 'มนตร์ง่วงงุน', en: 'Drowsy Aura' },
     desc: {
-      th: 'สกิลของผู้เล่นที่มี ⏱ ตั้งแต่ 5 ขึ้นไป ต้องเดินหมากลงเพิ่มอีก 2 ช่อง (คิดตอนประกาศ)',
-      en: 'Any player skill with ⏱ 5 or more walks 2 extra slots down the clock (applied when declared).',
+      th: 'สกิลของผู้เล่นที่มี ⏱ 4-5 ต้องเดินหมากลงเพิ่ม 1 ช่อง · ⏱ 6 ขึ้นไปเพิ่ม 2 ช่อง (คิดตอนประกาศ)',
+      en: 'Player skills at ⏱ 4-5 walk 1 extra slot down the clock; ⏱ 6+ walks 2 (applied when declared).',
     },
   },
   counter: {

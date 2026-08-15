@@ -24,7 +24,9 @@ export const TRAP_DELAY_SLOTS = 2;
 
 /** Somnivar's "มนตร์ง่วงงุน" tax: player-declared skills with base ⏱ >= 5 walk 2 extra slots. */
 export function applySomnivarTax(state: GameState, baseTime: number): number {
-  if (state.battle!.bossId === 'Somnivar' && baseTime >= 5) return baseTime + 2;
+  if (state.battle!.bossId !== 'Somnivar') return baseTime;
+  if (baseTime >= 6) return baseTime + 2;
+  if (baseTime >= 4) return baseTime + 1;
   return baseTime;
 }
 
@@ -463,7 +465,8 @@ export function redirectTarget(state: GameState, fighter: Fighter): { recipient:
 export function applyBossDamageToFighter(
   state: GameState,
   fighter: Fighter,
-  rawDamage: number
+  rawDamage: number,
+  opts: { piercesPartyMitigation?: boolean } = {}
 ): { applied: number; counterDmg: number; recipient: Fighter } {
   const { recipient, reduction } = redirectTarget(state, fighter);
   // Read before applying: dying clears the shield.
@@ -474,7 +477,7 @@ export function applyBossDamageToFighter(
   if (recipient.playerId !== fighter.playerId && rawDamage > 0) {
     onGuardRedirected(state, recipient.playerId);
   }
-  const applied = applyDamageToFighter(state, recipient, Math.max(0, rawDamage - reduction));
+  const applied = applyDamageToFighter(state, recipient, Math.max(0, rawDamage - reduction), opts);
   return { applied, counterDmg, recipient };
 }
 
@@ -511,9 +514,10 @@ export function resolveQueuedCounter(state: GameState, fighter: Fighter, counter
 export function dealDamageToFighterFromBoss(
   state: GameState,
   fighter: Fighter,
-  rawDamage: number
+  rawDamage: number,
+  opts: { piercesPartyMitigation?: boolean } = {}
 ): { applied: number; recipient: Fighter } {
-  const { applied, counterDmg, recipient } = applyBossDamageToFighter(state, fighter, rawDamage);
+  const { applied, counterDmg, recipient } = applyBossDamageToFighter(state, fighter, rawDamage, opts);
   resolveQueuedCounter(state, recipient, counterDmg);
   return { applied, recipient };
 }

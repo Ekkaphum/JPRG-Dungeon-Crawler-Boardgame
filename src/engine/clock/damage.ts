@@ -72,14 +72,22 @@ export function applyDamageToBoss(
  *  or counter %), floors at 0, and kills the fighter if HP hits 0. Marks the counter shield as
  *  "triggered" even when the final damage rounds down to 0 (GAME_DESIGN_v0_3_0.md §8: "นับแม้ดาเมจ
  *  ที่เข้าจริงจะเป็น 0"). Returns the actual damage applied. */
-export function applyDamageToFighter(state: GameState, fighter: Fighter, rawDamage: number): number {
+export function applyDamageToFighter(
+  state: GameState,
+  fighter: Fighter,
+  rawDamage: number,
+  opts: { piercesPartyMitigation?: boolean } = {}
+): number {
   // An AoE resolves one target at a time. Guard can redirect an earlier target's share onto Eric
   // and kill him before the loop reaches Eric's own share; that later share must not kill/log/count
   // the same fighter again.
   if (!fighter.alive) return 0;
   const battle = state.battle!;
   let dmg = rawDamage;
-  if (battle.partyBuff) dmg -= battle.partyBuff.dmgReduction;
+  // Aurelius's Procession pierces this (v0.3.11): a king's judgment is not talked down by a
+  // cleric's blessing. Deliberately narrow — it ignores the *party-wide* buff only. Guard still
+  // redirects it and a personal shield still absorbs it, so both remain real answers to it.
+  if (battle.partyBuff && !opts.piercesPartyMitigation) dmg -= battle.partyBuff.dmgReduction;
   if (fighter.shield?.kind === 'mana') dmg -= fighter.shield.reduction;
   if (fighter.shield?.kind === 'counter') {
     dmg = Math.floor(dmg * (1 - fighter.shield.reduction / 100));

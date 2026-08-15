@@ -12,6 +12,17 @@ export interface BossMoveDef {
   name: { th: string; en: string };
   time: number;
   desc: { th: string; en: string };
+  /** v0.3.11: this move resolves the instant the boss declares it, with no readable window in
+   *  between — the boss-side counterpart of the heroes' ⚡ skills. The boss pawn still walks the
+   *  move's full ⏱ exactly as before; only *when the effect lands* changes.
+   *
+   *  Used sparingly and never for the big telegraphed hits. A declared boss move is the single most
+   *  important piece of public information in this ruleset (§4.4) — Guard, Trap! and Heal are all
+   *  timed by reading it — so making a move immediate deletes that read for that move. It is only
+   *  justified where the fantasy demands it AND the read was worth little: Frenzy is a 1-in-6 burst
+   *  of Wrath that should not be politely announced, and Golden Throne deals no damage at all, so
+   *  there was never a defensive reaction to lose. */
+  immediate?: boolean;
 }
 
 export interface BossDef {
@@ -63,7 +74,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     name: { th: 'Somnivar, the Eternal Sleeper', en: 'Somnivar, the Eternal Sleeper' },
     sin: { th: 'เกียจคร้าน', en: 'Sloth' },
     // hp 80 -> 96, startSlot 22 -> 23 (2026-08-13): see Ragorath's note above.
-    hp: 96,
+    hp: 76,
     startSlot: 23,
     armor: 0,
     moves: [
@@ -85,7 +96,7 @@ export const BOSSES: Record<BossId, BossDef> = {
         key: 'C',
         diceRange: [6, 6],
         name: { th: 'หลับใหลนิรันดร์', en: 'Eternal Slumber' },
-        time: 8,
+        time: 6,
         desc: { th: 'ไม่ทำดาเมจ · เลื่อนหมากผู้เล่นทุกคนลง 4 ช่อง', en: 'No damage · every player pawn slides down 4 slots' },
       },
     ],
@@ -95,7 +106,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     name: { th: 'Aurelius, the Crowned Colossus', en: 'Aurelius, the Crowned Colossus' },
     sin: { th: 'อหังการ', en: 'Pride' },
     // hp 88 -> 106, startSlot 22 -> 23 (2026-08-13): see Ragorath's note above.
-    hp: 106,
+    hp: 96,
     startSlot: 23,
     armor: 2,
     moves: [
@@ -111,6 +122,7 @@ export const BOSSES: Record<BossId, BossDef> = {
         diceRange: [4, 5],
         name: { th: 'บัลลังก์ทอง', en: 'Golden Throne' },
         time: 4,
+        immediate: true,
         desc: { th: 'เกราะ +1 (สะสม) · ฟื้น 8 HP', en: 'Armor +1 (stacking) · heals 8 HP' },
       },
       {

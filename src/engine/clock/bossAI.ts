@@ -45,7 +45,8 @@ export function declareBossAction(state: GameState, rng: RNG) {
   const die = rng.int(1, 6);
   const move = rollBossMove(battle.bossId, die);
   const landedAtSlot = battle.marker - move.time;
-  battle.bossPending = { moveKey: move.key, die, declaredAtSlot: battle.marker, landedAtSlot };
+  // The pawn walks the move's full ⏱ either way — `immediate` changes when the effect lands, not
+  // how long the boss is then busy for. Same contract as the heroes' ⚡ skills.
   battle.bossSlot = landedAtSlot;
   battle.bossStackSeq = battle.nextStackSeq++;
   battle.log.push({ t: 'ROLL', playerId: 'boss', purpose: 'boss move', die, target: null, success: null, moveKey: move.key });
@@ -58,38 +59,54 @@ export function declareBossAction(state: GameState, rng: RNG) {
     label: `${move.name.th} (${move.key})`,
     moveKey: move.key,
   });
+
+  if (move.immediate) {
+    // Resolved here and now, and deliberately left with no bossPending afterwards: there is nothing
+    // queued to read, cancel or delay. A Trap! springing later therefore finds nothing to postpone,
+    // which is correct — the blow already landed.
+    applyBossMove(state, move.key);
+    return;
+  }
+  battle.bossPending = { moveKey: move.key, die, declaredAtSlot: battle.marker, landedAtSlot };
 }
 
-/** Resolves whatever the boss declared last visit — a no-op if it was just cancelled by a trap
- *  (processTrapsAtMarker clears bossPending before this runs). */
+/** Applies one boss move's actual effect. Shared by the normal resolve-later path and the
+ *  `immediate` path in declareBossAction, so both run the identical move logic. */
+function applyBossMove(state: GameState, moveKey: 'A' | 'B' | 'C') {
+  const battle = state.battle!;
+  // Announce the move before it lands, so the UI names it ahead of the damage numbers.
+  battle.log.push({ t: 'BOSS_MOVE', bossId: battle.bossId, moveKey });
+  switch (battle.bossId) {
+    case 'Ragorath':
+      resolveRagorath(state, moveKey);
+      break;
+    case 'Somnivar':
+      resolveSomnivar(state, moveKey);
+      break;
+    case 'Aurelius':
+      resolveAurelius(state, moveKey);
+      break;
+  }
+  battle.weakPointActive = false; // "จนกว่าบอสจะทำแอคชันถัดไป" — expires the instant the boss acts.
+}
+
+/** Resolves whatever the boss declared last visit — a no-op if it was just cancelled by a trap, or
+ *  if the move was `immediate` and already resolved at declare (which leaves no pending at all). */
 export function resolveBossPending(state: GameState, rng: RNG) {
   const battle = state.battle!;
   const pending = battle.bossPending;
   if (!pending) return;
-  // Announce the move before it lands, so the UI names it ahead of the damage numbers.
-  battle.log.push({ t: 'BOSS_MOVE', bossId: battle.bossId, moveKey: pending.moveKey });
-  switch (battle.bossId) {
-    case 'Ragorath':
-      resolveRagorath(state, pending.moveKey);
-      break;
-    case 'Somnivar':
-      resolveSomnivar(state, pending.moveKey);
-      break;
-    case 'Aurelius':
-      resolveAurelius(state, pending.moveKey);
-      break;
-  }
+  applyBossMove(state, pending.moveKey);
   battle.bossPending = null;
-  battle.weakPointActive = false; // "จนกว่าบอสจะทำแอคชันถัดไป" — expires the instant the boss acts.
   void rng;
 }
 
 /** A single-target boss hit — applies damage and resolves any Counter riposte immediately, since
  *  there's only ever one target for it to matter for. */
-function hit(state: GameState, target: Fighter, baseDmg: number) {
+function hit(state: GameState, target: Fighter, baseDmg: number, opts: { piercesPartyMitigation?: boolean } = {}) {
   const battle = state.battle!;
   const dmg = baseDmg + battle.rage;
-  const { applied, recipient } = dealDamageToFighterFromBoss(state, target, dmg);
+  const { applied, recipient } = dealDamageToFighterFromBoss(state, target, dmg, opts);
   battle.log.push({
     t: 'RESOLVE_ATTACK',
     playerId: 'boss',
@@ -167,7 +184,10 @@ function resolveAurelius(state: GameState, moveKey: 'A' | 'B' | 'C') {
   const targets = bossMoveTargets(state, moveKey);
   if (moveKey === 'A') {
     if (targets.length === 0) return;
-    hit(state, targets[0], 12);
+    // Procession pierces Blessing (v0.3.11). It exists as the catch-up mechanic — it hunts whoever
+    // is winning on points — but measured only 6.9 of its printed 12 actually landing, because
+    // party mitigation ate the rest. Piercing restores the function and matches the fantasy.
+    hit(state, targets[0], 12, { piercesPartyMitigation: true });
   } else if (moveKey === 'B') {
     battle.armor += 1;
     battle.bossHp = Math.min(battle.bossHpMax, battle.bossHp + 8);
