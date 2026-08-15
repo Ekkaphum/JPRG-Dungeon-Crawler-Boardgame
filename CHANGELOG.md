@@ -1,15 +1,15 @@
 # Changelog
 
+Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
+
+## 2026-08-15
+
 - **v0.3.10 — Animated 16-bit heroes and action effects**
   - Replaced the four painted hero cards on the battle stage with animation-ready 16-bit sprite sheets for Matt, Kit, Vera, and Luna.
   - Added a continuous four-frame idle loop and one four-frame action row for every active-roster skill. Playback now carries the acting player through to the UI, so only that hero performs the matching animation when the action lands or a buff is declared.
   - Added large centered sword, bow, fire, smash, healing, blessing, magic, and trap effects behind the existing skill announcement, with reduced-motion support.
   - Kept the painted cards in setup/detail views and retained the sigil fallback for disabled characters.
   - Responsive follow-up: arranged all four battle sprites in equal top-to-bottom front-line slots and anchored each HP plate directly below its hero, preventing overlap on portrait phones.
-
-Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
-
-## 2026-08-15
 
 - **v0.3.9 — Trap! delays the boss instead of cancelling it, and board-game mode is frozen**
   - **Trap! now pushes the boss's declared move back 2 clock slots** (`TRAP_DELAY_SLOTS` in `src/engine/clock/skills.ts`) rather than deleting it. The move still lands; the boss just has to wait for it. The boss *pawn* moves with the delayed move, and because `walk.ts` builds each tick's visit queue **after** traps are processed, that pawn move also takes the boss out of the current queue — so it stalls for those slots. Worth spelling out because the old cancel did **not** cost the boss any tempo: its pawn never moved, so it stayed in the queue and simply declared a fresh move on the spot, losing only that one specific move. The new version is the opposite trade — the damage still arrives, but the boss genuinely loses turns.
