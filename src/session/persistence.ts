@@ -11,13 +11,24 @@ const STATS_KEY = 'mc.stats.v3';
 /** Per-event playback delay in milliseconds. 0 resolves the whole battle instantly. */
 export const ANIM_DELAY_OPTIONS = [0, 500, 1000, 1500, 2000] as const;
 
+export type VisualMode = 'classic' | 'tabletop';
+
+/** Visual modes actually offered to the player. 'tabletop' (board-game mode) is complete and its
+ *  ~200 lines of styling in index.css stay exactly where they are — it is *frozen, not removed*
+ *  (2026-08-15): it receives no further work, and every rules change since it was built (⚡ immediate
+ *  skills, the ⚡ badges, passives, the v0.3.7 score-condition rebuild) would need a styling pass
+ *  before it is presentable again. Same pattern as Dax/Mira in @content/characters: the content and
+ *  all its code paths keep working, one list decides whether it is reachable. Re-enabling it later is
+ *  this line and nothing else — `['classic', 'tabletop']`. */
+export const SELECTABLE_VISUAL_MODES: VisualMode[] = ['classic'];
+
 export interface Settings {
   lang: Lang;
   animDelayMs: number;
   showBotIntents: boolean;
   soundEnabled: boolean;
   soundVolume: number;
-  visualMode: 'classic' | 'tabletop';
+  visualMode: VisualMode;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -75,7 +86,9 @@ export function loadSettings(): Settings {
   if (!ANIM_DELAY_OPTIONS.includes(s.animDelayMs as (typeof ANIM_DELAY_OPTIONS)[number])) {
     s.animDelayMs = DEFAULT_SETTINGS.animDelayMs;
   }
-  if (s.visualMode !== 'classic' && s.visualMode !== 'tabletop') {
+  // Also migrates anyone whose saved setting points at a mode that has since been disabled — a
+  // player who last picked board-game mode comes back to the default instead of a frozen screen.
+  if (!SELECTABLE_VISUAL_MODES.includes(s.visualMode)) {
     s.visualMode = DEFAULT_SETTINGS.visualMode;
   }
   return s;

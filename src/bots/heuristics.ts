@@ -87,8 +87,10 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
     case 'trap': {
       // The boss's pawn only moves on its own turn, so a trap armed exactly on the slot it is
       // sitting on is certain to connect; anywhere else is a near-certain waste. Beyond the
-      // damage, connecting rolls to wipe the boss's declared move — worth roughly what that move
-      // would have dealt, discounted by the ladder's odds.
+      // damage, connecting rolls to push the boss's declared move back 2 slots (v0.3.9 — it used to
+      // delete it). Left at the same flat premium: the move is no longer negated, but the boss also
+      // loses those slots entirely instead of re-declaring on the spot, and a 3,000-game sim put the
+      // two within noise of each other.
       // Nothing declared yet (the opening tick) means there is nothing to cancel, so the trap is
       // reduced to its small damage and is not worth the ⏱.
       if (choice.trapSlot !== battle.bossSlot || !battle.bossPending) return 0.2;

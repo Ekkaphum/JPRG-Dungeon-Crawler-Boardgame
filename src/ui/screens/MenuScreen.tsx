@@ -1,4 +1,5 @@
 import { useAppStore } from '@session/store';
+import { SELECTABLE_VISUAL_MODES } from '@session/persistence';
 import { useT } from '@content/i18n/useT';
 
 export function MenuScreen() {
@@ -24,25 +25,34 @@ export function MenuScreen() {
           <p className="menu-subtitle mt-3">{t('menu.subtitle')}</p>
         </div>
 
-        <div className="visual-mode-picker mb-5" aria-label={t('menu.visualMode')}>
-          <div className="visual-mode-heading">{t('menu.visualMode')}</div>
-          <div className="visual-mode-options">
-            <VisualModeButton
-              selected={visualMode === 'classic'}
-              icon="✦"
-              label={t('menu.visualMode.classic')}
-              hint={t('menu.visualMode.classicHint')}
-              onClick={() => updateSettings({ visualMode: 'classic' })}
-            />
-            <VisualModeButton
-              selected={visualMode === 'tabletop'}
-              icon="♟"
-              label={t('menu.visualMode.tabletop')}
-              hint={t('menu.visualMode.tabletopHint')}
-              onClick={() => updateSettings({ visualMode: 'tabletop' })}
-            />
+        {/* Hidden entirely while only one mode is selectable — a picker with a single option is
+            just noise. Board-game mode is frozen rather than deleted; see SELECTABLE_VISUAL_MODES
+            in @session/persistence for how to bring it back. */}
+        {SELECTABLE_VISUAL_MODES.length > 1 && (
+          <div className="visual-mode-picker mb-5" aria-label={t('menu.visualMode')}>
+            <div className="visual-mode-heading">{t('menu.visualMode')}</div>
+            <div className="visual-mode-options">
+              {SELECTABLE_VISUAL_MODES.includes('classic') && (
+                <VisualModeButton
+                  selected={visualMode === 'classic'}
+                  icon="✦"
+                  label={t('menu.visualMode.classic')}
+                  hint={t('menu.visualMode.classicHint')}
+                  onClick={() => updateSettings({ visualMode: 'classic' })}
+                />
+              )}
+              {SELECTABLE_VISUAL_MODES.includes('tabletop') && (
+                <VisualModeButton
+                  selected={visualMode === 'tabletop'}
+                  icon="♟"
+                  label={t('menu.visualMode.tabletop')}
+                  hint={t('menu.visualMode.tabletopHint')}
+                  onClick={() => updateSettings({ visualMode: 'tabletop' })}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="flex flex-col gap-3 w-full">
           <MenuButton primary onClick={() => setScreen('setup')}>{t('menu.newGame')}</MenuButton>

@@ -7,6 +7,8 @@ import {
   processTrapsAtMarker,
   processScheduledHitsAtMarker,
   expireTimedEffectsAtMarker,
+  TRAP_DELAY_SLOTS,
+  resolveBossPending,
   applyDamageToFighter,
   dealDamageToFighterFromBoss,
   killFighter,
@@ -404,18 +406,19 @@ describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an ex
     state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
     const bossHpBefore = state.battle!.bossHp;
     // A die below the starting target is a miss — the trap springs (slot vacated) but does
-    // nothing else: no damage, no cancel.
+    // nothing else: no damage, and the boss's move is not delayed at all.
     processTrapsAtMarker(state, { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>);
     expect(state.battle!.bossHp).toBe(bossHpBefore);
     expect(state.battle!.traps).toHaveLength(0);
-    expect(state.battle!.bossPending).not.toBeNull();
+    expect(state.battle!.bossPending?.landedAtSlot).toBe(10); // untouched
+    expect(state.battle!.bossSlot).toBe(10);
     const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger');
     expect(roll && roll.t === 'ROLL' && roll.success).toBe(false);
     const trigger = state.battle!.log.find((e) => e.t === 'RESOLVE_TRAP_TRIGGER');
     expect(trigger && trigger.t === 'RESOLVE_TRAP_TRIGGER' && trigger.dmg).toBe(0);
   });
 
-  it('deals damage and cancels the boss pending action only when the roll passes', () => {
+  it('deals damage and delays the boss move by TRAP_DELAY_SLOTS when the roll passes (v0.3.9)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
@@ -428,9 +431,33 @@ describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an ex
     processTrapsAtMarker(state, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
     expect(state.battle!.bossHp).toBe(bossHpBefore - 5);
     expect(state.battle!.traps).toHaveLength(0);
-    expect(state.battle!.bossPending).toBeNull();
+    // The move survives — it just lands later, and the boss pawn moves with it. That pawn move is
+    // what takes the boss out of this tick's visit queue (walk.ts builds the queue after traps run),
+    // so it stalls instead of re-declaring on the spot the way the old cancel let it.
+    expect(state.battle!.bossPending).not.toBeNull();
+    expect(state.battle!.bossPending!.landedAtSlot).toBe(10 - TRAP_DELAY_SLOTS);
+    expect(state.battle!.bossSlot).toBe(10 - TRAP_DELAY_SLOTS);
+    expect(state.battle!.bossPending!.moveKey).toBe('A'); // same move, not a fresh roll
     const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger');
     expect(roll && roll.t === 'ROLL' && roll.success).toBe(true);
+  });
+
+  it('the delayed move still resolves later — it is postponed, not deleted', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 13;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
+    state.battle!.marker = 10;
+    state.battle!.bossSlot = 10;
+    state.battle!.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 14, landedAtSlot: 10 };
+    processTrapsAtMarker(state, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
+
+    // Walk on to where the move was pushed to and let the boss take its turn: somebody still gets hit.
+    state.battle!.marker = 10 - TRAP_DELAY_SLOTS;
+    const hpBefore = state.battle!.fighters.map((f) => f.hp);
+    resolveBossPending(state, createRNG(3));
+    expect(state.battle!.fighters.some((f, i) => f.hp < hpBefore[i])).toBe(true);
   });
 
   it('expires without effect if the marker passes the slot without the boss stopping there', () => {

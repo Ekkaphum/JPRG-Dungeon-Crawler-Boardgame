@@ -27,8 +27,8 @@ export function skillBriefText(skillId: SkillId, isLv2: boolean, lang: Lang): st
         : `${p} damage · roll ${s.rollBaseTarget}+ to open a weak point — everyone deals +4`;
     case 'Trap':
       return th
-        ? `วางกับดัก ${p} (ไม่สนเกราะ) ในระยะ 3 ช่องถัดไป · โดนแล้วทอย ${s.rollBaseTarget}+ ยกเลิกท่าบอส`
-        : `Trap for ${p} (ignores armor) up to 3 slots ahead · on a hit, roll ${s.rollBaseTarget}+ to cancel the boss's move`;
+        ? `วางกับดัก ${p} (ไม่สนเกราะ) ในระยะ 3 ช่องถัดไป · โดนแล้วทอย ${s.rollBaseTarget}+ ถ่วงท่าบอสออกไป 2 ช่อง`
+        : `Trap for ${p} (ignores armor) up to 3 slots ahead · on a hit, roll ${s.rollBaseTarget}+ to push the boss's move back 2 slots`;
     case 'MultiShot': {
       const early = s.earlyHits ?? [];
       const all = [...early.map((h) => h.dmg), p];
@@ -82,8 +82,8 @@ export function skillEffectText(skillId: SkillId, isLv2: boolean, lang: Lang): s
         : `Deal ${p} damage and roll d6 to open a weak point (need ${s.rollBaseTarget}+ — permanently lowered by 1 on every miss via the Skill Improvement passive, floor of 2) — everyone then deals +4 until the boss acts.`;
     case 'Trap':
         return th
-        ? `เลือกวางกับดัก 1 ช่อง ไม่เกิน 3 ช่องถัดจากตำแหน่งปัจจุบัน · ถ้าบอสมา "หยุด" ตรงนั้นพอดี: ${p} ดาเมจ (ไม่สนเกราะ) แล้วทอย d6 (ต้อง ${s.rollBaseTarget}+, ลดลงถาวรทุกครั้งที่พลาดจากพาสซีฟ Skill Improvement, ต่ำสุด 2) ถ้าผ่านคือยกเลิกท่าที่บอสประกาศไว้ทั้งท่า · ถ้ามาร์กเกอร์เดินผ่านเฉยๆ กับดักหายไป`
-        : `Arm the trap on one slot up to 3 ahead of your current position · if the boss *stops* exactly there: ${p} damage (ignores armor), then roll d6 (need ${s.rollBaseTarget}+, permanently lowered by 1 on every miss via Skill Improvement, floor of 2) to cancel its declared move entirely · if the marker merely passes, the trap is lost.`;
+        ? `เลือกวางกับดัก 1 ช่อง ไม่เกิน 3 ช่องถัดจากตำแหน่งปัจจุบัน · ถ้าบอสมา "หยุด" ตรงนั้นพอดี: ${p} ดาเมจ (ไม่สนเกราะ) แล้วทอย d6 (ต้อง ${s.rollBaseTarget}+, ลดลงถาวรทุกครั้งที่พลาดจากพาสซีฟ Skill Improvement, ต่ำสุด 2) ถ้าผ่านคือถ่วงท่าที่บอสประกาศไว้ออกไปอีก 2 ช่อง (ท่ายังลงอยู่ แต่บอสต้องรออีก 2 ช่องถึงจะลงมือ) · ถ้ามาร์กเกอร์เดินผ่านเฉยๆ กับดักหายไป`
+        : `Arm the trap on one slot up to 3 ahead of your current position · if the boss *stops* exactly there: ${p} damage (ignores armor), then roll d6 (need ${s.rollBaseTarget}+, permanently lowered by 1 on every miss via Skill Improvement, floor of 2) to push its declared move back 2 slots — the move still lands, but the boss stalls for those slots first · if the marker merely passes, the trap is lost.`;
     case 'MultiShot': {
       const early = s.earlyHits ?? [];
       const parts = [...early.map((h) => `${h.dmg} dmg ที่ระยะ ${h.offset} ช่อง`), `${p} dmg ที่ระยะ ${s.time} ช่อง (ตอน resolve)`];

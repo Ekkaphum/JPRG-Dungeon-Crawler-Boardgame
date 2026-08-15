@@ -17,6 +17,11 @@ function isLv2(state: GameState, fighter: Fighter, skillId: SkillId): boolean {
  *  downgrades Matt's hit (11 → 6) instead of deleting it outright; see docs/RULINGS.md §7. */
 const ATTACK_GATED_HP_THRESHOLD = 5;
 
+/** How many clock slots a sprung Trap! pushes the boss's declared move back by (v0.3.9 — it used to
+ *  delete the move outright). See processTrapsAtMarker for why delaying costs the boss more tempo
+ *  than cancelling did. */
+export const TRAP_DELAY_SLOTS = 2;
+
 /** Somnivar's "มนตร์ง่วงงุน" tax: player-declared skills with base ⏱ >= 5 walk 2 extra slots. */
 export function applySomnivarTax(state: GameState, baseTime: number): number {
   if (state.battle!.bossId === 'Somnivar' && baseTime >= 5) return baseTime + 2;
@@ -383,7 +388,20 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
     const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'Trap', countsAsAttack: false });
     onTrapTriggered(state, trap.ownerId);
     battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
-    if (battle.bossPending && battle.outcome === 'in_progress') battle.bossPending = null;
+    // v0.3.9: a sprung trap *delays* the boss's declared move instead of deleting it. The move still
+    // lands, TRAP_DELAY_SLOTS later, and the boss pawn moves with it — which also takes the boss out
+    // of this tick's visit queue (walk.ts builds that queue after this runs), so it sits idle for
+    // those slots instead of immediately re-declaring. Under the old cancel the boss kept its tempo:
+    // the pawn never moved, so it stayed in the queue and simply declared a fresh move on the spot.
+    // Measured as a wash at the current trigger rate — 3,000-game sims put win rate within noise
+    // either way (65.7% vs 66.0%) because a trap only springs ~0.14 times per game — so this is a
+    // change of character, not of power: tempo denial rather than damage negation.
+    if (battle.bossPending && battle.outcome === 'in_progress') {
+      const delayedTo = battle.bossPending.landedAtSlot - TRAP_DELAY_SLOTS;
+      battle.bossPending.landedAtSlot = delayedTo;
+      battle.bossSlot = delayedTo;
+      battle.bossStackSeq = battle.nextStackSeq++;
+    }
   }
 }
 
