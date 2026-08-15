@@ -54,7 +54,7 @@ describe('hero status badges', () => {
 
   it('Blessing shows on every hero, not just the caster', () => {
     const state = battleFor('Ragorath');
-    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: 3 };
+    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: 3, expiresAtSlot: 10 };
     for (const f of state.battle!.fighters) {
       expect(heroStatuses(state.battle!, f).find((s) => s.id === 'blessing')?.value).toBe('+3/-2');
     }
@@ -62,7 +62,7 @@ describe('hero status badges', () => {
 
   it('a downed hero reports only its revive slot, hiding stale buffs', () => {
     const state = battleFor('Ragorath');
-    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: 0 };
+    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: 0, expiresAtSlot: 10 };
     const f = state.battle!.fighters[0];
     f.alive = false;
     f.reviveAtSlot = 13;

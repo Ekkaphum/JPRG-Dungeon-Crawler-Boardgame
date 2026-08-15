@@ -132,7 +132,7 @@ describe('comboSynergyBonus — Luna timing Blessing under an incoming big hit',
     prepareBattle(state);
     const { luna, kit } = ids(state);
     state.battle!.marker = 20;
-    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: luna };
+    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: luna, expiresAtSlot: 10 };
     fighterOf(state, kit).pending = { skillId: 'SharpShooting', declaredAtSlot: 20, landedAtSlot: 17 };
 
     const bonus = comboSynergyBonus(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Blessing' });

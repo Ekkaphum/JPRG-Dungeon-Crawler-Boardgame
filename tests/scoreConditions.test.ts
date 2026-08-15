@@ -59,7 +59,7 @@ describe('onPlayerDealtDamage — matt1/vera1 damage thresholds', () => {
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     const luna = findFighter(state, 'Luna');
-    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: luna.playerId };
+    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: luna.playerId, expiresAtSlot: 10 };
 
     onPlayerDealtDamage(state, kit.playerId, 'QuickShot', 15);
     expect(state.scoreLog.some((e) => e.conditionId === 'luna2')).toBe(false);

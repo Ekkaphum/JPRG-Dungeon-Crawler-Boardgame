@@ -42,7 +42,7 @@ export function skillBriefText(skillId: SkillId, isLv2: boolean, lang: Lang): st
     case 'Heal':
       return th ? `ฟื้น HP ให้เป้าหมาย ${p}` : `Restore ${p} HP`;
     case 'Blessing':
-      return th ? `ทั้งวง +${p} ATK · เกราะ +${q}` : `Party +${p} ATK · +${q} armor`;
+      return th ? `ทั้งวง +${p} ATK · เกราะ +${q} เป็นเวลา 4 ช่อง` : `Party +${p} ATK · +${q} armor for 4 slots`;
     case 'AuraSmite':
       return th ? `โจมตี ${p} — ไม่สนเกราะ` : `${p} damage, ignores armor`;
     default:
@@ -89,8 +89,8 @@ export function skillEffectText(skillId: SkillId, isLv2: boolean, lang: Lang): s
       const parts = [...early.map((h) => `${h.dmg} dmg ที่ระยะ ${h.offset} ช่อง`), `${p} dmg ที่ระยะ ${s.time} ช่อง (ตอน resolve)`];
       const partsEn = [...early.map((h) => `${h.dmg} dmg ${h.offset} slots out`), `${p} dmg ${s.time} slots out (on resolve)`];
       return th
-        ? `ยิง 3 นัดจากแอคชันเดียว: ${parts.join(', ')} — แต่ละนัดยิงอัตโนมัติไม่ต้องทอยเต๋า`
-        : `Three hits from one declare: ${partsEn.join(', ')} — each fires unconditionally, no roll needed.`;
+        ? `ยิง 3 นัดจากแอคชันเดียว: ${parts.join(', ')} — แต่ละนัดนับเป็น 1 hit และรับบัฟแยกกัน · ถ้า Kit ตาย ยกเลิกทุกนัดที่ยังไม่ยิงทันที`
+        : `Three hits from one declare: ${partsEn.join(', ')} — each counts as a separate hit and receives buffs separately; if Kit dies, cancel every unfired hit immediately.`;
     }
     case 'Fireball':
     case 'Meteor':
@@ -107,8 +107,8 @@ export function skillEffectText(skillId: SkillId, isLv2: boolean, lang: Lang): s
         : `Restore ${p} HP to the target — wasted if the target dies before it resolves.`;
     case 'Blessing':
       return th
-        ? `ทันทีที่ประกาศ: ทั้งวงโจมตี +${p} และได้เกราะ +${q} จนถึงเทิร์นหน้าของคุณ (บัฟ "ทุกคน" ไม่รวมบอส)`
-        : `On declare: the whole party gains +${p} attack and +${q} armor until your next turn (party-only, never the boss).`;
+        ? `ทันทีที่ประกาศ: ทั้งวงโจมตี +${p} และได้เกราะ +${q} เป็นเวลา 4 ช่องนาฬิกาเท่านั้น ไม่ผูกกับเทิร์นหน้าของ Luna (บัฟ "ทุกคน" ไม่รวมบอส)`
+        : `On declare: the whole party gains +${p} attack and +${q} armor for exactly 4 clock slots, independent of Luna's next turn (party-only, never the boss).`;
     case 'AuraSmite':
       return th ? `โจมตีบอส ${p} ดาเมจ — ไม่สนเกราะ` : `Deal ${p} damage to the boss, ignoring armor.`;
     default:

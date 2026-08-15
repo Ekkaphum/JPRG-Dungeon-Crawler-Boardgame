@@ -55,16 +55,12 @@ export interface PendingAction {
 
 /** Matt's Guard: an active redirect link, not a shield. Lives on the battle rather than on either
  *  fighter because the effect is read from the *ward's* side (damage aimed at them lands on the
- *  guardian instead) while its lifetime is owned by the *guardian's* pawn — exactly the same shape
- *  as `partyBuff`, which is likewise set on declare and cleared when its owner's pending resolves. */
+ *  guardian instead) while its lifetime is owned by the *guardian's* pawn. */
 export interface GuardLink {
   guardianId: PlayerId;
   wardId: PlayerId;
   /** Flat reduction applied to redirected damage only. */
   reduction: number;
-  /** Attack bonus the ward gets while covered — Guard's contribution to the damage economy, and
-   *  the reason it can justify its ⏱ at all (see the Guard entry in @content/characters). */
-  wardAtk: number;
 }
 
 export interface BossPendingAction {
@@ -107,10 +103,9 @@ export interface TrapToken {
   ownerId: PlayerId;
 }
 
-/** Kit's Multi Shot (kind: 'multiHit'): extra hits scheduled at declare time, fired unconditionally
- *  — no dice, no boss-position requirement — the instant the marker reaches `slot`. The skill's own
- *  `primary` hit still lands normally through the caster's own pending/resolve; this only covers the
- *  earlier hits (SkillLevelStats.earlyHits in @content/characters). */
+/** Kit's Multi Shot (kind: 'multiHit'): extra hits scheduled at declare time, fired without a roll
+ *  when the marker reaches `slot`. The skill's own `primary` hit still lands normally through the
+ *  caster's pending/resolve. All remaining hits are removed immediately if the caster dies. */
 export interface ScheduledHit {
   slot: number;
   dmg: number;
@@ -172,7 +167,8 @@ export interface BattleState {
   traps: TrapToken[];
   scheduledHits: ScheduledHit[];
   weakPointActive: boolean;
-  partyBuff: { atk: number; dmgReduction: number; ownerId: PlayerId } | null;
+  /** Blessing starts on declare and lasts exactly four clock slots, independent of Luna's pawn. */
+  partyBuff: { atk: number; dmgReduction: number; ownerId: PlayerId; expiresAtSlot: number } | null;
   guard: GuardLink | null;
   finishedBy: PlayerId | null;
   finishedBySkill: SkillId | null;

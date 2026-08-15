@@ -12,13 +12,12 @@ import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 const BERSERK_HP_THRESHOLD = 7;
 
 /** Outgoing damage a player deals to the boss: base + party Blessing atk buff + weak-point bonus +
- *  Guard's single-target buff if this attacker is the one being covered + Matt's Berserk passive.
+ *  Matt's Berserk passive.
  *  "ทุกคน" buffs never apply to the boss (GAME_DESIGN_v0_3_0.md §5.1) so this is player-only. */
 export function computeOutgoingPlayerDamage(battle: BattleState, base: number, attackerId?: number): number {
   let dmg = base;
   if (battle.partyBuff) dmg += battle.partyBuff.atk;
   if (battle.weakPointActive) dmg += 4;
-  if (attackerId != null && battle.guard?.wardId === attackerId) dmg += battle.guard.wardAtk;
   if (attackerId != null) {
     const attacker = battle.fighters.find((f) => f.playerId === attackerId);
     if (attacker?.charId === 'Matt' && attacker.alive && attacker.hp < BERSERK_HP_THRESHOLD) dmg += 4;
@@ -74,6 +73,10 @@ export function applyDamageToBoss(
  *  "triggered" even when the final damage rounds down to 0 (GAME_DESIGN_v0_3_0.md §8: "นับแม้ดาเมจ
  *  ที่เข้าจริงจะเป็น 0"). Returns the actual damage applied. */
 export function applyDamageToFighter(state: GameState, fighter: Fighter, rawDamage: number): number {
+  // An AoE resolves one target at a time. Guard can redirect an earlier target's share onto Matt
+  // and kill him before the loop reaches Matt's own share; that later share must not kill/log/count
+  // the same fighter again.
+  if (!fighter.alive) return 0;
   const battle = state.battle!;
   let dmg = rawDamage;
   if (battle.partyBuff) dmg -= battle.partyBuff.dmgReduction;
@@ -99,12 +102,18 @@ export function healFighter(fighter: Fighter, amount: number): number {
 }
 
 export function killFighter(state: GameState, fighter: Fighter) {
+  // Idempotent by contract: callers may still hold a reference captured while this fighter was
+  // alive (notably an AoE target list), but death, scoring and revival are recorded only once.
+  if (!fighter.alive) return;
   const battle = state.battle!;
   fighter.alive = false;
   fighter.everDiedThisBattle = true;
   state.deathCounts[fighter.playerId] = (state.deathCounts[fighter.playerId] ?? 0) + 1;
   fighter.pending = null;
   fighter.shield = null;
+  // Death cancels the entire unfinished Multi Shot. Hits that already fired stay fired; every
+  // scheduled hit still in flight is removed now, so revival cannot resume the old action.
+  battle.scheduledHits = battle.scheduledHits.filter((h) => h.ownerId !== fighter.playerId);
   // A dead guardian can't absorb anything — drop the link rather than leaving redirectTarget() to
   // filter it out on every hit. (A dead *ward* leaves the link standing on purpose: it costs
   // nothing while they're down, and it's still up if they revive inside Guard's window.)

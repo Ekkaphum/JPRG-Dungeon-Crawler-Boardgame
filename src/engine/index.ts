@@ -15,6 +15,7 @@ export {
   resolveFighterPending,
   processTrapsAtMarker,
   processScheduledHitsAtMarker,
+  expireTimedEffectsAtMarker,
   dealDamageToFighterFromBoss,
   applyBossDamageToFighter,
   redirectTarget,

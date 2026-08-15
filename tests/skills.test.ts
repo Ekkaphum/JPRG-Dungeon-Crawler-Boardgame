@@ -6,6 +6,7 @@ import {
   resolveFighterPending,
   processTrapsAtMarker,
   processScheduledHitsAtMarker,
+  expireTimedEffectsAtMarker,
   applyDamageToFighter,
   dealDamageToFighterFromBoss,
   killFighter,
@@ -116,6 +117,17 @@ describe("Immediate skills (v0.4.1) — attack lands at declare, not at the cast
     resolveFighterPending(state, kit, createRNG(1));
     const base = skillStats('QuickShot', false).primary!;
     expect(state.battle!.bossHp).toBe(bossHpBefore - base);
+  });
+
+  it('still resolves when its time cost puts the pawn past slot 0 (intentional rule)', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    state.battle!.marker = 1;
+    const bossHp = state.battle!.bossHp;
+    declareSkill(state, matt, { kind: 'DECLARE_ACTION', skillId: 'PowerStrike' }, createRNG(1));
+    expect(matt.slot).toBe(-3);
+    expect(state.battle!.bossHp).toBe(bossHp - skillStats('PowerStrike', false).primary!);
   });
 });
 
@@ -483,7 +495,26 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     expect(kit.attackCountThisBattle).toBe(3);
   });
 
-  it('stops firing once its owner dies mid-flight — no hits land after death', () => {
+  it('applies Blessing and Weak Point separately to every hit by design', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 20;
+    state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: 3, expiresAtSlot: 0 };
+    state.battle!.weakPointActive = true;
+    const bossHp = state.battle!.bossHp;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
+    state.battle!.marker = 18;
+    processScheduledHitsAtMarker(state); // 2 + 3 + 4 = 9
+    state.battle!.marker = 17;
+    processScheduledHitsAtMarker(state); // 3 + 3 + 4 = 10
+    state.battle!.marker = 16;
+    resolveFighterPending(state, kit, createRNG(1)); // 4 + 3 + 4 = 11
+    expect(state.battle!.bossHp).toBe(bossHp - 30);
+    expect(kit.attackCountThisBattle).toBe(3);
+  });
+
+  it('cancels every unfired hit immediately when its owner dies mid-flight', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
@@ -496,17 +527,70 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     expect(state.battle!.bossHp).toBe(bossHp - 2);
 
     killFighter(state, kit); // Kit dies before the second scheduled hit's slot
+    expect(state.battle!.scheduledHits).toHaveLength(0); // cancelled now, not merely skipped later
 
     bossHp = state.battle!.bossHp;
     state.battle!.marker = 17;
     processScheduledHitsAtMarker(state);
-    expect(state.battle!.bossHp).toBe(bossHp); // no damage — the caster is down
-    const wasted = state.battle!.log.filter((e) => e.t === 'RESOLVE_ATTACK' && e.skillId === 'MultiShot').at(-1)!;
-    expect(wasted).toMatchObject({ wasted: true, dmg: 0 });
+    expect(state.battle!.bossHp).toBe(bossHp); // no damage — the hit no longer exists
 
     // The primary hit is already cancelled too — killFighter clears fighter.pending on death, and
     // resolveFighterPending's `if (!pending) return;` guard stops it from ever running.
     expect(kit.pending).toBeNull();
+  });
+
+  it('does not resume a cancelled Multi Shot after Kit revives', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    state.battle!.marker = 20;
+    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
+    killFighter(state, kit);
+    kit.alive = true;
+    kit.hp = 5;
+
+    const bossHp = state.battle!.bossHp;
+    state.battle!.marker = 18;
+    processScheduledHitsAtMarker(state);
+    state.battle!.marker = 17;
+    processScheduledHitsAtMarker(state);
+    expect(state.battle!.bossHp).toBe(bossHp);
+    expect(state.battle!.scheduledHits).toHaveLength(0);
+  });
+});
+
+describe('Blessing — fixed four-slot lifetime', () => {
+  it('expires exactly four marker steps after declare, independent of Luna pending', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const luna = findFighter(state, 'Luna');
+    state.battle!.marker = 20;
+    declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Blessing' }, createRNG(1));
+    expect(state.battle!.partyBuff?.expiresAtSlot).toBe(16);
+
+    for (const marker of [19, 18, 17]) {
+      state.battle!.marker = marker;
+      expireTimedEffectsAtMarker(state);
+      expect(state.battle!.partyBuff).not.toBeNull();
+    }
+    state.battle!.marker = 16;
+    expireTimedEffectsAtMarker(state);
+    expect(state.battle!.partyBuff).toBeNull();
+    expect(luna.pending).not.toBeNull(); // duration is not implemented by clearing Luna's action
+  });
+
+  it('still expires on its fixed clock even if Luna dies', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const luna = findFighter(state, 'Luna');
+    state.battle!.marker = 20;
+    declareSkill(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Blessing' }, createRNG(1));
+    killFighter(state, luna);
+    expect(state.battle!.partyBuff).not.toBeNull();
+
+    state.battle!.marker = 16;
+    expireTimedEffectsAtMarker(state);
+    expect(state.battle!.partyBuff).toBeNull();
   });
 });
 

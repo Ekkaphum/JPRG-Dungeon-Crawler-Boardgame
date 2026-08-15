@@ -3,7 +3,7 @@
 
 import { CHARACTERS } from '@content/characters';
 import type { RNG } from '../rng';
-import { declareSkill, legalTrapSlots, processScheduledHitsAtMarker, processTrapsAtMarker, resolveFighterPending } from './skills';
+import { declareSkill, expireTimedEffectsAtMarker, legalTrapSlots, processScheduledHitsAtMarker, processTrapsAtMarker, resolveFighterPending } from './skills';
 import { declareBossAction, resolveBossPending } from './bossAI';
 import { reviveFighter } from './damage';
 import { onBattleEndScoring } from './scoring';
@@ -79,6 +79,10 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
       return;
     }
     battle.log.push({ t: 'MARKER_TICK', marker: battle.marker });
+
+    // Fixed-duration buffs expire before traps, scheduled hits, player visits or the boss can use
+    // them at this slot. Blessing declared at N therefore covers exactly N→N-4, not Luna's return.
+    expireTimedEffectsAtMarker(state);
 
     processTrapsAtMarker(state, rng);
     if (battle.outcome !== 'in_progress') break;

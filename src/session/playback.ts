@@ -239,6 +239,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
   switch (ev.t) {
     case 'MARKER_TICK':
       b.marker = ev.marker;
+      if (b.partyBuff && b.marker <= b.partyBuff.expiresAtSlot) b.partyBuff = null;
       break;
 
     case 'DECLARE': {
@@ -318,6 +319,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
         f.pending = null;
         f.shield = null;
         f.reviveAtSlot = ev.reviveAtSlot;
+        b.scheduledHits = b.scheduledHits.filter((h) => h.ownerId !== ev.playerId);
         // Mirror the engine: the pawn moves to where it will come back, and a dead guardian's
         // Guard link drops (killFighter does the same on the true state).
         if (ev.reviveAtSlot != null) f.slot = ev.reviveAtSlot;

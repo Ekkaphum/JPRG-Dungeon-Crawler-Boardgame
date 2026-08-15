@@ -186,7 +186,12 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       fighter.shield = { kind: 'counter', reduction: stats.primary!, counterDmg: stats.secondary!, hitDuringWindow: false };
       break;
     case 'buffParty':
-      battle.partyBuff = { atk: stats.primary!, dmgReduction: stats.secondary!, ownerId: fighter.playerId };
+      battle.partyBuff = {
+        atk: stats.primary!,
+        dmgReduction: stats.secondary!,
+        ownerId: fighter.playerId,
+        expiresAtSlot: battle.marker - 4,
+      };
       break;
     case 'buffMana':
       fighter.mana = Math.min(3, fighter.mana + stats.primary!);
@@ -200,7 +205,6 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
         guardianId: fighter.playerId,
         wardId: choice.targetPlayerId!,
         reduction: stats.primary ?? 0,
-        wardAtk: stats.secondary ?? 0,
       };
       break;
     case 'trap': {
@@ -322,7 +326,11 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       break;
     }
     case 'buffParty': {
-      if (battle.partyBuff?.ownerId === fighter.playerId) battle.partyBuff = null;
+      // Blessing has its own fixed four-slot clock lifetime. Normally it already expired before
+      // Luna is revisited; retain this owner check only as a safe fallback for hand-built states.
+      if (battle.partyBuff?.ownerId === fighter.playerId && battle.marker <= battle.partyBuff.expiresAtSlot) {
+        battle.partyBuff = null;
+      }
       battle.log.push({ t: 'RESOLVE_BUFF', playerId: fighter.playerId, skillId });
       break;
     }
@@ -378,12 +386,17 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
   }
 }
 
+/** Expires fixed-duration effects before anything at this marker can use them. Blessing declared at
+ *  slot N is active for the next four clock steps and is gone when the marker reaches N-4. */
+export function expireTimedEffectsAtMarker(state: GameState) {
+  const battle = state.battle!;
+  if (battle.partyBuff && battle.marker <= battle.partyBuff.expiresAtSlot) battle.partyBuff = null;
+}
+
 /** Multi Shot's early hits (kind: 'multiHit', @content/characters): fired the instant the marker
- *  reaches their scheduled slot — no roll, no boss-position requirement, unlike a trap — *unless*
- *  the caster has since died, in which case this and every later scheduled hit of theirs is wasted.
- *  Checked live at each hit's own tick (not baked in at declare) so a revival landing in time before
- *  a later hit would let the skill resume — same "check now, not when declared" spirit as Slash's
- *  old HP tier. Runs alongside processTrapsAtMarker every tick, before that slot's visit queue. */
+ *  reaches their scheduled slot — no roll and no boss-position requirement. killFighter removes all
+ *  remaining hits immediately, so this alive check is defense-in-depth for malformed/resumed state.
+ *  Runs alongside processTrapsAtMarker every tick, before that slot's visit queue. */
 export function processScheduledHitsAtMarker(state: GameState) {
   const battle = state.battle!;
   const here = battle.scheduledHits.filter((h) => h.slot === battle.marker);

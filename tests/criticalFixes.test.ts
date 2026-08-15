@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   prepareBattle,
   applyDamageToBoss,
+  applyDamageToFighter,
   applyBossDamageToFighter,
   resolveQueuedCounter,
   killFighter,
@@ -72,6 +73,24 @@ describe('1. party wipe ends the battle immediately, even with time left', () =>
 
     expect(state.phase).toBe('ALL_LOSE');
     expect(state.gameOver).toEqual({ outcome: 'allLose', bossId: state.battle!.bossId });
+  });
+});
+
+describe('10. death is idempotent', () => {
+  it('does not count, log or reschedule death when an already-dead fighter is hit again', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const matt = findFighter(state, 'Matt');
+    applyDamageToFighter(state, matt, matt.hp);
+    const deaths = state.deathCounts[matt.playerId];
+    const deathLogs = state.battle!.log.filter((e) => e.t === 'DEATH' && e.playerId === matt.playerId).length;
+    const reviveAt = matt.reviveAtSlot;
+
+    expect(applyDamageToFighter(state, matt, 999)).toBe(0);
+    killFighter(state, matt);
+    expect(state.deathCounts[matt.playerId]).toBe(deaths);
+    expect(state.battle!.log.filter((e) => e.t === 'DEATH' && e.playerId === matt.playerId)).toHaveLength(deathLogs);
+    expect(matt.reviveAtSlot).toBe(reviveAt);
   });
 });
 

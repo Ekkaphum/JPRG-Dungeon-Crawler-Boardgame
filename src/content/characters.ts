@@ -116,8 +116,8 @@ export const PASSIVES: Partial<Record<CharId, PassiveDef>> = {
     charId: 'Matt',
     name: { th: 'Berserk', en: 'Berserk' },
     desc: {
-      th: 'ทำงานเองตลอดเวลา: ขณะ HP ต่ำกว่า 7 พลังโจมตีของ Matt ทุกครั้ง +4 (เช็คตอน resolve เหมือน Slash เดิม)',
-      en: "Always active: while Matt's HP is below 7, every attack of his deals +4 damage (checked on resolve, same timing as the old Slash tier).",
+      th: 'ทำงานเองตลอดเวลา: ขณะ HP ต่ำกว่า 7 พลังโจมตีของ Matt ทุกครั้ง +4 (เช็คในเวลาที่การโจมตีเกิดผล; สกิล ⚡ จึงเช็คตอนประกาศ)',
+      en: "Always active: while Matt's HP is below 7, every attack deals +4 (checked when the hit takes effect, so ⚡ skills check on declare).",
     },
   },
   Kit: {
@@ -315,8 +315,8 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     charId: 'Luna',
     kind: 'buffParty',
     name: { th: 'Blessing', en: 'Blessing' },
-    // primary = party atk buff, secondary = party armor/dmg reduction (flat), both lasting until
-    // Luna's next turn (her declared ⏱ already matches the "เป็นเวลา 4" duration in the design note).
+    // primary = party atk buff, secondary = party armor/dmg reduction (flat). The effect begins on
+    // declare and lasts exactly four clock slots, independent of when Luna's pawn returns.
     lv1: { time: 4, primary: 3, secondary: 2 },
     lv2: { time: 4, primary: 4, secondary: 3 },
   },

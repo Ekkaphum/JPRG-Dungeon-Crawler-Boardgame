@@ -2,6 +2,14 @@
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
+## 2026-08-15
+
+- **v0.3.5 — death/Multi Shot lifecycle hardening + fixed Blessing duration**
+  - Damage against an already-dead fighter is now ignored, and `killFighter` is idempotent, preventing Guard+AoE from counting, logging, or scheduling the same death more than once.
+  - Kit's death immediately removes every remaining scheduled Multi Shot hit. Hits already resolved remain; revival cannot resume the cancelled action. Each hit still receives buffs and counts as an attack separately by design.
+  - Blessing now lasts exactly four clock slots from declare and expires before effects at the fourth destination slot, independent of Luna's next visit or death.
+  - Removed Guard's obsolete `wardAtk` state/path and updated `GAME_DESIGN.md`, `RULINGS.md`, and generated skill text with the current rulings: ⚡ actions may resolve even past slot 0; Skill Improvement intentionally persists across bosses; difficulty remains unchanged for now.
+
 ## 2026-08-14
 
 - **v0.3.4 — immediate-resolve skills (⚡) + Multi Shot death-stop fix** — follow-up to v0.3.3's redesign. Two user-requested changes:
