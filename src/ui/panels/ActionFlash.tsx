@@ -4,6 +4,7 @@ import { skillBriefText } from '@content/skillText';
 import { BOSSES } from '@content/bosses3';
 import { useAppStore } from '@session/store';
 import type { ActionFlash as Flash, FlashTone } from '@session/playback';
+import { ActionEffect } from '@ui/common/ActionEffect';
 
 const TONE: Record<FlashTone, string> = {
   attack: 'text-[#ff7a63]',
@@ -48,15 +49,16 @@ export function ActionFlash({ flash, bossId }: { flash: Flash | null; bossId: Bo
 
   return (
     <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
-      <div key={flash.id} className="action-flash text-center px-6 max-w-[80%]">
+      <div key={flash.id} className="action-flash relative text-center px-6 max-w-[80%]">
+        {flash.source === 'skill' && <ActionEffect skillId={flash.skillId} />}
         <div
-          className={`font-display font-bold tracking-wide text-3xl sm:text-5xl ${TONE[flash.tone]}`}
+          className={`action-flash__title relative z-10 font-display font-bold tracking-wide text-3xl sm:text-5xl ${TONE[flash.tone]}`}
           style={{ textShadow: '0 0 18px rgba(0,0,0,0.95), 0 3px 6px rgba(0,0,0,0.95)' }}
         >
           {title}
         </div>
         {detail && (
-          <div className="mt-1 text-xs sm:text-sm text-[#e8e4d8] leading-snug" style={{ textShadow: '0 0 12px rgba(0,0,0,1), 0 2px 4px rgba(0,0,0,1)' }}>
+          <div className="action-flash__detail relative z-10 mt-1 text-xs sm:text-sm text-[#e8e4d8] leading-snug" style={{ textShadow: '0 0 12px rgba(0,0,0,1), 0 2px 4px rgba(0,0,0,1)' }}>
             {detail}
           </div>
         )}

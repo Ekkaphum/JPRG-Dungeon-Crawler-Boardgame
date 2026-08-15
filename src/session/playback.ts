@@ -26,7 +26,7 @@ export interface DamagePopup {
  *  Carries identifiers rather than text so the component can render it in the current language. */
 export type FlashTone = 'attack' | 'heal' | 'buff';
 export type ActionFlashBody =
-  | { source: 'skill'; skillId: SkillId; isLv2: boolean; tone: FlashTone }
+  | { source: 'skill'; playerId: number; skillId: SkillId; isLv2: boolean; tone: FlashTone }
   | { source: 'boss'; moveKey: 'A' | 'B' | 'C'; tone: FlashTone }
   | { source: 'roll'; die: number; target: number | null; success: boolean | null; moveKey?: 'A' | 'B' | 'C'; tone: FlashTone };
 export type ActionFlash = ActionFlashBody & { id: number };
@@ -58,19 +58,19 @@ export function actionFlashFor(state: GameState, ev: ClockLogEvent): ActionFlash
     case 'RESOLVE_ATTACK': {
       if (ev.playerId === 'boss' || ev.wasted || ev.dmg <= 0) return null;
       const skillId = ev.skillId as SkillId;
-      return { source: 'skill', skillId, isLv2: lv2(ev.playerId, skillId), tone: 'attack' };
+      return { source: 'skill', playerId: ev.playerId, skillId, isLv2: lv2(ev.playerId, skillId), tone: 'attack' };
     }
     case 'RESOLVE_TRAP_TRIGGER':
-      return { source: 'skill', skillId: 'Trap', isLv2: lv2(ev.ownerId, 'Trap'), tone: 'attack' };
+      return { source: 'skill', playerId: ev.ownerId, skillId: 'Trap', isLv2: lv2(ev.ownerId, 'Trap'), tone: 'attack' };
     case 'RESOLVE_HEAL':
       if (ev.wasted || ev.amount <= 0) return null;
-      return { source: 'skill', skillId: 'Heal', isLv2: lv2(ev.playerId, 'Heal'), tone: 'heal' };
+      return { source: 'skill', playerId: ev.playerId, skillId: 'Heal', isLv2: lv2(ev.playerId, 'Heal'), tone: 'heal' };
     case 'DECLARE': {
       if (ev.playerId === 'boss' || ev.skillId === 'BossMove') return null;
       const skillId = ev.skillId as SkillId;
       const kind = SKILLS[skillId]?.kind;
       if (kind === 'buffParty' || kind === 'buffCounter' || kind === 'buffMana' || kind === 'guard') {
-        return { source: 'skill', skillId, isLv2: lv2(ev.playerId, skillId), tone: 'buff' };
+        return { source: 'skill', playerId: ev.playerId, skillId, isLv2: lv2(ev.playerId, skillId), tone: 'buff' };
       }
       return null;
     }

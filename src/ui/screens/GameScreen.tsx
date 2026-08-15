@@ -83,7 +83,7 @@ export function GameScreen() {
               </div>
               <div className="flex-1" />
               <div className="w-[34%] sm:w-[28%] h-full">
-                <HeroFigures state={state} battle={shown} popups={session.popups} onSelect={(playerId) => setDetail({ kind: 'hero', playerId })} />
+                <HeroFigures state={state} battle={shown} popups={session.popups} actionFlash={session.actionFlash} onSelect={(playerId) => setDetail({ kind: 'hero', playerId })} />
               </div>
             </div>
 

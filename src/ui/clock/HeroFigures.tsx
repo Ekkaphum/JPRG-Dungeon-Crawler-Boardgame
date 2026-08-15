@@ -4,6 +4,8 @@ import { DamagePopups } from '@ui/common/DamagePopups';
 import { StatusBadges } from '@ui/common/StatusBadges';
 import { heroStatuses } from '@content/statuses';
 import type { DamagePopup } from '@session/playback';
+import type { ActionFlash } from '@session/playback';
+import { HeroSprite } from './HeroSprite';
 
 const EDGE_FADE = 'radial-gradient(ellipse 60% 62% at 50% 45%, #000 55%, transparent 98%)';
 
@@ -14,11 +16,13 @@ export function HeroFigures({
   state,
   battle,
   popups = [],
+  actionFlash,
   onSelect,
 }: {
   state: GameState;
   battle: BattleState;
   popups?: DamagePopup[];
+  actionFlash?: ActionFlash | null;
   onSelect?: (playerId: number) => void;
 }) {
   const offsets = ['5%', '14%', '2%', '11%'];
@@ -28,6 +32,7 @@ export function HeroFigures({
         const f = battle.fighters.find((x) => x.playerId === p.id)!;
         const mine = popups.filter((pop) => pop.target === p.id);
         const hpPct = Math.max(0, Math.min(100, (f.hp / f.maxHp) * 100));
+        const activeFlash = actionFlash?.source === 'skill' && actionFlash.playerId === p.id ? actionFlash : null;
         return (
           <button
             key={p.id}
@@ -36,18 +41,19 @@ export function HeroFigures({
             className="hero-figure relative flex-1 min-h-0 w-full flex flex-col items-end justify-end group cursor-pointer"
             style={{ paddingRight: offsets[i % offsets.length] }}
           >
-            <img
-              src={charImageUrl(p.charId)}
-              alt={p.charId}
-              draggable={false}
-              className="hero-art flex-1 min-h-0 w-auto max-w-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)] group-hover:brightness-125 transition"
-              style={{
-                WebkitMaskImage: EDGE_FADE,
-                maskImage: EDGE_FADE,
-                opacity: f.alive ? 1 : 0.3,
-                filter: f.alive ? undefined : 'grayscale(0.8)',
-              }}
-            />
+            {p.charId === 'Dax' || p.charId === 'Mira' ? (
+              <img
+                src={charImageUrl(p.charId)}
+                alt={p.charId}
+                draggable={false}
+                className="hero-art flex-1 min-h-0 w-auto max-w-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)] group-hover:brightness-125 transition"
+                style={{ WebkitMaskImage: EDGE_FADE, maskImage: EDGE_FADE, opacity: f.alive ? 1 : 0.3, filter: f.alive ? undefined : 'grayscale(0.8)' }}
+              />
+            ) : (
+              <div className="hero-sprite-wrap flex-1 min-h-0 w-full flex items-center justify-end">
+                <HeroSprite charId={p.charId} skillId={activeFlash?.skillId ?? null} actionId={activeFlash?.id} alive={f.alive} />
+              </div>
+            )}
             {/* HP tag under the figure, with status pills sitting to the left of the name. */}
             <div className="hero-hp-plate w-[132px] max-w-full bg-black/75 rounded px-1 py-[2px] border border-gold-dim/40">
               <div className="flex items-center gap-1 leading-none">

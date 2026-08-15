@@ -1,5 +1,11 @@
 # Changelog
 
+- **v0.3.10 — Animated 16-bit heroes and action effects**
+  - Replaced the four painted hero cards on the battle stage with animation-ready 16-bit sprite sheets for Matt, Kit, Vera, and Luna.
+  - Added a continuous four-frame idle loop and one four-frame action row for every active-roster skill. Playback now carries the acting player through to the UI, so only that hero performs the matching animation when the action lands or a buff is declared.
+  - Added large centered sword, bow, fire, smash, healing, blessing, magic, and trap effects behind the existing skill announcement, with reduced-motion support.
+  - Kept the painted cards in setup/detail views and retained the sigil fallback for disabled characters.
+
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
 ## 2026-08-15
