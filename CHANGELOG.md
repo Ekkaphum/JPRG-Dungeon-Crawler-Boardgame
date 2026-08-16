@@ -2,6 +2,14 @@
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
+## 2026-08-16
+
+- **v0.3.13 — damage-reaction sprites and cleaner boss staging**
+  - Added dedicated four-frame damage-reaction strips for Eric, Kit, Liora, Luna, Ragorath, Somnivar, and Aurelius. The UI selects the latest damage event while deliberately ignoring healing popups, then returns the figure to its idle or action sheet.
+  - Added directional recoil animation: heroes are knocked toward the party edge while bosses recoil toward their side of the arena.
+  - Removed Ragorath's stray neutral-white sprite fragments, cleared hidden transparent-edge colour that could bleed while scaling, and optically centred boss figures on the stage's Y axis.
+  - `npm test` 205/205 passing, `npm run typecheck` clean, production build successful, and idle plus hit-reaction staging visually verified in the live battle screen.
+
 ## 2026-08-15
 
 - **v0.3.12 — unique boss arenas and animated 16-bit boss sprites**

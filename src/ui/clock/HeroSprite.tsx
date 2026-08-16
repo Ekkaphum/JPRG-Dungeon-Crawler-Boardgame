@@ -19,28 +19,32 @@ export function HeroSprite({
   charId,
   skillId,
   actionId,
+  hitId,
   alive,
 }: {
   charId: CharId;
   skillId: SkillId | null;
   actionId?: number;
+  hitId?: number;
   alive: boolean;
 }) {
   // Dax/Mira are not in the current draft roster and do not have production sprite sheets yet.
   if (charId === 'Dax' || charId === 'Mira') return null;
 
-  const row = spriteActionRow(charId, skillId);
+  const isHit = hitId !== undefined && alive;
+  const row = isHit ? 0 : spriteActionRow(charId, skillId);
   const style = {
-    '--sprite-sheet': `url(/assets/sprites/${charId}.png)`,
+    '--sprite-sheet': `url(/assets/sprites/${isHit ? `hit/${charId}.webp` : `${charId}.png`})`,
+    '--sprite-size': isHit ? '400% 100%' : '400% 500%',
     '--sprite-row': `${row * 25}%`,
   } as CSSProperties;
 
   return (
     <div
-      key={`${actionId ?? 'idle'}-${row}`}
+      key={isHit ? `hit-${hitId}` : `${actionId ?? 'idle'}-${row}`}
       role="img"
       aria-label={charId}
-      className={`hero-sprite ${row > 0 ? 'hero-sprite--action' : 'hero-sprite--idle'} ${alive ? '' : 'hero-sprite--down'}`}
+      className={`hero-sprite ${isHit ? 'hero-sprite--hit' : row > 0 ? 'hero-sprite--action' : 'hero-sprite--idle'} ${alive ? '' : 'hero-sprite--down'}`}
       style={style}
     />
   );

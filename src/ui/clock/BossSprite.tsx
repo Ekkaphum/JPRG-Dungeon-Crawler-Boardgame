@@ -7,23 +7,28 @@ export function BossSprite({
   bossId,
   moveKey,
   actionId,
+  hitId,
 }: {
   bossId: BossId;
   moveKey: BossMoveKey | null;
   actionId?: number;
+  hitId?: number;
 }) {
-  const row = bossActionRow(bossId, moveKey);
+  const isHit = hitId !== undefined;
+  const row = isHit ? 0 : bossActionRow(bossId, moveKey);
   const style = {
-    '--boss-sprite-sheet': `url(${bossSpriteUrl(bossId)})`,
+    '--boss-sprite-sheet': `url(${isHit ? `/assets/sprites/hit/${bossId}.webp` : bossSpriteUrl(bossId)})`,
+    '--boss-sprite-size': isHit ? '400% 100%' : '400% 300%',
+    '--boss-frame-aspect': isHit ? '1' : '350.5 / 374',
     '--boss-sprite-row': `${row * 50}%`,
   } as CSSProperties;
 
   return (
     <div
-      key={`${actionId ?? 'idle'}-${row}`}
+      key={isHit ? `hit-${hitId}` : `${actionId ?? 'idle'}-${row}`}
       role="img"
       aria-label={bossId}
-      className={`boss-sprite ${row > 0 ? 'boss-sprite--action' : 'boss-sprite--idle'}`}
+      className={`boss-sprite ${isHit ? 'boss-sprite--hit' : row > 0 ? 'boss-sprite--action' : 'boss-sprite--idle'}`}
       style={style}
     />
   );

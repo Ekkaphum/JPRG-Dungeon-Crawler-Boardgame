@@ -8,6 +8,7 @@ import { DamagePopups } from '@ui/common/DamagePopups';
 import { StatusBadges } from '@ui/common/StatusBadges';
 import type { ActionFlash, DamagePopup } from '@session/playback';
 import { BossSprite } from './BossSprite';
+import { latestDamagePopupId } from './spriteHit';
 
 /** Boss standing large on the left of the stage — status pills over its head, HP plate at its
  *  feet, whole figure clickable for the full detail panel. */
@@ -28,11 +29,12 @@ export function BossFigure({
   const hpPct = Math.max(0, Math.min(100, (battle.bossHp / battle.bossHpMax) * 100));
   const move = battle.bossPending ? def.moves.find((m) => m.key === battle.bossPending!.moveKey) : null;
   const activeFlash = actionFlash?.source === 'boss' ? actionFlash : null;
+  const hitId = latestDamagePopupId(popups);
 
   return (
     <button onClick={onSelect} className="boss-figure relative w-full h-full flex flex-col items-center justify-end group cursor-pointer" title={def.name[lang]}>
-      <div className="boss-sprite-wrap flex-1 min-h-0 w-full flex items-end justify-center">
-        <BossSprite bossId={battle.bossId} moveKey={activeFlash?.moveKey ?? null} actionId={activeFlash?.id} />
+      <div className="boss-sprite-wrap flex-1 min-h-0 w-full flex items-center justify-center">
+        <BossSprite bossId={battle.bossId} moveKey={activeFlash?.moveKey ?? null} actionId={activeFlash?.id} hitId={hitId} />
       </div>
       <div className="boss-hp-plate w-[92%] max-w-[260px] gold-frame rounded px-2 py-1 bg-black/75 flex-shrink-0">
         <div className="flex items-center gap-1">

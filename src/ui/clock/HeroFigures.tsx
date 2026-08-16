@@ -6,6 +6,7 @@ import { heroStatuses } from '@content/statuses';
 import type { DamagePopup } from '@session/playback';
 import type { ActionFlash } from '@session/playback';
 import { HeroSprite } from './HeroSprite';
+import { latestDamagePopupId } from './spriteHit';
 
 const EDGE_FADE = 'radial-gradient(ellipse 60% 62% at 50% 45%, #000 55%, transparent 98%)';
 
@@ -29,6 +30,7 @@ export function HeroFigures({
       {state.players.map((p) => {
         const f = battle.fighters.find((x) => x.playerId === p.id)!;
         const mine = popups.filter((pop) => pop.target === p.id);
+        const hitId = latestDamagePopupId(mine);
         const hpPct = Math.max(0, Math.min(100, (f.hp / f.maxHp) * 100));
         const activeFlash = actionFlash?.source === 'skill' && actionFlash.playerId === p.id ? actionFlash : null;
         return (
@@ -48,7 +50,7 @@ export function HeroFigures({
               />
             ) : (
               <div className="hero-sprite-wrap flex-1 min-h-0 w-full flex items-end justify-center">
-                <HeroSprite charId={p.charId} skillId={activeFlash?.skillId ?? null} actionId={activeFlash?.id} alive={f.alive} />
+                <HeroSprite charId={p.charId} skillId={activeFlash?.skillId ?? null} actionId={activeFlash?.id} hitId={hitId} alive={f.alive} />
               </div>
             )}
             {/* HP tag under the figure, with status pills sitting to the left of the name. */}
