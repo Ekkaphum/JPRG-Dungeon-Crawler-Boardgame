@@ -2,6 +2,15 @@
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
+## 2026-08-17
+
+- **docs: clear the documentation debt (BACKLOG item 0)** — five claims across `BALANCE_NOTES.md` and `GAME_DESIGN.md` still read "not fixed yet" for things fixed in v0.3.3-v0.3.11, which is how a future reader (or the same person on another machine) ends up re-solving a solved problem. Closed all of them, using a different method per file because the two documents do different jobs.
+  - **`BALANCE_NOTES.md` is a dated log, so nothing was rewritten** — its value is the record of what was believed at the time and how it turned out. Six resolution notes were appended instead (v0.3.1 issues #1 Liora, #2 Somnivar tax, #3 Luna's ⏱; v0.3.2 issues #1 Liora, #2 Eric/Guard, #4 Guard vs. catch-up). Two are marked 🟡 *half* resolved rather than ✅, because only half of each was actually fixed: Luna's low damage is still true, and Guard still redirects Procession. Verified line-by-line that no original text was altered.
+  - **`GAME_DESIGN.md` is the living spec, so it was corrected** — §12.5 (Liora winning too often → closed in v0.3.7-v0.3.8, and the note records that the call written there at the time, "fix her score conditions, not Guard", turned out to be the right one), §12.6 (Eric having no Guard score condition → `matt2` since v0.3.7, now 26% of his points), and §7.2's EXP expectation, which was written when characters had 3 skills and has been wrong since v0.3.3 gave everyone 4.
+  - **Three more stale claims were found while clearing the listed ones** and fixed too: §10 carried no *current* balance figures at all, only v0.3.1/v0.3.2 history; §10's theory block still listed boss HP as 91/96/106 instead of the post-v0.3.11 91/76/96; and §11 risk #9 said "untested" when v0.3.11 had already half-addressed it.
+  - **Added a current baseline to §10, measured at v0.3.13 over 2,000 games per column: medium 92.4%, hard 66.4%.** The gap is documented rather than averaged away, because the two columns measure different things — only the hard bot calls `scoreConditionBonus`, so medium is the ceiling of a fully cooperative party while hard is what competitive play actually looks like. That 26pp is the price of players competing with each other, which is what §9 is for, and it is why every character win-share number in these documents is a hard-bot number.
+  - Docs only — no engine or content changes. `npm test` 205/205 passing, `npm run typecheck` clean.
+
 ## 2026-08-16
 
 - **v0.3.13 — damage-reaction sprites and cleaner boss staging**

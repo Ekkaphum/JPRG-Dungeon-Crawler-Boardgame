@@ -416,17 +416,30 @@ Changes, each layered and re-verified in combination (not just standalone):
    before. Lowering vera2's points (tested 4→3→2→1) barely moves her total and **never closes the
    spread**, confirming vera2 isn't the real cause; vera3 ("never died," now firing more often
    thanks to her HP buff) is the more likely candidate but wasn't isolated and tested this pass.
+   > ✅ **Resolved in v0.3.7-v0.3.8.** The diagnosis above was right on both counts: `vera3` was
+   > the culprit and `vera2`'s point value was not. `vera3` now additionally requires her to have
+   > landed a Meteor, `vera2` became a charged-cast condition, and Last Shot was lifted out of her
+   > sheet into a bonus every character shares. Measured after: **Liora 20.1%** win share (hard
+   > bots), spread 32.1pp → 9.9pp.
 2. **Somnivar's ⏱5+ tax lost half its reach.** The tax (`applySomnivarTax()`,
    `src/engine/clock/skills.ts`) used to catch Berserk, Twin Shot, Counter Attack, and Meteor.
    Twin Shot and Counter Attack both moved to ⏱4 in this pass (see change #3 above) and now dodge
    it — only Berserk and Meteor still get taxed. Somnivar's "forces you into small actions" identity
    (§9) is measurably weaker. Fix would be lowering the tax threshold to ⏱4+ in
    `applySomnivarTax()`, not yet tested.
+   > ✅ **Resolved in v0.3.11** — though not the way this note guessed. A flat "+2 at ⏱4+" was
+   > tried first and was catastrophic: hard win rate 65.9% → **29.3%**. What shipped is a *scaled*
+   > tax (+1 at ⏱4-5, +2 at ⏱6+) reaching 8 of 16 skills (~46% of declares, up from 7.8%), with
+   > **Somnivar HP 96 → 76** compensating so his clear rate lands within 1.1pp of where it was.
 3. **Luna's three skills are now all ⏱4** (Heal/Blessing already were; Smite moved 3→4 this pass) —
    no internal fast/slow choice within her own kit anymore. Bot-play damage output stays very low
    (~2/battle vs. everyone else's 20-38) because Blessing dominates her declares; unclear whether
    this is a real design gap or just medium-bot heuristics not modeling Smite's payoff — needs human
    playtesting to distinguish (same caveat as every bot-only number in this file).
+   > 🟡 **Half resolved.** The ⏱ complaint is gone — the v0.3.3 kit rebuild gave Luna a ⏱2 common
+   > attack and moved Heal to ⏱3, so she now reads ⏱2/3/4/4. **The low-damage half is still true:**
+   > Blessing continues to dominate her declares under bot play, and it is still unresolved whether
+   > that is a design gap or a bot artefact. Carried forward as BACKLOG §10.
 4. **Easier bosses make the score race *less* fair, not more**, because half the score conditions
    are attack-count-gated and half are length-independent (see "Rejected" above). If boss difficulty
    is revisited in either direction, re-run the win-share-by-character check, not just win rate.
@@ -539,12 +552,17 @@ the v0.3.1 pass is partially addressed by this, not worsened.
    But lowering the buff barely moved her (tested above), which points back at the same root the
    v0.3.1 pass flagged and did not isolate: `vera3` and her threshold conditions, not any one buff.
    **Fix Liora's score conditions, not Guard.**
+   > ✅ **Resolved in v0.3.7-v0.3.8**, and the instruction in bold turned out to be exactly right:
+   > Guard was never touched for balance, her score conditions were rebuilt instead. **Liora 20.1%.**
 2. **Eric's score conditions were written for a two-attack Eric.** `matt1` (>10 damage) and `matt2`
    (Last Shot) both measure attacking, and he now has one attack card — `matt2` fell 0.75 → 0.61
    fires/game. Every other character has a condition rewarding their slot-② role (kit1 weak point,
    luna1/luna2 heal and Blessing); Eric has none for Guard. By §8.0's own logic he should. Left
    alone deliberately — that is a scoring-system change, not a skill change, and it should be
    designed against human playtest data rather than bot data.
+   > ✅ **Resolved in v0.3.7.** `matt2` is now "Guard absorbs a hit aimed at an ally" (2 pts, per
+   > occurrence), scored on the redirect itself. Eric finally has a condition paying for his slot-②
+   > role, exactly as §8.0's logic demanded — worth **26%** of his score in competitive play.
 3. **Counter Attack is used far less** (3,332 → 1,720 declares) now that Eric has a second defensive
    option. Damage per declare is unchanged (5.38 → 5.05), so the card is as good as it was; it is
    simply sharing the defensive slot. Worth watching that slot ② does not permanently overshadow
@@ -554,6 +572,10 @@ the v0.3.1 pass is partially addressed by this, not worsened.
    more you become the target". Not observed as a problem in sim, but sim bots do not play the
    score race the way a real table does. Logged as §11 risk #9 with two prepared levers (1 use per
    battle, or a cap on absorbed damage).
+   > 🟡 **Half addressed in v0.3.11.** Procession now pierces Blessing, so party-wide mitigation no
+   > longer blunts the catch-up hit (6.9 → 9.1 damage landed). **Guard still redirects it** — that
+   > was deliberate, since Guard and personal shields are meant to stay real answers to it. The
+   > original concern therefore stands, still logged as §11 risk #9.
 
 All of these are bot numbers. Nothing here has been in front of a human table yet — the same caveat
 that applies to every figure in this file.
