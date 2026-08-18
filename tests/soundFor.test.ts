@@ -50,7 +50,7 @@ describe('soundFor', () => {
 
   it('bossMove and score', () => {
     expect(soundFor({ t: 'BOSS_MOVE', bossId: 'Ragorath', moveKey: 'A' })).toBe('bossMove');
-    expect(soundFor({ t: 'SCORE', entry: { playerId: 0, conditionId: 'matt1', points: 1, atSlot: 10, bossId: 'Ragorath' } })).toBe('score');
+    expect(soundFor({ t: 'SCORE', entry: { playerId: 0, conditionId: 'eric1', points: 1, atSlot: 10, bossId: 'Ragorath' } })).toBe('score');
   });
 
   it('victory for a boss-defeated end, defeat for a clock-ran-out end', () => {

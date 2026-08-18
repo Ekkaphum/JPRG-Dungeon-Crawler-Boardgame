@@ -6,10 +6,10 @@ describe('buildScoreBreakdown', () => {
   it('groups repeated conditions by player and boss while preserving awarded points', () => {
     const state = fixedDraftState();
     state.scoreLog.push(
-      { playerId: 0, conditionId: 'matt1', points: 1, atSlot: 18, bossId: 'Ragorath' },
-      { playerId: 0, conditionId: 'matt1', points: 1, atSlot: 12, bossId: 'Ragorath' },
+      { playerId: 0, conditionId: 'eric1', points: 1, atSlot: 18, bossId: 'Ragorath' },
+      { playerId: 0, conditionId: 'eric1', points: 1, atSlot: 12, bossId: 'Ragorath' },
       { playerId: 0, conditionId: 'timeBonus', points: 3, atSlot: 6, bossId: 'Ragorath' },
-      { playerId: 0, conditionId: 'matt2', points: 3, atSlot: 8, bossId: 'Somnivar' },
+      { playerId: 0, conditionId: 'eric2', points: 3, atSlot: 8, bossId: 'Somnivar' },
       { playerId: 1, conditionId: 'kit1', points: 1, atSlot: 10, bossId: 'Ragorath' }
     );
 
@@ -20,7 +20,7 @@ describe('buildScoreBreakdown', () => {
     expect(matt.total).toBe(8);
     expect(ragorath.total).toBe(5);
     expect(ragorath.conditions).toEqual([
-      { conditionId: 'matt1', count: 2, points: 2 },
+      { conditionId: 'eric1', count: 2, points: 2 },
       { conditionId: 'timeBonus', count: 1, points: 3 },
     ]);
     expect(matt.bosses.find((boss) => boss.bossId === 'Somnivar')?.total).toBe(3);

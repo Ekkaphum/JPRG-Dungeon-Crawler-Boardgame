@@ -218,9 +218,9 @@ describe('8. AoE + Counter — every target is hit before any counter resolves',
   });
 });
 
-describe('4. Last Shot is tallied off battle.finishedBy, not matt2/vera2 score entries', () => {
+describe('4. Last Shot is tallied off battle.finishedBy, not eric2/liora2 score entries', () => {
   it("credits a Luna kill — a character with no Last Shot score condition of her own", async () => {
-    // Luna has no matt2/vera2-style condition, so the old scoreLog-scanning tie-break would have
+    // Luna has no eric2/liora2-style condition, so the old scoreLog-scanning tie-break would have
     // shown 0 Last Shots for her even though she landed the killing blow. Aura Smite also ignores
     // armor (SKILLS.AuraSmite.ignoresArmor), so a high armor value here can't stop the kill.
     const state = fixedDraftState();

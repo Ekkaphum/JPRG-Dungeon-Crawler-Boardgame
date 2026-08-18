@@ -154,7 +154,7 @@ describe('Mira score conditions', () => {
     expect(state.scoreLog.some((e) => e.playerId === mira.playerId && e.conditionId === 'mira3')).toBe(true);
   });
 
-  it('mira3 does not fire if Mira died and was revived (dying at all disqualifies, same rule as vera3)', () => {
+  it('mira3 does not fire if Mira died and was revived (dying at all disqualifies, same rule as liora3)', () => {
     const state = fixedDraftState();
     setPlayerCharacter(state, 3, 'Mira');
     prepareBattle(state);

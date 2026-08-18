@@ -309,7 +309,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
     case 'attackMana': {
       const manaSpent = pending.manaSpent ?? 0;
       const base = stats.primary! + stats.secondary! * manaSpent;
-      // manaSpent is forwarded so vera2 ("fully charged cast") can see how much she committed.
+      // manaSpent is forwarded so liora2 ("fully charged cast") can see how much she committed.
       dealAttackFor(state, fighter, skillId, base, false, manaSpent);
       break;
     }

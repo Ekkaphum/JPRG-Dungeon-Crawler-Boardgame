@@ -86,12 +86,12 @@ export interface Fighter {
   reviveAtSlot: number | null;
   everDiedThisBattle: boolean;
   attackCountThisBattle: number;
-  /** Eric's matt3 ("บาดเจ็บสาหัสแต่ไม่ล้ม"): set the moment HP drops below half, never cleared for the
+  /** Eric's eric3 ("บาดเจ็บสาหัสแต่ไม่ล้ม"): set the moment HP drops below half, never cleared for the
    *  rest of the battle — so a heal back to full doesn't erase the fact that he took the beating.
    *  Checked at declare/resolve time is wrong for this one on purpose; the condition is about the
    *  *history* of the battle, not its final frame. */
   everDroppedBelowHalfThisBattle: boolean;
-  /** Liora's vera3: whether a Meteor of hers actually connected (>0 effective damage) this battle.
+  /** Liora's liora3: whether a Meteor of hers actually connected (>0 effective damage) this battle.
    *  Pairs with everDiedThisBattle so "survived" only scores when she also got her signature ⏱7
    *  spell off — the one the party is supposed to be protecting her through. */
   landedMeteorThisBattle: boolean;
@@ -209,7 +209,7 @@ export interface GameState {
    *  flag resets every battle and isn't enough to report a whole game's death count). */
   deathCounts: Partial<Record<PlayerId, number>>;
   /** Cross-battle count of who actually landed the killing blow on a boss — the §1 tie-break reads
-   *  this directly instead of counting `matt2`/`vera2` score entries, which only exist for Eric's
+   *  this directly instead of counting `eric2`/`liora2` score entries, which only exist for Eric's
    *  and Liora-via-Meteor's own point conditions and miss every other character's (and every other
    *  Liora skill's) Last Shot entirely. `battle.finishedBy` itself resets to null every new battle
    *  (prepareBattle), so it has to be tallied here the instant each battle ends. */

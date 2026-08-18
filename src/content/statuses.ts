@@ -29,8 +29,8 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
     tone: 'good',
     label: { th: 'จุดอ่อนเปิด', en: 'Weak Point' },
     desc: {
-      th: 'ผู้เล่นทุกคนโจมตีแรงขึ้น +4 จนกว่าบอสจะลงมือทำแอคชันถัดไป',
-      en: 'Every player deals +4 damage until the boss resolves its next action.',
+      th: 'ผู้เล่นทุกคนโจมตีแรงขึ้น +4 เป็นเวลา 4 ช่องนาฬิกา นับจากตอนที่เปิด',
+      en: 'Every player deals +4 damage for 4 clock slots from the moment it opens.',
     },
   },
   rage: {
@@ -83,8 +83,8 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
     tone: 'good',
     label: { th: 'Blessing', en: 'Blessing' },
     desc: {
-      th: 'ทั้งวงโจมตีแรงขึ้นและรับดาเมจน้อยลง จนถึงเทิร์นหน้าของคนที่ร่าย',
-      en: 'The whole party hits harder and takes less damage until the caster’s next turn.',
+      th: 'ทั้งวงโจมตีแรงขึ้นและรับดาเมจน้อยลง เป็นเวลา 4 ช่องนาฬิกา นับจากตอนร่าย ไม่ขึ้นกับเทิร์นของคนร่าย',
+      en: 'The whole party hits harder and takes less damage for 4 clock slots from the moment it\'s cast — independent of the caster\'s own turn.',
     },
   },
   guarding: {

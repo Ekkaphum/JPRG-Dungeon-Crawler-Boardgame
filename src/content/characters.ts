@@ -226,8 +226,9 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     kind: 'attackRoll',
     immediate: true,
     name: { th: 'Sharp Shooting', en: 'Sharp Shooting' },
-    // On a successful roll, every player's attacks on the boss deal +4 until the boss next acts —
-    // reuses the same weakPointActive flag the old Quick Shot set.
+    // On a successful roll, every player's attacks on the boss deal +4 for WEAK_POINT_SLOTS (4)
+    // clock slots (skills.ts) — a fixed timer independent of the boss's own action, since v0.3.15.
+    // Sets battle.weakPoint = { ownerId, expiresAtSlot }, not the old boolean weakPointActive flag.
     lv1: { time: 3, primary: 5, rollBaseTarget: 5 },
     lv2: { time: 3, primary: 7, rollBaseTarget: 4 },
   },
@@ -237,17 +238,15 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     kind: 'trap',
     name: { th: 'Trap!', en: 'Trap!' },
     // Armed on one of the 3 slots ahead of Kit's own pawn (legalTrapSlots derives this from `time`
-    // — 4 gives exactly 3 legal slots, marker-1..marker-3). On a hit: `primary` damage (ignores
-    // armor) and, on a successful roll, the boss's queued move is cancelled outright.
-    // Lv1 rollBaseTarget 6 -> 5 (v0.3.8), Lv2 deliberately left at 5. Measured: Kit's *placement* is
-    // essentially never the problem — the boss stopped on the armed slot 99.4% of the time — but the
-    // trigger roll passed only 35.3%, so kit2 fired 0.12 times per win, and the Skill Improvement
-    // penalty never accumulated enough to help (Trap is declared ~0.4 times per game, so its counter
-    // barely moves). The roll stays the gate on purpose: springing a trap cancels the boss's entire
-    // declared move, the single most powerful party-wide effect in the ruleset, so it must not become
-    // reliable — this makes the lottery less punishing without removing it. Changed as one isolated
-    // variable so the sim measures this and nothing else; that leaves Lv2 giving damage (5 -> 7) but
-    // no roll improvement, which is a known, accepted consequence rather than an oversight.
+    // — 4 gives exactly 3 legal slots, marker-1..marker-3). v0.3.15+: springs *inside* the boss's own
+    // action — the boss rolls its move, the trap rolls to spring, and a passed roll deals `primary`
+    // damage (ignores armor) and cancels that move outright; the boss still pays the move's full ⏱
+    // as cooldown, so a sprung trap costs it the entire turn (springTrapOnBoss, skills.ts).
+    // Lv1 rollBaseTarget 6 -> 5 (v0.3.8), Lv2 deliberately left at 5. The roll stays the gate on
+    // purpose — cancelling the boss's entire move is the single most powerful party-wide effect in
+    // the ruleset, so it must not become reliable. Declares recovered to ~0.22/game (670/3,000 games)
+    // once kit2 was restored as "Trap triggers" at 2 points (v0.3.16) and the cancel itself started
+    // reading as worth the ⏱4 commitment — see docs/BALANCE_NOTES.md for the pre-restore numbers.
     lv1: { time: 4, primary: 5, rollBaseTarget: 5 },
     lv2: { time: 4, primary: 7, rollBaseTarget: 5 },
   },
@@ -389,7 +388,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     // primary = mana gained, secondary = incoming-damage reduction (flat). Reduction raised to
     // match Liora's ManaCharge (2026-08-11): the original, weaker numbers made Mira noticeably more
     // likely to die than Liora despite 1 more base HP — mira3 ("never died") fired at 0.24/win vs
-    // vera3's 1.30/win in a 3000-game sim. See docs/BALANCE_NOTES.md.
+    // liora3's 1.30/win in a 3000-game sim. See docs/BALANCE_NOTES.md.
     lv1: { time: 3, primary: 1, secondary: 3 },
     lv2: { time: 3, primary: 1, secondary: 5 },
   },
@@ -417,7 +416,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     skills: ['Slash', 'PowerStrike', 'Guard', 'CounterAttack'],
     score: [
       {
-        id: 'matt1',
+        id: 'eric1',
         charId: 'Eric',
         slot: 1,
         points: 1,
@@ -425,7 +424,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         desc: { th: 'ทำ dmg ครั้งเดียวได้มากกว่า 10', en: 'Deal more than 10 damage in one hit' },
       },
       {
-        id: 'matt2',
+        id: 'eric2',
         charId: 'Eric',
         slot: 2,
         points: 1,
@@ -443,7 +442,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         desc: { th: 'ปกป้องเพื่อนสำเร็จ — Guard รับดาเมจแทนเพื่อน', en: 'Guard successfully takes a hit aimed at an ally' },
       },
       {
-        id: 'matt3',
+        id: 'eric3',
         charId: 'Eric',
         slot: 3,
         // v0.3.7: was "end the battle with HP below 5 (and alive)" — fired 0.13 times per win, i.e.
@@ -451,12 +450,12 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         // final frame). This asks about the battle's history instead: he took the beating and stayed
         // standing, which is the shonen fantasy stated as a rule.
         //
-        // 3 -> 2 (v0.3.16 experiment): isolating matt2 and matt3 separately (zeroing each in turn)
-        // showed matt3 drives more of Eric's individual win share than matt2 despite firing only
-        // once/battle — hard win share 43.4% baseline, 18.3% with matt2=0, but only 11.2% with
-        // matt3=0. The read: matt3 is low-variance income correlated with games he's already winning
+        // 3 -> 2 (v0.3.16 experiment): isolating eric2 and eric3 separately (zeroing each in turn)
+        // showed eric3 drives more of Eric's individual win share than eric2 despite firing only
+        // once/battle — hard win share 43.4% baseline, 18.3% with eric2=0, but only 11.2% with
+        // eric3=0. The read: eric3 is low-variance income correlated with games he's already winning
         // (a frontline tank surviving is itself a signal the party is doing fine), so it swings close
-        // games harder than its raw point value suggests. Cut here rather than at matt2 first.
+        // games harder than its raw point value suggests. Cut here rather than at eric2 first.
         points: 2,
         perOccurrence: false,
         desc: {
@@ -540,7 +539,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     skills: ['AirPush', 'Fireball', 'AuraCharge', 'Meteor'],
     score: [
       {
-        id: 'vera1',
+        id: 'liora1',
         charId: 'Liora',
         slot: 1,
         points: 1,
@@ -552,11 +551,11 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         desc: { th: 'ทำ dmg ครั้งเดียวได้ 14 ขึ้นไป', en: 'Deal 14+ damage in one hit' },
       },
       {
-        id: 'vera2',
+        id: 'liora2',
         charId: 'Liora',
         slot: 2,
-        // 2 -> 1: this fires on the *same hit* as vera1 most of the time (a 2-mana Meteor is
-        // 19 damage, comfortably over vera1's 14), so at 2 points one action was paying her 3 and
+        // 2 -> 1: this fires on the *same hit* as liora1 most of the time (a 2-mana Meteor is
+        // 19 damage, comfortably over liora1's 14), so at 2 points one action was paying her 3 and
         // her conditions compounded instead of pulling in different directions — measured 42.8% win
         // share under competitive (hard-bot) play. See docs/BALANCE_NOTES.md.
         points: 1,
@@ -571,7 +570,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         },
       },
       {
-        id: 'vera3',
+        id: 'liora3',
         charId: 'Liora',
         slot: 3,
         // 3 -> 2 (original tuning): at 3 this was the single largest personal payout in the game
@@ -579,7 +578,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         //
         // 2 -> 3 (v0.3.16): reverted. The condition itself already gates hard — it only pays if she
         // both survives AND lands the ⏱7 Meteor that risk was for, unlike Luna's luna3 (survive alone)
-        // or Eric's matt3 (drop below half, survive) which ask for less. At 2 she was underpaid for a
+        // or Eric's eric3 (drop below half, survive) which ask for less. At 2 she was underpaid for a
         // harder bar than the other survival-style conditions clear.
         points: 3,
         perOccurrence: false,
@@ -621,7 +620,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         // than with how injured it is.
         points: 1,
         perOccurrence: true,
-        desc: { th: 'ผู้เล่นคนอื่นทำแต้มครบทุก 4 ครั้ง', en: 'Every 4 scoring plays by other players' },
+        desc: { th: 'ผู้เล่นคนอื่นทำแต้มครบทุก 3 ครั้ง', en: 'Every 3 scoring plays by other players' },
       },
       {
         id: 'luna2',
@@ -649,7 +648,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         // 2 -> 3 (v0.3.16): her personal conditions were repriced under v0.3.14's more frequent boss
         // actions, but the fix that has actually stuck is a spike, not a rate — luna1's per-occurrence
         // trickle keeps her average score competitive without ever letting her win a close game the
-        // way Eric's matt3 or a big Meteor can. This is her one spike card, so it goes back up.
+        // way Eric's eric3 or a big Meteor can. This is her one spike card, so it goes back up.
         points: 3,
         perOccurrence: false,
         desc: { th: 'จบยกบอสโดยไม่มีใครในวงตายเลย', en: 'End the battle with no party member ever dying' },
@@ -710,7 +709,13 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         slot: 1,
         points: 2,
         perOccurrence: true,
-        desc: { th: 'ใช้ Mending Wind แล้วฟื้น HP ให้เพื่อนได้จริงอย่างน้อย 1 แต้ม', en: 'Mending Wind restores at least 1 HP to an injured ally' },
+        // desc deliberately says "someone" rather than "an ally": unlike Luna's old Heal condition,
+        // this one has no self-heal exclusion (see onHealResolved, scoring.ts) — Mira healing
+        // herself counts the same as healing anyone else.
+        desc: {
+          th: 'ใช้ Mending Wind แล้วฟื้น HP ให้ใครก็ตามได้จริงอย่างน้อย 1 แต้ม (รวมตัวเอง)',
+          en: 'Mending Wind restores at least 1 HP to someone (herself included)',
+        },
       },
       {
         id: 'mira2',
@@ -729,7 +734,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         // sim: attackMana's value estimate always rewards spending more mana with nothing modeling
         // a reason to hold back, so bots almost never end a battle with any banked regardless of
         // the bar. Switched to survival, the same condition shape that already performs well for
-        // Liora (vera3, ~49% of her total) — Mira is nearly as fragile (9 HP vs Liora's 8).
+        // Liora (liora3, ~49% of her total) — Mira is nearly as fragile (9 HP vs Liora's 8).
         points: 2,
         perOccurrence: false,
         desc: { th: 'จบยกบอสโดยไม่ตาย', en: 'End the battle without dying' },
@@ -748,14 +753,14 @@ export function skillStats(id: SkillId, isLv2: boolean): SkillLevelStats {
 
 /** Universal Last Shot bonus (v0.3.7): whoever lands the killing blow on a boss scores this,
  *  whatever character they are. Previously this was a *personal* condition worth 3 points that only
- *  Eric (matt2) and Liora (vera2) had, so Kit and Luna scored nothing for the same act — measured at
+ *  Eric (eric2) and Liora (liora2) had, so Kit and Luna scored nothing for the same act — measured at
  *  a 4.6x win-share gap between Liora and Eric (docs/BALANCE_NOTES.md). Kept out of CHARACTERS[].score
  *  on purpose: it belongs to no one character, and the end-of-game breakdown groups it the same way
  *  'timeBonus' is grouped. */
 export const LAST_SHOT_POINTS = 2;
 export const LAST_SHOT_CONDITION_ID = 'lastShot';
 
-/** Mana Liora must commit to a single spell for vera2 to score. Every point of mana costs her a whole
+/** Mana Liora must commit to a single spell for liora2 to score. Every point of mana costs her a whole
  *  turn on Aura Charge (the ManaCharge passive is the only source), so 2 already means she spent two
  *  turns setting up one cast. Set to 3 at first and measured at 0.00 fires per win across 3,000
  *  games — nobody ever banks that long — see docs/BALANCE_NOTES.md. */
@@ -771,8 +776,8 @@ export const KIT3_HITS_PER_POINT = 4;
  *  count-and-exchange shape as KIT3_HITS_PER_POINT deliberately — one idea for the table to learn. */
 export const LUNA1_ALLY_SCORES_PER_POINT = 3;
 
-/** Liora's "one big impact" bar — scores vera1 on every hit that reaches it, and latches the half of
- *  vera3 that asks whether she actually delivered this battle. One threshold, both conditions. */
+/** Liora's "one big impact" bar — scores liora1 on every hit that reaches it, and latches the half of
+ *  liora3 that asks whether she actually delivered this battle. One threshold, both conditions. */
 export const VERA_BIG_HIT_DAMAGE = 14;
 
 /** Single source of truth for a personal score condition's point value — scoring.ts's pushScore()

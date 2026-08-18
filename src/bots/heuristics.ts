@@ -145,17 +145,17 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   if (finisher > 0 && battle.bossHp <= finisher) bonus += 2;
 
   if (player.charId === 'Eric') {
-    // matt1 (>10 in one hit) is reachable specifically when Berserk is live, and Power Strike is the
+    // eric1 (>10 in one hit) is reachable specifically when Berserk is live, and Power Strike is the
     // card that gets there.
     if (choice.skillId === 'PowerStrike' && fighter.hp < 7) bonus += 2;
-    // v0.3.7: Guard is a *scoring* card for him, not just a defensive one — matt2 pays per absorbed
-    // hit, and eating those hits also drives him under half HP for matt3. Halved again in v0.3.15
-    // alongside matt2's own 2 -> 1: after the v0.3.14 boss pass a standing Guard connects on nearly
+    // v0.3.7: Guard is a *scoring* card for him, not just a defensive one — eric2 pays per absorbed
+    // hit, and eating those hits also drives him under half HP for eric3. Halved again in v0.3.15
+    // alongside eric2's own 2 -> 1: after the v0.3.14 boss pass a standing Guard connects on nearly
     // every boss action, so the condition needed no encouragement at all to reach 4.36 fires/win.
     if (choice.skillId === 'Guard') bonus += 0.5;
   }
   if (player.charId === 'Liora') {
-    // v0.3.7: vera2 wants a *fully charged* cast (all 3 mana) and vera3 wants a Meteor to have
+    // v0.3.7: liora2 wants a *fully charged* cast (all 3 mana) and liora3 wants a Meteor to have
     // connected, so the nudge is toward charging up and spending it on the big spell — not toward
     // sniping the last hit, which the shared finisher bonus above already covers.
     const manaSpent = choice.manaSpent ?? 0;
@@ -166,9 +166,9 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
     if (manaSpent >= VERA_CHARGED_CAST_MANA) bonus += 1.5;
     // Banking mana is itself a scoring move for her now: estimateChoiceValue always prefers spending
     // whatever she holds (more mana = more damage right now), so without this she never accumulates
-    // enough to clear vera2's bar at all — measured 0.00 fires per win before this nudge existed.
+    // enough to clear liora2's bar at all — measured 0.00 fires per win before this nudge existed.
     if (choice.skillId === 'AuraCharge' && fighter.mana < VERA_CHARGED_CAST_MANA) bonus += 1.5;
-    // vera3 wants a 14+ hit banked, not Meteor specifically — but Meteor is the surest way there.
+    // liora3 wants a 14+ hit banked, not Meteor specifically — but Meteor is the surest way there.
     if (choice.skillId === 'Meteor' && !fighter.landedMeteorThisBattle) bonus += 1;
   }
   if (player.charId === 'Kit') {

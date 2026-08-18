@@ -22,13 +22,13 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   const charId = state.players.find((p) => p.id === playerId)!.charId;
 
   if (charId === 'Eric' && effectiveDmg > 10) {
-    pushScore(state, { playerId, conditionId: 'matt1', points: scorePoints('matt1') });
+    pushScore(state, { playerId, conditionId: 'eric1', points: scorePoints('eric1') });
   }
   if (charId === 'Liora' && effectiveDmg >= VERA_BIG_HIT_DAMAGE) {
-    pushScore(state, { playerId, conditionId: 'vera1', points: scorePoints('vera1') });
+    pushScore(state, { playerId, conditionId: 'liora1', points: scorePoints('liora1') });
   }
-  // vera3's half: her signature spell actually went off this battle. Keyed on Meteor connecting
-  // rather than on any big hit — a fully-charged Fireball can clear vera1's damage bar, but only
+  // liora3's half: her signature spell actually went off this battle. Keyed on Meteor connecting
+  // rather than on any big hit — a fully-charged Fireball can clear liora1's damage bar, but only
   // Meteor is the ⏱7 wind-up the whole "protect me while I cast" fantasy is about.
   if (charId === 'Liora' && skillId === 'Meteor' && effectiveDmg > 0) {
     const f = battle.fighters.find((x) => x.playerId === playerId);
@@ -47,13 +47,13 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   if (battle.finishedBy === playerId) {
     pushScore(state, { playerId, conditionId: LAST_SHOT_CONDITION_ID, points: LAST_SHOT_POINTS });
   }
-  // vera2: a charged cast that actually connected. manaSpent lives on the pending action, so the
+  // liora2: a charged cast that actually connected. manaSpent lives on the pending action, so the
   // caller passes it through — see resolveFighterPending's attackMana branch. The bar is 2, not the
   // full 3: mana only ever comes from spending a whole turn on Aura Charge, and a measured 3,000-game
   // sim at 3 fired the condition exactly 0.00 times per win — nobody ever banks three turns' worth
   // before casting, so the condition was dead on arrival.
   if (charId === 'Liora' && manaSpent >= VERA_CHARGED_CAST_MANA && effectiveDmg > 0) {
-    pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
+    pushScore(state, { playerId, conditionId: 'liora2', points: scorePoints('liora2') });
   }
   // kit1 (v0.3.16): Kit is paid every time the weak point he opened actually connects — by anyone,
   // himself included. v0.3.15 tried this allies-only under the id 'kit2' (to keep it separate from
@@ -104,15 +104,15 @@ export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
   pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2') });
 }
 
-/** matt2 (v0.3.7): Eric's Guard actually absorbed a hit that was aimed at an ally. Fires on the
+/** eric2 (v0.3.7): Eric's Guard actually absorbed a hit that was aimed at an ally. Fires on the
  *  redirect itself, not on the damage that survives Guard's reduction — soaking a hit down to 0 is
  *  Guard working perfectly and must not score less than soaking it badly (same reasoning as Counter
  *  Attack's "นับแม้ดาเมจที่เข้าจริงจะเป็น 0" rule). Looked up by character rather than assumed, since
- *  a future character could own a guard-kind skill without owning matt2. */
+ *  a future character could own a guard-kind skill without owning eric2. */
 export function onGuardRedirected(state: GameState, guardianId: PlayerId) {
   const charId = state.players.find((p) => p.id === guardianId)?.charId;
   if (charId !== 'Eric') return;
-  pushScore(state, { playerId: guardianId, conditionId: 'matt2', points: scorePoints('matt2') });
+  pushScore(state, { playerId: guardianId, conditionId: 'eric2', points: scorePoints('eric2') });
 }
 
 /** Same character-lookup reasoning as onWeakPointOpened: Luna's Heal and Mira's Mending Wind both
@@ -136,12 +136,12 @@ export function onBattleEndScoring(state: GameState) {
 
   for (const p of state.players) {
     const f = battle.fighters.find((x) => x.playerId === p.id)!;
-    // v0.3.7 matt3: took the beating and never went down. Uses the latched
+    // v0.3.7 eric3: took the beating and never went down. Uses the latched
     // everDroppedBelowHalfThisBattle rather than his HP right now, so being healed back up after
     // surviving a mauling still scores — the old "HP < 5 at the final frame" version fired 0.13
     // times per win and pulled against Berserk.
     if (p.charId === 'Eric' && !f.everDiedThisBattle && f.everDroppedBelowHalfThisBattle) {
-      pushScore(state, { playerId: p.id, conditionId: 'matt3', points: scorePoints('matt3') });
+      pushScore(state, { playerId: p.id, conditionId: 'eric3', points: scorePoints('eric3') });
     }
     // kit3 (v0.3.15): pays per KIT3_HITS_PER_POINT attacks instead of once at a threshold. The 8+
     // bar was Kit's only real earner and it was capped at one payout a battle, so his best card
@@ -152,9 +152,9 @@ export function onBattleEndScoring(state: GameState) {
       const points = Math.floor(f.attackCountThisBattle / KIT3_HITS_PER_POINT) * scorePoints('kit3');
       if (points > 0) pushScore(state, { playerId: p.id, conditionId: 'kit3', points });
     }
-    // v0.3.7 vera3: surviving only pays if she also delivered the spell she was being protected for.
+    // v0.3.7 liora3: surviving only pays if she also delivered the spell she was being protected for.
     if (p.charId === 'Liora' && !f.everDiedThisBattle && f.landedMeteorThisBattle) {
-      pushScore(state, { playerId: p.id, conditionId: 'vera3', points: scorePoints('vera3') });
+      pushScore(state, { playerId: p.id, conditionId: 'liora3', points: scorePoints('liora3') });
     }
     if (p.charId === 'Dax' && f.alive && f.hp > f.maxHp / 2) {
       pushScore(state, { playerId: p.id, conditionId: 'dax3', points: scorePoints('dax3') });
@@ -206,7 +206,7 @@ export function determineWinner(state: GameState): FinalScores {
   for (const p of state.players) totals[p.id] = currentTotalScore(state, p.id);
 
   // §1: "จำนวนครั้งที่ตี Last Shot" — every character's kill counts, not just Eric's and
-  // Liora's-via-Meteor's own point conditions (matt2/vera2), which only fire for a subset of Last
+  // Liora's-via-Meteor's own point conditions (eric2/liora2), which only fire for a subset of Last
   // Shots and miss Kit, Luna, Dax, Mira, and Liora's other skills entirely. state.lastShotCounts is
   // tallied directly off battle.finishedBy at the end of every battle (walk.ts) for exactly this.
   const lastShotCounts: Record<PlayerId, number> = {};

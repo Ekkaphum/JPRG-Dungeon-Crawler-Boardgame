@@ -51,7 +51,7 @@ describe('Eric/Kit/Liora slot-3 end-of-battle conditions (v0.3.7)', () => {
   const scored = (state: ReturnType<typeof fixedDraftState>, playerId: number, conditionId: string) =>
     state.scoreLog.some((e) => e.playerId === playerId && e.conditionId === conditionId);
 
-  it('matt3: dropped below half HP at some point and never died', () => {
+  it('eric3: dropped below half HP at some point and never died', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Eric');
@@ -59,20 +59,20 @@ describe('Eric/Kit/Liora slot-3 end-of-battle conditions (v0.3.7)', () => {
     matt.hp = matt.maxHp; // healed all the way back — the condition is about history, not final HP
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(scored(state, matt.playerId, 'matt3')).toBe(true);
+    expect(scored(state, matt.playerId, 'eric3')).toBe(true);
   });
 
-  it('matt3: does NOT fire if he never dropped below half, however low he ends', () => {
+  it('eric3: does NOT fire if he never dropped below half, however low he ends', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Eric');
     matt.hp = 3; // low now, but the latch was never set — he was never actually beaten down
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(scored(state, matt.playerId, 'matt3')).toBe(false);
+    expect(scored(state, matt.playerId, 'eric3')).toBe(false);
   });
 
-  it('matt3: does NOT fire if he died, even after reviving', () => {
+  it('eric3: does NOT fire if he died, even after reviving', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const matt = findFighter(state, 'Eric');
@@ -81,7 +81,7 @@ describe('Eric/Kit/Liora slot-3 end-of-battle conditions (v0.3.7)', () => {
     reviveFighter(state, matt);
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(scored(state, matt.playerId, 'matt3')).toBe(false);
+    expect(scored(state, matt.playerId, 'eric3')).toBe(false);
   });
 
   it('kit3: attacked the boss 8+ times this battle (bar raised from 5)', () => {
@@ -116,26 +116,26 @@ describe('Eric/Kit/Liora slot-3 end-of-battle conditions (v0.3.7)', () => {
     expect(scored(state, kit.playerId, 'kit3')).toBe(false);
   });
 
-  it('vera3: survived AND landed a 14+ damage hit', () => {
+  it('liora3: survived AND landed a 14+ damage hit', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Liora');
     vera.landedMeteorThisBattle = true;
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(scored(state, vera.playerId, 'vera3')).toBe(true);
+    expect(scored(state, vera.playerId, 'liora3')).toBe(true);
   });
 
-  it('vera3: surviving alone is no longer enough without a big hit', () => {
+  it('liora3: surviving alone is no longer enough without a big hit', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Liora');
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(scored(state, vera.playerId, 'vera3')).toBe(false);
+    expect(scored(state, vera.playerId, 'liora3')).toBe(false);
   });
 
-  it('vera3: a banked big hit does not save it if she died (revived still disqualifies)', () => {
+  it('liora3: a banked big hit does not save it if she died (revived still disqualifies)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const vera = findFighter(state, 'Liora');
@@ -144,7 +144,7 @@ describe('Eric/Kit/Liora slot-3 end-of-battle conditions (v0.3.7)', () => {
     reviveFighter(state, vera);
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
-    expect(scored(state, vera.playerId, 'vera3')).toBe(false);
+    expect(scored(state, vera.playerId, 'liora3')).toBe(false);
   });
 });
 
@@ -181,9 +181,9 @@ describe('winner determination — points → Last Shots → HP (§1)', () => {
     const matt = findFighter(state, 'Eric');
     const kit = findFighter(state, 'Kit');
     // Equal 4-point totals, but only Eric actually landed a Last Shot — tallied in
-    // state.lastShotCounts (off battle.finishedBy), not by scanning scoreLog for matt2/vera2.
-    state.scoreLog.push({ playerId: matt.playerId, conditionId: 'matt1', points: 1, atSlot: 10, bossId: 'Ragorath' });
-    state.scoreLog.push({ playerId: matt.playerId, conditionId: 'matt2', points: 3, atSlot: 10, bossId: 'Ragorath' });
+    // state.lastShotCounts (off battle.finishedBy), not by scanning scoreLog for eric2/liora2.
+    state.scoreLog.push({ playerId: matt.playerId, conditionId: 'eric1', points: 1, atSlot: 10, bossId: 'Ragorath' });
+    state.scoreLog.push({ playerId: matt.playerId, conditionId: 'eric2', points: 3, atSlot: 10, bossId: 'Ragorath' });
     state.lastShotCounts[matt.playerId] = 1;
     for (let i = 0; i < 4; i++) {
       state.scoreLog.push({ playerId: kit.playerId, conditionId: 'kit1', points: 1, atSlot: 10, bossId: 'Ragorath' });
