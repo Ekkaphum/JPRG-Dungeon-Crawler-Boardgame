@@ -446,12 +446,19 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'matt3',
         charId: 'Eric',
         slot: 3,
-        points: 3,
-        perOccurrence: false,
         // v0.3.7: was "end the battle with HP below 5 (and alive)" — fired 0.13 times per win, i.e.
         // effectively dead, and it fought Berserk (which wants low HP *while attacking*, not at the
         // final frame). This asks about the battle's history instead: he took the beating and stayed
         // standing, which is the shonen fantasy stated as a rule.
+        //
+        // 3 -> 2 (v0.3.16 experiment): isolating matt2 and matt3 separately (zeroing each in turn)
+        // showed matt3 drives more of Eric's individual win share than matt2 despite firing only
+        // once/battle — hard win share 43.4% baseline, 18.3% with matt2=0, but only 11.2% with
+        // matt3=0. The read: matt3 is low-variance income correlated with games he's already winning
+        // (a frontline tank surviving is itself a signal the party is doing fine), so it swings close
+        // games harder than its raw point value suggests. Cut here rather than at matt2 first.
+        points: 2,
+        perOccurrence: false,
         desc: {
           th: 'บาดเจ็บสาหัสแต่ไม่ล้ม — เคยลง HP ต่ำกว่าครึ่ง แต่จบยกโดยไม่เคยตาย',
           en: 'Battered but unbroken: dropped below half HP at some point, yet never died all battle',
