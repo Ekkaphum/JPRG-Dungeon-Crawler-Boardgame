@@ -4,7 +4,7 @@
 import { CHARACTERS } from '@content/characters';
 import type { RNG } from '../rng';
 import { declareSkill, expireTimedEffectsAtMarker, legalTrapSlots, processScheduledHitsAtMarker, processTrapsAtMarker, resolveFighterPending } from './skills';
-import { declareBossAction, resolveBossPending } from './bossAI';
+import { declareBossAction } from './bossAI';
 import { reviveFighter } from './damage';
 import { onBattleEndScoring } from './scoring';
 import type { Choice, DeclareOptions, Fighter, GameState, PendingDecision } from './types';
@@ -107,8 +107,9 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
       if (battle.outcome !== 'in_progress') break;
 
       if (entry.kind === 'boss') {
-        resolveBossPending(state, rng);
-        if (battle.outcome !== 'in_progress') break;
+        // One call, not two: since v0.3.14 the boss's visit *is* its action — it rolls a move,
+        // resolves it on the spot, then walks that move's ⏱ as cooldown. There is no separate
+        // "resolve what was declared last visit" step because nothing is ever left declared.
         declareBossAction(state, rng);
         continue;
       }
@@ -158,4 +159,5 @@ export function resetFighterForNewBattle(fighter: Fighter, charId: Fighter['char
   fighter.attackCountThisBattle = 0;
   fighter.everDroppedBelowHalfThisBattle = false;
   fighter.landedMeteorThisBattle = false;
+  fighter.damageDealtThisBattle = 0;
 }

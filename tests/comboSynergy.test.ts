@@ -26,6 +26,10 @@ describe('comboSynergyBonus — Kit opening weak point for Liora', () => {
     state.battle!.marker = 20;
     // Liora declared Meteor (⏱7) at marker 20 → resolves at slot 13.
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
+    // The boss acts at 12, after Liora's Meteor at 13 — so it cannot clear the weak point first.
+    // Since v0.3.14 the pawn's slot is the only thing the party knows about the boss, so it is now
+    // load-bearing here in a way the old `bossPending` was not.
+    state.battle!.bossSlot = 12;
 
     // Kit's Sharp Shooting (⏱3) from marker 20 lands at 17 — well before Liora's 13, so it's open in time.
     const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
@@ -57,14 +61,15 @@ describe('comboSynergyBonus — Kit opening weak point for Liora', () => {
     expect(bonus).toBe(0);
   });
 
-  it('does not reward it when the boss\'s already-declared move would clear it first', () => {
+  it("does not reward it when the boss's next action would clear it first", () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const { kit, vera } = ids(state);
     state.battle!.marker = 20;
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
-    // Boss resolves at 15 — after Kit opens (17) but before Liora's Meteor (13) — clears the window.
-    state.battle!.bossPending = { moveKey: 'A', die: 2, declaredAtSlot: 20, landedAtSlot: 15 };
+    // Boss acts at 15 — after Kit opens (17) but before Liora's Meteor (13) — clears the window.
+    // Since v0.3.14 that is all the party knows: *when*, not which move.
+    state.battle!.bossSlot = 15;
 
     const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
     expect(bonus).toBe(0);

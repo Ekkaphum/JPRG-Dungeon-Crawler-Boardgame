@@ -390,18 +390,14 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
     const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'Trap', countsAsAttack: false });
     onTrapTriggered(state, trap.ownerId);
     battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
-    // v0.3.9: a sprung trap *delays* the boss's declared move instead of deleting it. The move still
-    // lands, TRAP_DELAY_SLOTS later, and the boss pawn moves with it — which also takes the boss out
-    // of this tick's visit queue (walk.ts builds that queue after this runs), so it sits idle for
-    // those slots instead of immediately re-declaring. Under the old cancel the boss kept its tempo:
-    // the pawn never moved, so it stayed in the queue and simply declared a fresh move on the spot.
-    // Measured as a wash at the current trigger rate — 3,000-game sims put win rate within noise
-    // either way (65.7% vs 66.0%) because a trap only springs ~0.14 times per game — so this is a
-    // change of character, not of power: tempo denial rather than damage negation.
-    if (battle.bossPending && battle.outcome === 'in_progress') {
-      const delayedTo = battle.bossPending.landedAtSlot - TRAP_DELAY_SLOTS;
-      battle.bossPending.landedAtSlot = delayedTo;
-      battle.bossSlot = delayedTo;
+    // A sprung trap pushes the boss's *pawn* back TRAP_DELAY_SLOTS. v0.3.9 expressed the same idea
+    // as "delay the declared move"; since v0.3.14 the boss has no declared move to delay — it acts
+    // the instant it is visited — so the pawn is now the only thing a trap can act on, and it is
+    // also exactly the right thing: under the new model the pawn's position *is* the boss's next
+    // action. The push also takes the boss out of this tick's visit queue (walk.ts builds that
+    // queue after this runs), so it genuinely loses those slots rather than acting on the spot.
+    if (battle.outcome === 'in_progress') {
+      battle.bossSlot = Math.max(0, battle.bossSlot - TRAP_DELAY_SLOTS);
       battle.bossStackSeq = battle.nextStackSeq++;
     }
   }

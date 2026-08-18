@@ -55,6 +55,7 @@ export const en: Record<I18nKey, string> = {
   'game.declaredActions': 'Declared actions — fully open',
   'game.noDeclared': '(nobody has declared yet)',
   'game.willLandAt': 'resolves at slot {n}',
+  'game.bossActsAt': 'acts again at slot {n} — the move is unknown until it lands',
   'game.score': 'Score',
   'game.exp': 'EXP',
   'game.dead': 'Dead — revives at slot {n}',

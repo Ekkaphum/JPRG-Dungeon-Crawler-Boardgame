@@ -12,8 +12,6 @@ export function BossDetailModal({ battle, onClose }: { battle: BattleState; onCl
   const t = useT();
   const lang = useAppStore((s) => s.settings.lang);
   const def = BOSSES[battle.bossId];
-  const pending = battle.bossPending;
-  const pendingMove = pending ? def.moves.find((m) => m.key === pending.moveKey) : null;
   const hpPct = Math.max(0, Math.min(100, (battle.bossHp / battle.bossHpMax) * 100));
 
   return (
@@ -31,12 +29,8 @@ export function BossDetailModal({ battle, onClose }: { battle: BattleState; onCl
           <div className="text-xs text-gold-dim mt-1">
             {t('game.marker', { n: battle.bossSlot })}
           </div>
-          {pendingMove && (
-            <div className="text-xs mt-1">
-              <span className="text-gold-dim">{t('game.willLandAt', { n: landSlotDisplay(pending!.landedAtSlot) })}: </span>
-              <span className="text-gold-bright">{pendingMove.name[lang]}</span> <span className="text-gold-dim">(⏱{pendingMove.time})</span>
-            </div>
-          )}
+          {/* No "what is coming" line since v0.3.14 — the party reads the clock, not the boss. */}
+          <div className="text-xs mt-1 text-gold-dim">{t('game.bossActsAt', { n: landSlotDisplay(battle.bossSlot) })}</div>
         </div>
       </div>
 
@@ -47,9 +41,8 @@ export function BossDetailModal({ battle, onClose }: { battle: BattleState; onCl
       <Section title={t('detail.moves')}>
         <div className="flex flex-col gap-2">
           {def.moves.map((m) => {
-            const isPending = pendingMove?.key === m.key;
             return (
-              <div key={m.key} className={`rounded p-2 border ${isPending ? 'border-gold bg-gold/10' : 'border-gold-dim/25'}`}>
+              <div key={m.key} className="rounded p-2 border border-gold-dim/25">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-xs gold-text">
                     🎲 {m.diceRange[0]}

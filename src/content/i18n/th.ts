@@ -53,6 +53,7 @@ export const th = {
   'game.declaredActions': 'แอคชันที่ประกาศไว้ — เปิดหมด',
   'game.noDeclared': '(ยังไม่มีใครประกาศ)',
   'game.willLandAt': 'จะรับผลที่ช่อง {n}',
+  'game.bossActsAt': 'ลงมืออีกครั้งที่ช่อง {n} — ไม่รู้ว่าท่าไหนจนกว่าจะโดน',
   'game.score': 'คะแนน',
   'game.exp': 'EXP',
   'game.dead': 'ตาย — ฟื้นที่ช่อง {n}',

@@ -97,7 +97,6 @@ export function prepareBattle(state: GameState) {
     // (GAME_DESIGN_v0_3_0.md §4.1 "เสมอกันในกอง → ผู้เล่นเล่นก่อนบอสเสมอ"). Boss starts at slot 22,
     // same as Luna — this ordering is what makes Luna act before the boss on turn 1.
     bossStackSeq: state.players.length,
-    bossPending: null,
     traps: [],
     scheduledHits: [],
     weakPointActive: false,
@@ -128,6 +127,7 @@ export function prepareBattle(state: GameState) {
         attackCountThisBattle: 0,
         everDroppedBelowHalfThisBattle: false,
         landedMeteorThisBattle: false,
+        damageDealtThisBattle: 0,
       };
     }),
   };

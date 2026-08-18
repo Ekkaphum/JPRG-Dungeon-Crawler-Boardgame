@@ -22,7 +22,7 @@ export {
   redirectTarget,
   resolveQueuedCounter,
 } from './clock/skills';
-export { declareBossAction, resolveBossPending, bossMoveTargets } from './clock/bossAI';
+export { declareBossAction, applyBossMove } from './clock/bossAI';
 export { pickExtreme, pickExtremeN } from './clock/rank';
 export { currentTotalScore, pushScore, applyDamageToFighter, applyDamageToBoss, healFighter, killFighter, reviveFighter } from './clock/damage';
 export {

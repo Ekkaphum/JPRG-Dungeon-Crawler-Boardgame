@@ -12,6 +12,7 @@
 // never drift across bursts.
 
 import type { BattleState, ClockLogEvent, GameState, SkillId } from '@engine/index';
+import { TRAP_DELAY_SLOTS } from '@engine/index';
 import { BOSSES } from '@content/bosses3';
 import { CHARACTERS, SKILLS } from '@content/characters';
 
@@ -182,7 +183,6 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
     marker: 24,
     bossSlot: bossDef.startSlot,
     bossStackSeq: battle.fighters.length,
-    bossPending: null,
     traps: [],
     scheduledHits: [],
     weakPointActive: false,
@@ -210,6 +210,7 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
         attackCountThisBattle: 0,
         everDroppedBelowHalfThisBattle: false,
         landedMeteorThisBattle: false,
+        damageDealtThisBattle: 0,
       };
     }),
   };
@@ -225,7 +226,6 @@ export function cloneDisplay(battle: BattleState): BattleState {
     scheduledHits: battle.scheduledHits.map((h) => ({ ...h })),
     partyBuff: battle.partyBuff ? { ...battle.partyBuff } : null,
     guard: battle.guard ? { ...battle.guard } : null,
-    bossPending: battle.bossPending ? { ...battle.bossPending } : null,
     fighters: battle.fighters.map((f) => ({
       ...f,
       pending: f.pending ? { ...f.pending } : null,
@@ -246,8 +246,10 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
 
     case 'DECLARE': {
       if (ev.playerId === 'boss') {
+        // v0.3.14: the boss's DECLARE now reports where its pawn lands *after* acting — the move
+        // itself has already resolved by the time this event is replayed, so there is nothing
+        // pending for the UI to show, only a cooldown position.
         b.bossSlot = ev.landSlot;
-        b.bossPending = { moveKey: ev.moveKey ?? 'A', die: 0, declaredAtSlot: ev.slot, landedAtSlot: ev.landSlot };
       } else {
         const f = fighter(ev.playerId);
         if (f) {
@@ -259,8 +261,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
     }
 
     case 'BOSS_MOVE':
-      // The declared move is spent, and the weak point closes the moment the boss acts.
-      b.bossPending = null;
+      // The weak point closes the moment the boss acts.
       b.weakPointActive = false;
       break;
 
@@ -306,7 +307,9 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
     case 'RESOLVE_TRAP_TRIGGER':
       b.bossHp = Math.max(0, b.bossHp - ev.dmg);
       b.traps = b.traps.filter((t) => t.slot !== ev.slot);
-      if (ev.dmg > 0) b.bossPending = null; // a failed roll (dmg 0) neither hurts nor cancels
+      // Mirrors the engine's rule in @engine/clock/skills.ts: a connecting trap shoves the boss
+      // pawn back; a failed roll (dmg 0) neither hurts nor delays.
+      if (ev.dmg > 0) b.bossSlot = Math.max(0, b.bossSlot - TRAP_DELAY_SLOTS);
       break;
 
     case 'RESOLVE_TRAP_EXPIRE':

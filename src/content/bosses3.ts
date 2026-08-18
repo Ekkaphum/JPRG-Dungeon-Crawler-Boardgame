@@ -10,19 +10,12 @@ export interface BossMoveDef {
   key: 'A' | 'B' | 'C';
   diceRange: [number, number]; // inclusive d6 range
   name: { th: string; en: string };
+  /** v0.3.14: this is now a **cooldown**, not a wind-up. Every boss move resolves the instant the
+   *  boss's pawn is visited; `time` is how far the pawn then walks before it can act again. The
+   *  old `immediate?: boolean` opt-in is gone because every move is immediate — what the party can
+   *  read off the board is *when* the boss acts (its pawn), never *what* it is about to do. */
   time: number;
   desc: { th: string; en: string };
-  /** v0.3.11: this move resolves the instant the boss declares it, with no readable window in
-   *  between — the boss-side counterpart of the heroes' ⚡ skills. The boss pawn still walks the
-   *  move's full ⏱ exactly as before; only *when the effect lands* changes.
-   *
-   *  Used sparingly and never for the big telegraphed hits. A declared boss move is the single most
-   *  important piece of public information in this ruleset (§4.4) — Guard, Trap! and Heal are all
-   *  timed by reading it — so making a move immediate deletes that read for that move. It is only
-   *  justified where the fantasy demands it AND the read was worth little: Frenzy is a 1-in-6 burst
-   *  of Wrath that should not be politely announced, and Golden Throne deals no damage at all, so
-   *  there was never a defensive reaction to lose. */
-  immediate?: boolean;
 }
 
 export interface BossDef {
@@ -40,9 +33,11 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: 'Ragorath',
     name: { th: 'Ragorath, the Bloodhorn', en: 'Ragorath, the Bloodhorn' },
     sin: { th: 'โทสะ', en: 'Wrath' },
-    // hp 76 -> 91, startSlot 22 -> 23 (2026-08-13): compensates for the equal-start change (every
-    // hero now starts at slot 23 instead of a staggered 20-23) — see docs/BALANCE_NOTES.md.
-    hp: 91,
+    // hp 76 -> 91 (2026-08-13, equal-start compensation) -> 72 (v0.3.14). Every boss now acts on
+    // the visit it is rolled instead of the one after, which is worth roughly a whole extra action
+    // per battle, and Skyward Gore's dice can catch the entire party. Measured hard clear 83.5% ->
+    // 50.9% before this cut, 81.7% after — the *character* of the fight changed, its power did not.
+    hp: 72,
     startSlot: 23,
     armor: 0,
     moves: [
@@ -51,7 +46,10 @@ export const BOSSES: Record<BossId, BossDef> = {
         diceRange: [1, 3],
         name: { th: 'เขาเสยฟ้า', en: 'Skyward Gore' },
         time: 4,
-        desc: { th: 'ตีผู้เล่นที่หมากอยู่สูงสุดบนนาฬิกา · dmg 6 + Rage', en: 'Hits the player at the highest clock slot · dmg 6 + Rage' },
+        desc: {
+          th: 'ทอย d6 · 1-4 ตีผู้เล่นคนนั้น · 5 ตีทุกคน · 6 ทอยใหม่พร้อม Rage +1 · dmg 6 + Rage',
+          en: 'Roll d6 · 1-4 hits that player · 5 hits everyone · 6 rerolls with Rage +1 · dmg 6 + Rage',
+        },
       },
       {
         key: 'B',
@@ -65,7 +63,10 @@ export const BOSSES: Record<BossId, BossDef> = {
         diceRange: [6, 6],
         name: { th: 'บ้าคลั่ง', en: 'Frenzy' },
         time: 3,
-        desc: { th: 'ตีผู้เล่น HP ต่ำสุด · dmg 10 + Rage', en: 'Hits the lowest-HP player · dmg 10 + Rage' },
+        desc: {
+          th: 'ตีผู้เล่นที่ทำดาเมจรวมสูงสุดในยกนี้ · dmg 10 + Rage',
+          en: 'Hits whoever has dealt the most damage this battle · dmg 10 + Rage',
+        },
       },
     ],
   },
@@ -73,8 +74,11 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: 'Somnivar',
     name: { th: 'Somnivar, the Eternal Sleeper', en: 'Somnivar, the Eternal Sleeper' },
     sin: { th: 'เกียจคร้าน', en: 'Sloth' },
-    // hp 80 -> 96, startSlot 22 -> 23 (2026-08-13): see Ragorath's note above.
-    hp: 76,
+    // hp 80 -> 96 (2026-08-13) -> 76 (v0.3.11) -> 46 (v0.3.14). The biggest cut of the three, and
+    // it has to be: every one of his moves lost a slot (⏱4/5/6 -> 3/4/5) *and* Nightmare went from
+    // one 11 to two 7s, so he acts about a third more often for more damage each time. Uncompensated
+    // he was the wall the run died on — hard clear 93.8% -> 34.0% conditional. Now 92.8%.
+    hp: 46,
     startSlot: 23,
     armor: 0,
     moves: [
@@ -82,21 +86,24 @@ export const BOSSES: Record<BossId, BossDef> = {
         key: 'A',
         diceRange: [1, 3],
         name: { th: 'ลมหายใจง่วงงุน', en: 'Drowsy Breath' },
-        time: 4,
+        time: 3,
         desc: { th: 'ตีทุกคน dmg 4 · ผู้เล่นทุกคนเดินหมากลงเพิ่ม 1 ช่อง', en: 'Hits everyone for 4 · every player pawn slides down 1 more slot' },
       },
       {
         key: 'B',
         diceRange: [4, 5],
         name: { th: 'ฝันร้าย', en: 'Nightmare' },
-        time: 5,
-        desc: { th: 'ตีผู้เล่น 2 คนที่หมากอยู่ต่ำสุด · dmg 11', en: 'Hits the 2 players at the lowest clock slots · dmg 11' },
+        time: 4,
+        desc: {
+          th: 'ทอย d6 หาเป้าสองครั้ง (ซ้ำคนเดิมได้) · dmg 7 ต่อครั้ง · ออก 5-6 ทอยใหม่ และเลื่อนหมากคนที่โดนลง 1 ทุกครั้งที่ทอยใหม่',
+          en: 'Rolls d6 twice for targets (repeats allowed) · dmg 7 each · a 5-6 rerolls and slides the eventual target down 1 slot per reroll',
+        },
       },
       {
         key: 'C',
         diceRange: [6, 6],
         name: { th: 'หลับใหลนิรันดร์', en: 'Eternal Slumber' },
-        time: 6,
+        time: 5,
         desc: { th: 'ไม่ทำดาเมจ · เลื่อนหมากผู้เล่นทุกคนลง 4 ช่อง', en: 'No damage · every player pawn slides down 4 slots' },
       },
     ],
@@ -105,8 +112,10 @@ export const BOSSES: Record<BossId, BossDef> = {
     id: 'Aurelius',
     name: { th: 'Aurelius, the Crowned Colossus', en: 'Aurelius, the Crowned Colossus' },
     sin: { th: 'อหังการ', en: 'Pride' },
-    // hp 88 -> 106, startSlot 22 -> 23 (2026-08-13): see Ragorath's note above.
-    hp: 96,
+    // hp 88 -> 106 (2026-08-13) -> 96 (v0.3.11) -> 82 (v0.3.14). The smallest cut, because v0.3.14
+    // also cut his own numbers hard (Procession 12->9, Judgment 7/14->4/9); he gained frequency and
+    // lost per-hit weight, which nets out closer to even than the other two.
+    hp: 82,
     startSlot: 23,
     armor: 2,
     moves: [
@@ -114,25 +123,27 @@ export const BOSSES: Record<BossId, BossDef> = {
         key: 'A',
         diceRange: [1, 3],
         name: { th: 'กระบวนแห่', en: 'Procession' },
-        time: 5,
-        desc: { th: 'ตีผู้เล่นที่มีคะแนนเปิดหน้าโต๊ะมากที่สุด · dmg 12', en: "Hits the player with the highest revealed score · dmg 12" },
+        time: 4,
+        desc: {
+          th: 'ตีผู้เล่นที่มีคะแนนสะสมสูงที่สุด · ทะลุ Blessing · dmg 9',
+          en: 'Hits the player with the highest accumulated score · pierces Blessing · dmg 9',
+        },
       },
       {
         key: 'B',
         diceRange: [4, 5],
         name: { th: 'บัลลังก์ทอง', en: 'Golden Throne' },
         time: 4,
-        immediate: true,
         desc: { th: 'เกราะ +1 (สะสม) · ฟื้น 8 HP', en: 'Armor +1 (stacking) · heals 8 HP' },
       },
       {
         key: 'C',
         diceRange: [6, 6],
         name: { th: 'คำพิพากษา', en: 'Judgment' },
-        time: 7,
+        time: 5,
         desc: {
-          th: 'ตีทุกคน dmg 7 · ใครที่ HP ต่ำกว่าครึ่งรับ 14 แทน',
-          en: 'Hits everyone for 7 · anyone below half HP takes 14 instead',
+          th: 'ตีทุกคน dmg 4 · ใครที่ HP ต่ำกว่าครึ่งรับ 9 แทน',
+          en: 'Hits everyone for 4 · anyone below half HP takes 9 instead',
         },
       },
     ],

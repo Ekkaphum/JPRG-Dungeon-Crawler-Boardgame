@@ -27,7 +27,6 @@ export function BossFigure({
   const lang = useAppStore((s) => s.settings.lang);
   const def = BOSSES[battle.bossId];
   const hpPct = Math.max(0, Math.min(100, (battle.bossHp / battle.bossHpMax) * 100));
-  const move = battle.bossPending ? def.moves.find((m) => m.key === battle.bossPending!.moveKey) : null;
   const activeFlash = actionFlash?.source === 'boss' ? actionFlash : null;
   const hitId = latestDamagePopupId(popups);
 
@@ -49,11 +48,9 @@ export function BossFigure({
           <span className="font-mono">
             {battle.bossHp}/{battle.bossHpMax}
           </span>
-          {move && (
-            <span className="truncate">
-              ⏱{move.time} → {landSlotDisplay(battle.bossPending!.landedAtSlot)}
-            </span>
-          )}
+          {/* v0.3.14: the boss telegraphs *when*, never *what* — so this shows its next action
+              slot and nothing about which move is coming. */}
+          <span className="truncate">→ {landSlotDisplay(battle.bossSlot)}</span>
         </div>
       </div>
       <DamagePopups popups={popups} />

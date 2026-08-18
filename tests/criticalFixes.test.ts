@@ -165,13 +165,14 @@ describe('7. Somnivar shifting a pawn onto the current marker still gets that pa
     kit.slot = 11;
 
     // battle.marker starts at 11 so the walk loop's first `marker -= 1` lands on 10 — the tick we
-    // want to control. The boss is already positioned there with Somnivar's A queued to resolve.
+    // want to control. The boss is already positioned there and acts the moment it is visited.
     battle.marker = 11;
     battle.bossSlot = 10;
     battle.bossStackSeq = battle.nextStackSeq++;
-    battle.bossPending = { moveKey: 'A', die: 1, declaredAtSlot: 11, landedAtSlot: 10 };
 
-    const rng = createRNG(99);
+    // Somnivar's dice: the first int() picks the move (1-3 = A, drowsy breath) and A takes no
+    // further rolls, so a die stuck on 1 guarantees the -1 shift this test is about.
+    const rng = { ...createRNG(99), int: () => 1 } as ReturnType<typeof createRNG>;
     const gen = runClockBattle(state, rng);
     const res = gen.next();
     expect(res.done).toBe(false);

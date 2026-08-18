@@ -1,5 +1,5 @@
 import { SKILLS, VERA_CHARGED_CAST_MANA, skillStats, type CharId } from '@content/characters';
-import { applySomnivarTax, bossMoveTargets, type Choice, type GameState } from '@engine/index';
+import { applySomnivarTax, type Choice, type GameState } from '@engine/index';
 
 /** Rough per-⏱ value estimate for a candidate DECLARE_ACTION choice. Fully deterministic where
  *  the doc's numbers are deterministic (this ruleset hides nothing — GAME_DESIGN_v0_3_0.md §4.4)
@@ -86,14 +86,11 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
     }
     case 'trap': {
       // The boss's pawn only moves on its own turn, so a trap armed exactly on the slot it is
-      // sitting on is certain to connect; anywhere else is a near-certain waste. Beyond the
-      // damage, connecting rolls to push the boss's declared move back 2 slots (v0.3.9 — it used to
-      // delete it). Left at the same flat premium: the move is no longer negated, but the boss also
-      // loses those slots entirely instead of re-declaring on the spot, and a 3,000-game sim put the
-      // two within noise of each other.
-      // Nothing declared yet (the opening tick) means there is nothing to cancel, so the trap is
-      // reduced to its small damage and is not worth the ⏱.
-      if (choice.trapSlot !== battle.bossSlot || !battle.bossPending) return 0.2;
+      // sitting on is certain to connect; anywhere else is a near-certain waste. Beyond the damage,
+      // connecting pushes that pawn back 2 slots — which since v0.3.14 is the only lever anyone has
+      // on the boss's tempo, because there is no declared move left to cancel or delay. Same flat
+      // premium the delay version carried; a 3,000-game sim put cancel and delay within noise.
+      if (choice.trapSlot !== battle.bossSlot) return 0.2;
       value = stats.primary! + 5;
       break;
     }
@@ -210,9 +207,10 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
     return f?.pending ?? null;
   };
   const isBigHit = (skillId: string) => skillId === 'Fireball' || skillId === 'Meteor';
-  // undefined = boss hasn't re-declared since its last move, so nothing known is about to clear
-  // the weak point — treated as "won't interrupt" rather than guessed either way.
-  const bossNextResolvesAt = battle.bossPending?.landedAtSlot;
+  // The boss's pawn is now the entire public signal about it (v0.3.14): the party knows when it
+  // acts next and nothing else. Its next action is what clears the weak point, whatever that
+  // action turns out to be.
+  const bossNextActsAt = battle.bossSlot;
 
   let bonus = 0;
 
@@ -222,39 +220,39 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
       // Opens in time to still be up when Liora's hit resolves, and the boss's own already-rolled
       // next move (if any) won't clear it first.
       const opensInTime = landedAtSlot >= veraPending.landedAtSlot;
-      const bossWontInterrupt = bossNextResolvesAt === undefined || bossNextResolvesAt < veraPending.landedAtSlot;
+      const bossWontInterrupt = bossNextActsAt < veraPending.landedAtSlot;
       if (opensInTime && bossWontInterrupt) bonus += 5;
     }
   }
 
-  // Eric's Guard is the clearest case of the "read the board" play GAME_DESIGN.md §8 describes for
-  // his kit: the boss's next move is already rolled and public, so who it will hit is knowable, not
-  // a guess. Reward guarding exactly that player — and only while Guard would still be up when the
-  // move lands (it expires at Eric's own next visit, so it covers anything resolving at or above
-  // his landing slot).
-  if (player.charId === 'Eric' && choice.skillId === 'Guard' && battle.bossPending) {
+  // Eric's Guard used to be the clearest "read the board" play in his kit: the boss's next move was
+  // rolled and public, so who it would hit was knowable. Since v0.3.14 it is knowable no longer —
+  // the boss acts the instant its pawn is visited, so all Eric has is *when*, never *what*. Guard is
+  // therefore priced as a bet: it has to still be up when the boss acts, and it pays off in
+  // proportion to how badly the ward would suffer an average hit. Note this is strictly less
+  // information than before, and deliberately so — see docs/GAME_DESIGN.md §9.
+  if (player.charId === 'Eric' && choice.skillId === 'Guard') {
     const fighter = battle.fighters.find((f) => f.playerId === playerId)!;
-    const doomed = bossMoveTargets(state, battle.bossPending.moveKey);
-    const coversTheHit = landedAtSlot <= battle.bossPending.landedAtSlot;
-    if (coversTheHit && doomed.some((f) => f.playerId === choice.targetPlayerId)) {
-      // Worth much more when it's the difference between a teammate living and dying — luna3
-      // ("nobody died") is a party-wide payout, and a dead teammate is several lost actions.
-      const ward = battle.fighters.find((f) => f.playerId === choice.targetPlayerId)!;
-      // Stepping in front of a *focused* hit is the whole point. Doing it into an AoE is close to
-      // pointless — Eric takes his own share anyway and then the ward's on top, so it converts one
-      // survivable hit on two people into one potentially lethal hit on him.
-      //
+    const ward = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+    // Guard expires at Eric's own next visit, so it covers anything the boss does at or above his
+    // landing slot. Miss that window and the skill is pure lost tempo.
+    const coversTheHit = ward && ward.alive && landedAtSlot <= battle.bossSlot;
+    if (coversTheHit) {
       // Sized against what Guard actually buys, not against how good it feels: absorbing a hit the
       // ward would have survived is worth roughly what Slash gives up (§10's damage budget has no
       // slack for pure mitigation), while absorbing one that would have *killed* them is worth
       // several actions — a dead teammate loses their turns, their revive comes back at half HP,
       // and luna3 pays the whole party. Only the second case should beat attacking.
+      //
+      // Scaled down from the old flat payout because the bet can now simply be wrong: the boss may
+      // pick an AoE (where Guard is close to pointless — Eric eats his own share plus the ward's)
+      // or aim somewhere else entirely. Roughly a 1-in-3 chance of covering the right single
+      // target, so the "saved a life" case is priced at about a third of what certainty was worth.
       const biggestPlausibleHit = 12 + battle.rage;
       const wardWouldDie = ward.hp <= biggestPlausibleHit;
-      const mattWouldSurvive = fighter.hp > biggestPlausibleHit;
-      if (doomed.length > 1) bonus += 0.5;
-      else if (wardWouldDie && mattWouldSurvive) bonus += 8;
-      else bonus += 2;
+      const ericWouldSurvive = fighter.hp > biggestPlausibleHit;
+      if (wardWouldDie && ericWouldSurvive) bonus += 3;
+      else bonus += 0.5;
     }
   }
 

@@ -32,6 +32,14 @@ describe('death and revival placement (GAME_DESIGN_v0_3_0.md §5.4)', () => {
 
   it('revives on reaching the slot and gets to declare in that same visit', async () => {
     const state = battle();
+    // This test is about revival placement, not survival. Since v0.3.14 the boss acts the instant
+    // it is visited (rather than a turn later), so a party running scripted attacks and never
+    // healing can wipe before the revive slot comes round — which would end the walk early and
+    // prove nothing. Padding HP takes the boss's damage out of the equation entirely.
+    for (const f of state.battle!.fighters) {
+      f.maxHp = 500;
+      f.hp = 500;
+    }
     const rng = createRNG(5);
     const gen = runClockBattle(state, rng);
 

@@ -61,13 +61,6 @@ export interface GuardLink {
   reduction: number;
 }
 
-export interface BossPendingAction {
-  moveKey: 'A' | 'B' | 'C';
-  die: number;
-  declaredAtSlot: number;
-  landedAtSlot: number;
-}
-
 export interface Shield {
   kind: 'counter' | 'mana';
   reduction: number; // counter: percent 0-100; mana: flat amount
@@ -102,6 +95,9 @@ export interface Fighter {
    *  Pairs with everDiedThisBattle so "survived" only scores when she also got her signature ⏱7
    *  spell off — the one the party is supposed to be protecting her through. */
   landedMeteorThisBattle: boolean;
+  /** Total effective damage this fighter has put into the boss this battle. Ragorath's Frenzy
+   *  (v0.3.14) hunts the maximum — the party's best damage dealer, not its weakest member. */
+  damageDealtThisBattle: number;
 }
 
 export interface TrapToken {
@@ -170,7 +166,6 @@ export interface BattleState {
   fighters: Fighter[];
   bossSlot: number;
   bossStackSeq: number;
-  bossPending: BossPendingAction | null;
   traps: TrapToken[];
   scheduledHits: ScheduledHit[];
   weakPointActive: boolean;

@@ -579,3 +579,71 @@ the v0.3.1 pass is partially addressed by this, not worsened.
 
 All of these are bot numbers. Nothing here has been in front of a human table yet — the same caveat
 that applies to every figure in this file.
+
+---
+
+## 2026-08-17 — v0.3.14: the boss stops telegraphing
+
+Boss redesign, specified move by move. The structural half is one rule: **every boss move now
+resolves the instant the boss's pawn is visited**, and the move's ⏱ is walked afterwards as a
+cooldown. The party can read *when* the boss acts, never *what*.
+
+### What that cost, measured
+
+Implementing the spec with no other change:
+
+| | before | after spec, no compensation |
+|---|---|---|
+| win rate, medium | 92.5% | **44.5%** |
+| win rate, hard | 66.1% | **9.5%** |
+| Somnivar conditional clear, hard | 93.8% | **34.0%** |
+
+Three separate effects stack here, and it is worth keeping them apart because only one of them was
+obvious in advance:
+
+1. **The boss gains roughly a whole extra action per battle.** It used to spend its first visit
+   declaring and its second resolving; now the first visit already hits. Over a 24-slot clock at
+   ⏱≈4 that is one action in five.
+2. **Somnivar's -1 ⏱ across all three moves** is another ~33% more actions from him specifically,
+   and Nightmare went from one 11 to two 7s. He was the wall the run died on.
+3. **Defensive skills lost their aim.** Guard, Heal and Trap! were all timed against a known
+   incoming move. They still work; they are now bets on the clock. This is the designed change,
+   not a side effect — but it is also the largest single hit to the party's effective mitigation.
+
+### Compensation
+
+Boss HP only, the same lever v0.3.11 used, and for the same reason: the *character* of these fights
+is what changed, and it should not be paid for in difficulty.
+
+| | v0.3.13 | v0.3.14 |
+|---|---|---|
+| Ragorath | 91 | **72** |
+| Somnivar | 76 | **46** |
+| Aurelius | 96 | **82** |
+
+Final: **hard 65.9%** against a 66.1% baseline — unchanged in the mode balance is read from.
+**Medium 84.2%** against 92.5%, deliberately not chased back up: medium bots play purely
+altruistically and lean hardest on exactly the timed defense this change removed, so the drop is
+the change working. The medium-hard gap narrowing from 26pp to 18pp is the same fact stated twice.
+
+### 🔴 Open — Eric's `matt2` has run away, and the cause is not yet isolated
+
+Score totals in won games, hard bots, 3,000 games:
+
+| | v0.3.13 | v0.3.14 |
+|---|---|---|
+| Eric | 12.15 | **19.44** |
+| Liora | 12.15 | 13.22 |
+| Luna | 12.30 | 11.84 |
+| Kit | 10.32 | 9.11 |
+
+`matt2` (Guard absorbs a hit aimed at an ally, 2 pts per occurrence) fires **4.36 times per win**,
+up from 0.46, and is now **45% of Eric's score**. Spread went from 1.2× to 2.1×.
+
+The mechanism is clear — the boss acts far more often, so a standing Guard connects far more often,
+and `matt2` pays per connection with no cap. What is *not* established is how much of this is the
+design and how much is the bots: Guard is now the second-most-declared skill in the game (13,301
+declares vs Slash's 6,376), which is a suspicious enough number that the heuristic itself is a
+candidate. This project has already measured its own heuristic once by mistake (v0.3.5, the
+over-weighted bot preferences). **Do not tune `matt2` until that is separated.** Logged as
+BACKLOG §3.

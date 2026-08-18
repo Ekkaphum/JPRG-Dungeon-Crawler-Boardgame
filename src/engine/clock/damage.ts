@@ -54,9 +54,13 @@ export function applyDamageToBoss(
   // Quick Shot swings specifically, not trap detonations. GAME_DESIGN_v0_3_0.md's own worked
   // example treats them as separate budgets ("วางกับดัก 2 ครั้ง... Quick Shot ได้พอดี 5 ครั้ง" — 2 traps
   // placed, *then* exactly 5 Quick Shots fit in what's left — the traps aren't among the 5).
+  const attacker = battle.fighters.find((f) => f.playerId === attackerId);
+  // Counted for *every* source including traps, unlike attackCountThisBattle below — Frenzy asks
+  // "who has hurt me most", and a trap that cut the boss hurt him just as much as a sword did.
+  if (attacker) attacker.damageDealtThisBattle += effective;
+
   if (opts.countsAsAttack ?? true) {
-    const fighter = battle.fighters.find((f) => f.playerId === attackerId);
-    if (fighter) fighter.attackCountThisBattle += 1;
+    if (attacker) attacker.attackCountThisBattle += 1;
   }
 
   if (battle.bossHp <= 0 && battle.finishedBy === null) {
