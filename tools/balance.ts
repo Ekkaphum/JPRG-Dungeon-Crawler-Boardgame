@@ -60,6 +60,10 @@ async function main() {
   const bossCleared: Partial<Record<BossId, number>> = {};
   const bossAttempts: Partial<Record<BossId, number>> = {};
   const scoreByChar: Record<CharId, number[]> = { Eric: [], Kit: [], Liora: [], Luna: [], Dax: [], Mira: [] };
+  // Who actually took the individual win, not just who scored well. These two can disagree: a
+  // character with a high average can still lose most head-to-heads if their points arrive in
+  // games the party was going to lose anyway, or if another character's floor is higher.
+  const winsByChar: Record<string, number> = {};
   // Per-condition breakdown (all games, not just wins) — how often each of the 12 score
   // conditions actually fires and how many points it hands out in total, which the per-character
   // total above can't distinguish (e.g. a per-occurrence condition firing often vs. a rare
@@ -141,9 +145,14 @@ async function main() {
     }
     for (const n of Object.values(openWindow)) counterPerWindow.push(n);
 
-    if (state.gameOver?.outcome === 'win') {
+    const gameOver = state.gameOver;
+    if (gameOver?.outcome === 'win') {
       wins++;
-      for (const p of state.players) scoreByChar[p.charId].push(state.gameOver.totals[p.id] ?? 0);
+      for (const p of state.players) scoreByChar[p.charId].push(gameOver.totals[p.id] ?? 0);
+      // The party has to survive all 3 bosses before anyone wins individually, so this only ever
+      // counts won games — which is the same denominator the score figures below use.
+      const champion = state.players.find((p) => p.id === gameOver.winnerId);
+      if (champion) winsByChar[champion.charId] = (winsByChar[champion.charId] ?? 0) + 1;
       // Won-games-only condition breakdown: scoring only ever decides a winner in a game the party
       // actually wins, so this — not the all-games figures above — is what determines who tends to
       // come out ahead. state.scoreLog accumulates across all 3 battles, same source
@@ -202,6 +211,13 @@ async function main() {
   const zero = counterPerWindow.filter((n) => n === 0).length;
   console.log(`  never hit: ${pct(zero, counterPerWindow.length)}%   |   2+ ripostes: ${pct(multi, counterPerWindow.length)}%`);
   console.log(`boss: ${bossMoves} moves resolved, ${bossDamageEvents} damage events, ${bossDamage} total damage dealt`);
+
+  console.log('\nindividual win share (who took the win in each won game):');
+  for (const charId of Object.keys(scoreByChar) as CharId[]) {
+    const w = winsByChar[charId] ?? 0;
+    if (w === 0 && !scoreByChar[charId].length) continue;
+    console.log(`  ${charId.padEnd(6)} ${String(w).padStart(5)} wins   ${pct(w, wins).padStart(5)}% of won games`);
+  }
 
   console.log('\navg total score by character (won games only):');
   for (const charId of Object.keys(scoreByChar) as CharId[]) {
