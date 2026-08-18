@@ -40,7 +40,7 @@ describe('Dax score conditions', () => {
     expect(entry?.points).toBe(scorePoints('dax1'));
   });
 
-  it("kit1 still fires for Kit — the character lookup didn't break the original path", () => {
+  it('kit1 still fires for Kit on opening — restored after the v0.3.16 hit-only cut proved too costly', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 1); // player 1 is Kit in fixedDraftState
@@ -115,13 +115,14 @@ describe('Mira score conditions', () => {
     expect(entry?.points).toBe(scorePoints('mira1'));
   });
 
-  it("luna1 still fires for Luna — the character lookup didn't break the original path", () => {
+  it("mira1's character lookup does not accidentally pay Luna — her condition moved off Heal in v0.3.15", () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 3);
     const ally = findFighter(state, 0);
     onHealResolved(state, luna.playerId, ally.playerId, 1);
-    expect(state.scoreLog.find((e) => e.conditionId === 'luna1')?.playerId).toBe(luna.playerId);
+    expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
+    expect(state.scoreLog.some((e) => e.conditionId === 'mira1')).toBe(false);
   });
 
   it('mira2: Frost Bolt dealing >10 damage', () => {
@@ -186,7 +187,7 @@ describe('Dax/Mira declare and resolve through the generic skill-kind paths', ()
     const dax = findFighter(state, 0);
     declareSkill(state, dax, { kind: 'DECLARE_ACTION', skillId: 'Focus' }, createRNG(1));
     resolveFighterPending(state, dax, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
-    expect(state.battle!.weakPointActive).toBe(true);
+    expect(state.battle!.weakPoint).not.toBeNull();
     expect(state.scoreLog.find((e) => e.conditionId === 'dax1')?.playerId).toBe(dax.playerId);
   });
 

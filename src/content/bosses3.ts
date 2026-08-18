@@ -37,7 +37,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     // the visit it is rolled instead of the one after, which is worth roughly a whole extra action
     // per battle, and Skyward Gore's dice can catch the entire party. Measured hard clear 83.5% ->
     // 50.9% before this cut, 81.7% after — the *character* of the fight changed, its power did not.
-    hp: 72,
+    hp: 76,
     startSlot: 23,
     armor: 0,
     moves: [
@@ -78,7 +78,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     // it has to be: every one of his moves lost a slot (⏱4/5/6 -> 3/4/5) *and* Nightmare went from
     // one 11 to two 7s, so he acts about a third more often for more damage each time. Uncompensated
     // he was the wall the run died on — hard clear 93.8% -> 34.0% conditional. Now 92.8%.
-    hp: 46,
+    hp: 48,
     startSlot: 23,
     armor: 0,
     moves: [
@@ -115,7 +115,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     // hp 88 -> 106 (2026-08-13) -> 96 (v0.3.11) -> 82 (v0.3.14). The smallest cut, because v0.3.14
     // also cut his own numbers hard (Procession 12->9, Judgment 7/14->4/9); he gained frequency and
     // lost per-hit weight, which nets out closer to even than the other two.
-    hp: 82,
+    hp: 88,
     startSlot: 23,
     armor: 2,
     moves: [

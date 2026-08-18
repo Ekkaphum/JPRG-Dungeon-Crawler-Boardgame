@@ -153,6 +153,9 @@ export type ClockLogEvent =
   | { t: 'DEATH'; playerId: PlayerId; atSlot: number; reviveAtSlot: number | null }
   | { t: 'REVIVE'; playerId: PlayerId; atSlot: number; hp: number }
   | { t: 'SCORE'; entry: ScoreEntry }
+  /** v0.3.15: Kit's trap cut the boss down mid-lunge — the move was rolled and then cancelled, so
+   *  the party sees what they just avoided. Carries the move it stopped for exactly that reason. */
+  | { t: 'BOSS_MOVE_CANCELLED'; bossId: BossId; moveKey: 'A' | 'B' | 'C' }
   | { t: 'MARKER_TICK'; marker: number }
   | { t: 'BATTLE_END'; outcome: 'boss_defeated' | 'clock_ran_out' | 'party_wiped'; finishedBy: PlayerId | null; expGranted: number };
 
@@ -168,10 +171,20 @@ export interface BattleState {
   bossStackSeq: number;
   traps: TrapToken[];
   scheduledHits: ScheduledHit[];
-  weakPointActive: boolean;
+  /** v0.3.15: an owned, *timed* window instead of a bare flag. It used to last "until the boss's
+   *  next action", which was a fine rule when the boss acted every other visit — after v0.3.14 the
+   *  boss acts every visit, so the window was collapsing to almost nothing and Kit's whole opener
+   *  role went with it (Sharp Shooting fell to 0.75 declares/game at hard, kit1 to 0.39 fires/win).
+   *  Now it runs a fixed WEAK_POINT_SLOTS like Blessing does, and carries its owner so `kit2` can
+   *  pay Kit when an ally cashes the window in. */
+  weakPoint: { ownerId: PlayerId; expiresAtSlot: number } | null;
   /** Blessing starts on declare and lasts exactly four clock slots, independent of Luna's pawn. */
   partyBuff: { atk: number; dmgReduction: number; ownerId: PlayerId; expiresAtSlot: number } | null;
   guard: GuardLink | null;
+  /** Counts scoring plays by players other than Luna, for luna1 (v0.3.15). Lives on the battle so it
+   *  resets each boss, matching kit3's per-battle count — at the table this is a small pile of cubes
+   *  on her card that she cashes in fours. */
+  allyScoresForLuna: number;
   finishedBy: PlayerId | null;
   finishedBySkill: SkillId | null;
   nextStackSeq: number;

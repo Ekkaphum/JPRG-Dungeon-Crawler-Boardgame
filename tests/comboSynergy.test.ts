@@ -54,7 +54,7 @@ describe('comboSynergyBonus — Kit opening weak point for Liora', () => {
     prepareBattle(state);
     const { kit, vera } = ids(state);
     state.battle!.marker = 20;
-    state.battle!.weakPointActive = true;
+    state.battle!.weakPoint = { ownerId: 1, expiresAtSlot: 0 };
     fighterOf(state, vera).pending = { skillId: 'Meteor', declaredAtSlot: 20, landedAtSlot: 13, manaSpent: 3 };
 
     const bonus = comboSynergyBonus(state, kit, { kind: 'DECLARE_ACTION', skillId: 'SharpShooting' });
@@ -115,7 +115,7 @@ describe('comboSynergyBonus — Luna timing Blessing under an incoming big hit',
     prepareBattle(state);
     const { luna } = ids(state);
     state.battle!.marker = 20;
-    state.battle!.weakPointActive = true;
+    state.battle!.weakPoint = { ownerId: 1, expiresAtSlot: 0 };
 
     const bonus = comboSynergyBonus(state, luna, { kind: 'DECLARE_ACTION', skillId: 'Blessing' });
     expect(bonus).toBeGreaterThan(0);

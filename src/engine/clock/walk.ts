@@ -84,7 +84,7 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
     // them at this slot. Blessing declared at N therefore covers exactly N→N-4, not Luna's return.
     expireTimedEffectsAtMarker(state);
 
-    processTrapsAtMarker(state, rng);
+    processTrapsAtMarker(state);
     if (battle.outcome !== 'in_progress') break;
 
     processScheduledHitsAtMarker(state);

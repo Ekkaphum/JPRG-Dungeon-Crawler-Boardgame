@@ -12,7 +12,7 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
   const stats = skillStats(choice.skillId, isLv2);
   const def = SKILLS[choice.skillId];
   const timeCost = battle.bossId === 'Somnivar' && stats.time >= 5 ? stats.time + 2 : stats.time;
-  const buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPointActive ? 4 : 0);
+  const buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPoint ? 4 : 0);
 
   let value: number;
   switch (def.kind) {
@@ -110,7 +110,7 @@ function estimateFinishingDamage(state: GameState, playerId: number, choice: Ext
   const isLv2 = !!state.progress[playerId]?.isLv2[choice.skillId];
   const stats = skillStats(choice.skillId, isLv2);
   const def = SKILLS[choice.skillId];
-  let buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPointActive ? 4 : 0);
+  let buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPoint ? 4 : 0);
   if (fighter.charId === 'Eric' && fighter.hp < 7) buffAtk += 4; // Berserk
   const armor = def.ignoresArmor ? 0 : battle.armor;
   const perHit = (base: number) => Math.max(0, base + buffAtk - armor);
@@ -148,10 +148,11 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
     // matt1 (>10 in one hit) is reachable specifically when Berserk is live, and Power Strike is the
     // card that gets there.
     if (choice.skillId === 'PowerStrike' && fighter.hp < 7) bonus += 2;
-    // v0.3.7: Guard is now Eric's biggest *scoring* card, not just a defensive one — matt2 pays 2
-    // per absorbed hit, and eating those hits is also what drives him under half HP for matt3.
-    // Priced well above the old 0.5 to reflect that it is now his main point engine.
-    if (choice.skillId === 'Guard') bonus += 1;
+    // v0.3.7: Guard is a *scoring* card for him, not just a defensive one — matt2 pays per absorbed
+    // hit, and eating those hits also drives him under half HP for matt3. Halved again in v0.3.15
+    // alongside matt2's own 2 -> 1: after the v0.3.14 boss pass a standing Guard connects on nearly
+    // every boss action, so the condition needed no encouragement at all to reach 4.36 fires/win.
+    if (choice.skillId === 'Guard') bonus += 0.5;
   }
   if (player.charId === 'Liora') {
     // v0.3.7: vera2 wants a *fully charged* cast (all 3 mana) and vera3 wants a Meteor to have
@@ -171,11 +172,20 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
     if (choice.skillId === 'Meteor' && !fighter.landedMeteorThisBattle) bonus += 1;
   }
   if (player.charId === 'Kit') {
-    // kit3's bar is 8 attacks now, so cheap repeatable attacks matter more, and Multi Shot is worth
-    // 3 of them from a single declare.
+    // kit3 pays per 4 attacks with no ceiling now, so cheap repeatable attacks matter throughout the
+    // battle rather than only up to a bar — and Multi Shot is worth 3 of them from a single declare.
     if (choice.skillId === 'QuickShot') bonus += 1;
     if (choice.skillId === 'MultiShot') bonus += 1;
-    if (choice.skillId === 'SharpShooting') bonus += 0.5; // angling for kit1 (open a weak point)
+    // kit1 pays on the roll landing AND on every hit that cashes the window in afterwards (any
+    // player's, Kit's own included) — the double-dip restored after a hit-only cut proved too costly
+    // (kit1 4.18 -> 2.35 pts/win, Kit's win share 25.6% -> 11.6% at hard). Sized the same as Liora's
+    // charge nudge. Opening a second window while one is already up scores nothing extra either way,
+    // so this does not fire then.
+    if (choice.skillId === 'SharpShooting' && !battle.weakPoint) bonus += 1.5;
+    // kit2 (v0.3.16, restored): Trap paying again on a successful trigger — sized modestly since the
+    // roll is still the real gate (springTrapOnBoss) and Trap's main value is the cancel itself, which
+    // estimateChoiceValue already prices through the damage/tempo it denies rather than through this.
+    if (choice.skillId === 'Trap') bonus += 0.5;
   }
   if (player.charId === 'Luna') {
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;
@@ -214,7 +224,7 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
 
   let bonus = 0;
 
-  if (player.charId === 'Kit' && choice.skillId === 'SharpShooting' && !battle.weakPointActive) {
+  if (player.charId === 'Kit' && choice.skillId === 'SharpShooting' && !battle.weakPoint) {
     const veraPending = pendingOf('Liora');
     if (veraPending && isBigHit(veraPending.skillId)) {
       // Opens in time to still be up when Liora's hit resolves, and the boss's own already-rolled
@@ -259,7 +269,7 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
   if (player.charId === 'Luna' && choice.skillId === 'Blessing' && !battle.partyBuff) {
     const kitPending = pendingOf('Kit');
     const veraPending = pendingOf('Liora');
-    const weakPointComing = battle.weakPointActive || kitPending?.skillId === 'SharpShooting';
+    const weakPointComing = !!battle.weakPoint || kitPending?.skillId === 'SharpShooting';
     // Unlike weak point (turns on at resolve), Blessing is active from the moment it's *declared*
     // (now) until Luna's own resolve — so it covers Liora's hit only if Luna's expiry (this
     // candidate's landedAtSlot) falls at or after Liora's resolve, i.e. a *smaller* marker value.

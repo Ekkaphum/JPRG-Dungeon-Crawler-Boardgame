@@ -7,7 +7,7 @@ import {
   processTrapsAtMarker,
   processScheduledHitsAtMarker,
   expireTimedEffectsAtMarker,
-  TRAP_DELAY_SLOTS,
+  springTrapOnBoss,
   declareBossAction,
   applyDamageToFighter,
   dealDamageToFighterFromBoss,
@@ -352,7 +352,7 @@ describe("Skill Improvement passive (Kit) — separate persistent ladders, never
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
     state.battle!.marker = 10;
     state.battle!.bossSlot = 10;
-    processTrapsAtMarker(state, missRng);
+    springTrapOnBoss(state, missRng);
     const trapRoll = state.battle!.log.filter((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger').at(-1)!;
     // Trap! still uses its own untouched base; Sharp Shooting's miss belongs only to Sharp Shooting.
     expect(trapRoll.t === 'ROLL' && trapRoll.target).toBe(skillStats('Trap', false).rollBaseTarget);
@@ -391,80 +391,79 @@ describe('Liora mana — paid immediately at declare, never refunded (§5.1/§8)
   });
 });
 
-describe('Trap! (§9 Kit, v0.4.0) — placed immediately, triggers only on an exact stop', () => {
-  it('rolls first: a miss deals no damage and does not push the boss back', () => {
+describe('Trap! (§9 Kit, v0.3.15) — springs inside the boss\'s action and cancels it', () => {
+  /** Arms a trap on slot 10 (Trap! is ⏱4, so 10 is only armable from marker 11-13 — see
+   *  tests/trapSlots.test.ts), then parks the marker and the boss pawn on it. */
+  function armedOnTen() {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
-    // Trap! is ⏱4, so slot 10 is only armable from marker 11–13 (see tests/trapSlots.test.ts).
     state.battle!.marker = 13;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
-    expect(state.battle!.traps).toHaveLength(1);
-
     state.battle!.marker = 10;
     state.battle!.bossSlot = 10;
+    return state;
+  }
+  const die = (n: number) => ({ ...createRNG(1), int: () => n } as ReturnType<typeof createRNG>);
+
+  it('rolls first: a miss deals no damage and does not cancel anything', () => {
+    const state = armedOnTen();
+    expect(state.battle!.traps).toHaveLength(1);
     const bossHpBefore = state.battle!.bossHp;
-    // A die below the starting target is a miss — the trap springs (slot vacated) but does
-    // nothing else: no damage, and the boss keeps its tempo.
-    processTrapsAtMarker(state, { ...createRNG(1), int: () => 1 } as ReturnType<typeof createRNG>);
+
+    // A die below the starting target is a miss — the trap springs (slot vacated) but does nothing
+    // else: no damage, and the boss's move goes ahead.
+    expect(springTrapOnBoss(state, die(1))).toBe(false);
     expect(state.battle!.bossHp).toBe(bossHpBefore);
     expect(state.battle!.traps).toHaveLength(0);
-    expect(state.battle!.bossSlot).toBe(10); // untouched
     const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger');
     expect(roll && roll.t === 'ROLL' && roll.success).toBe(false);
     const trigger = state.battle!.log.find((e) => e.t === 'RESOLVE_TRAP_TRIGGER');
     expect(trigger && trigger.t === 'RESOLVE_TRAP_TRIGGER' && trigger.dmg).toBe(0);
   });
 
-  it('deals damage and pushes the boss pawn back TRAP_DELAY_SLOTS when the roll passes (v0.3.14)', () => {
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const kit = findFighter(state, 'Kit');
-    state.battle!.marker = 13;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
-    state.battle!.marker = 10;
-    state.battle!.bossSlot = 10;
+  it('deals damage and reports the cancel when the roll passes', () => {
+    const state = armedOnTen();
     const bossHpBefore = state.battle!.bossHp;
-    processTrapsAtMarker(state, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
+    expect(springTrapOnBoss(state, die(6))).toBe(true);
     expect(state.battle!.bossHp).toBe(bossHpBefore - 5);
     expect(state.battle!.traps).toHaveLength(0);
-    // Since v0.3.14 there is no declared move to postpone — the pawn *is* the boss's next action,
-    // so the trap shoves the pawn. That also takes the boss out of this tick's visit queue
-    // (walk.ts builds the queue after traps run), so it genuinely loses those slots.
-    expect(state.battle!.bossSlot).toBe(10 - TRAP_DELAY_SLOTS);
     const roll = state.battle!.log.find((e) => e.t === 'ROLL' && e.purpose === 'Trap trigger');
     expect(roll && roll.t === 'ROLL' && roll.success).toBe(true);
   });
 
-  it('the boss still acts once it reaches the pushed-back slot — delayed, not disarmed', () => {
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const kit = findFighter(state, 'Kit');
-    state.battle!.marker = 13;
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
-    state.battle!.marker = 10;
-    state.battle!.bossSlot = 10;
-    processTrapsAtMarker(state, { ...createRNG(1), int: () => 6 } as ReturnType<typeof createRNG>);
-
-    // Walk on to where the pawn was pushed to and let the boss take its turn: somebody still gets hit.
-    state.battle!.marker = 10 - TRAP_DELAY_SLOTS;
+  it("through a whole boss turn: the move is rolled, then cancelled, and nobody is hit", () => {
+    const state = armedOnTen();
     const hpBefore = state.battle!.fighters.map((f) => f.hp);
-    declareBossAction(state, createRNG(3));
-    expect(state.battle!.fighters.some((f, i) => f.hp < hpBefore[i])).toBe(true);
+    // int() is 6 for everything here: the boss's move roll (6 = Frenzy) and then the trap's.
+    declareBossAction(state, die(6));
+
+    expect(state.battle!.fighters.map((f) => f.hp)).toEqual(hpBefore);
+    const cancelled = state.battle!.log.find((e) => e.t === 'BOSS_MOVE_CANCELLED');
+    expect(cancelled && cancelled.t === 'BOSS_MOVE_CANCELLED' && cancelled.moveKey).toBe('C');
+    // It names the move it stopped — the one moment the boss's intent goes public since v0.3.14.
+    expect(state.battle!.log.some((e) => e.t === 'BOSS_MOVE')).toBe(false);
+  });
+
+  it('the boss still pays the cancelled move\'s full ⏱, so it loses the turn outright', () => {
+    const state = armedOnTen();
+    declareBossAction(state, die(6)); // Frenzy, ⏱3
+    expect(state.battle!.bossSlot).toBe(10 - 3);
   });
 
   it('expires without effect if the marker passes the slot without the boss stopping there', () => {
-    const state = fixedDraftState();
-    prepareBattle(state);
-    const kit = findFighter(state, 'Kit');
-    state.battle!.marker = 13; // slot 10 must be inside Trap!'s ⏱4 window to arm
-    declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'Trap', trapSlot: 10 }, createRNG(1));
-    state.battle!.marker = 10;
+    const state = armedOnTen();
     state.battle!.bossSlot = 6; // boss is headed elsewhere, not stopping at 10
     const bossHpBefore = state.battle!.bossHp;
-    processTrapsAtMarker(state, createRNG(1));
+    processTrapsAtMarker(state);
     expect(state.battle!.bossHp).toBe(bossHpBefore);
     expect(state.battle!.traps).toHaveLength(0);
+  });
+
+  it('processTrapsAtMarker leaves the trap alone while the boss is standing on it', () => {
+    const state = armedOnTen();
+    processTrapsAtMarker(state);
+    expect(state.battle!.traps).toHaveLength(1); // springTrapOnBoss owns this one
   });
 });
 
@@ -528,7 +527,7 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 20;
     state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: 3, expiresAtSlot: 0 };
-    state.battle!.weakPointActive = true;
+    state.battle!.weakPoint = { ownerId: 1, expiresAtSlot: 0 };
     const bossHp = state.battle!.bossHp;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
     state.battle!.marker = 18;

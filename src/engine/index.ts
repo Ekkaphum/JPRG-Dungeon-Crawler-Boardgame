@@ -10,11 +10,12 @@ export { playGame } from './clock/game';
 export { runClockBattle, resetFighterForNewBattle, resolveOrderCompare } from './clock/walk';
 export {
   applySomnivarTax,
-  TRAP_DELAY_SLOTS,
+  WEAK_POINT_SLOTS,
   declareSkill,
   legalTrapSlots,
   resolveFighterPending,
   processTrapsAtMarker,
+  springTrapOnBoss,
   processScheduledHitsAtMarker,
   expireTimedEffectsAtMarker,
   dealDamageToFighterFromBoss,

@@ -4,15 +4,16 @@ import {
   onPlayerDealtDamage,
   onWeakPointOpened,
   onTrapTriggered,
+  pushScore,
   onHealResolved,
   declareSkill,
   dealDamageToFighterFromBoss,
   createRNG,
 } from '@engine/index';
-import { scorePoints, ALL_CHAR_IDS, CHARACTERS, LAST_SHOT_POINTS, VERA_CHARGED_CAST_MANA } from '@content/characters';
+import { scorePoints, ALL_CHAR_IDS, CHARACTERS, LAST_SHOT_POINTS, LUNA1_ALLY_SCORES_PER_POINT, VERA_CHARGED_CAST_MANA } from '@content/characters';
 import { fixedDraftState } from './testUtils';
 
-// onPlayerDealtDamage/onWeakPointOpened/onTrapTriggered/onHealResolved had zero test coverage
+// onPlayerDealtDamage/onWeakPointOpened/onHealResolved had zero test coverage
 // before this — every condition here is exercised live only through full-game bot play, which
 // doesn't pin exact thresholds or point values. These tests lock in the current numbers (including
 // luna1's 2026-08-11 rebalance, see docs/BALANCE_NOTES.md) so a future change has to be deliberate.
@@ -26,8 +27,8 @@ describe('scorePoints — single source of truth for condition values', () => {
   it('reads the point value straight off the character definition', () => {
     expect(scorePoints('vera1')).toBe(1);
     expect(scorePoints('vera2')).toBe(1);
-    expect(scorePoints('luna1')).toBe(3);
-    expect(scorePoints('matt2')).toBe(2);
+    expect(scorePoints('luna1')).toBe(1); // v0.3.15: moved off Heal, see characters.ts
+    expect(scorePoints('matt2')).toBe(1); // v0.3.15: halved, see characters.ts
   });
 
   it('throws on an unknown condition id rather than returning a silent default', () => {
@@ -195,8 +196,8 @@ describe('matt2 — Guard absorbing a hit meant for an ally (v0.3.7)', () => {
   });
 });
 
-describe('per-occurrence conditions — kit1/kit2/luna1', () => {
-  it('kit1 (weak point opened) awards 1 point per occurrence', () => {
+describe('per-occurrence conditions — kit1/kit2/luna1 (v0.3.16)', () => {
+  it('kit1 pays 1 point per occurrence when Kit opens a weak point (restored, not just hits into it)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
@@ -207,24 +208,86 @@ describe('per-occurrence conditions — kit1/kit2/luna1', () => {
     expect(entries.every((e) => e.points === 1)).toBe(true);
   });
 
-  it('kit2 (trap triggered) awards 2 points per occurrence (raised from 1 in v0.3.8)', () => {
-    // The trap's frequency is effectively fixed by Kit's Skill Improvement passive rather than by
-    // anything tunable on the condition, so point value is the only lever left — see the note on
-    // kit2 in @content/characters.
+  it('kit1 pays Kit 1 point when ANYONE — an ally or Kit himself — hits inside his open window', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    const liora = findFighter(state, 'Liora');
+    state.battle!.weakPoint = { ownerId: kit.playerId, expiresAtSlot: 0 };
+
+    onPlayerDealtDamage(state, liora.playerId, 'Fireball', 9);
+    let entries = state.scoreLog.filter((e) => e.conditionId === 'kit1');
+    expect(entries).toHaveLength(1);
+    expect(entries[0].points).toBe(1);
+    expect(entries[0].playerId).toBe(kit.playerId); // always credited to the spotter, not the shooter
+
+    // v0.3.16: dropped the allies-only restriction — Kit's own follow-up shot now cashes it in too.
+    onPlayerDealtDamage(state, kit.playerId, 'MultiShot', 6);
+    entries = state.scoreLog.filter((e) => e.conditionId === 'kit1');
+    expect(entries).toHaveLength(2);
+  });
+
+  it('kit1 does not fire with no weak point up, nor for a window somebody else opened', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    const liora = findFighter(state, 'Liora');
+    onPlayerDealtDamage(state, liora.playerId, 'Fireball', 9);
+    expect(state.scoreLog.some((e) => e.conditionId === 'kit1')).toBe(false);
+
+    state.battle!.weakPoint = { ownerId: liora.playerId, expiresAtSlot: 0 };
+    onPlayerDealtDamage(state, kit.playerId, 'MultiShot', 6);
+    expect(state.scoreLog.some((e) => e.conditionId === 'kit1')).toBe(false);
+  });
+
+  it('kit2 (v0.3.16, restored, 1 -> 2 after the Kit shortfall) pays Kit 2 when Trap triggers', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     onTrapTriggered(state, kit.playerId);
-    expect(state.scoreLog.find((e) => e.conditionId === 'kit2')?.points).toBe(2);
+    const entries = state.scoreLog.filter((e) => e.conditionId === 'kit2');
+    expect(entries).toHaveLength(1);
+    expect(entries[0].points).toBe(2);
+    expect(entries[0].playerId).toBe(kit.playerId);
   });
 
-  it('luna1 (Heal restoring >=1 HP) awards the rebalanced 3 points, not the old 1', () => {
+  it('luna1 (v0.3.15) pays Luna 1 for every LUNA1_ALLY_SCORES_PER_POINT scoring plays by others', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const luna = findFighter(state, 'Luna');
+    const kit = findFighter(state, 'Kit');
+    const n = LUNA1_ALLY_SCORES_PER_POINT;
+    // kit2 (Trap triggering) is a plain, unconditional scoring event — the simplest way to generate
+    // "someone else scored" n times without any extra state setup.
+    for (let i = 0; i < n - 1; i++) onTrapTriggered(state, kit.playerId); // not yet
+    expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
+
+    onTrapTriggered(state, kit.playerId); // the one that completes the set cashes in
+    const entries = state.scoreLog.filter((e) => e.conditionId === 'luna1');
+    expect(entries).toHaveLength(1);
+    expect(entries[0].points).toBe(1);
+    expect(entries[0].playerId).toBe(luna.playerId);
+
+    for (let i = 0; i < n; i++) onTrapTriggered(state, kit.playerId);
+    expect(state.scoreLog.filter((e) => e.conditionId === 'luna1')).toHaveLength(2);
+  });
+
+  it('luna1 does not echo itself, nor the payouts the rules hand out rather than players earning', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const eric = findFighter(state, 'Eric');
+    pushScore(state, { playerId: eric.playerId, conditionId: 'lastShot', points: 2 });
+    pushScore(state, { playerId: eric.playerId, conditionId: 'timeBonus', points: 4 });
+    expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
+  });
+
+  it('luna1 no longer rides Heal — healing is still her job, just not what her card pays for', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
     const matt = findFighter(state, 'Eric');
     onHealResolved(state, luna.playerId, matt.playerId, 1);
-    expect(state.scoreLog.find((e) => e.conditionId === 'luna1')?.points).toBe(3);
+    expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
   });
 
   it('luna1 does not fire when the heal restored 0 HP (already full)', () => {

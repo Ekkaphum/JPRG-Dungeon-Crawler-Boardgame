@@ -32,6 +32,12 @@ export function describeEvent(ev: ClockLogEvent): string | null {
       const m = BOSSES[ev.bossId].moves.find((x) => x.key === ev.moveKey);
       return m ? `👹 ${m.name.th} — ${m.desc.th}` : null;
     }
+    case 'BOSS_MOVE_CANCELLED': {
+      // Names the move it stopped: this is the one moment the boss's intent becomes public since
+      // v0.3.14, and seeing what was coming is half of what the trap actually bought.
+      const m = BOSSES[ev.bossId].moves.find((x) => x.key === ev.moveKey);
+      return m ? `🪤 กับดักตัดจังหวะ — ${m.name.th} ถูกยกเลิก` : null;
+    }
     case 'RESOLVE_ATTACK':
       return ev.wasted
         ? `${who(ev.playerId)} ${skillLabel(ev.skillId)} — เงื่อนไขไม่ครบ เสียฟรี`

@@ -3,7 +3,7 @@
 // instant they happen; the "slot 3" end-of-battle conditions are checked once here after a boss
 // dies.
 
-import { LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
+import { KIT3_HITS_PER_POINT, LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
 import { pushScore, currentTotalScore } from './damage';
 import type { GameState, PlayerId } from './types';
 
@@ -55,6 +55,19 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   if (charId === 'Liora' && manaSpent >= VERA_CHARGED_CAST_MANA && effectiveDmg > 0) {
     pushScore(state, { playerId, conditionId: 'vera2', points: scorePoints('vera2') });
   }
+  // kit1 (v0.3.16): Kit is paid every time the weak point he opened actually connects — by anyone,
+  // himself included. v0.3.15 tried this allies-only under the id 'kit2' (to keep it separate from
+  // the "open it" payout, which lived at 'kit1'); this version drops both restrictions at once —
+  // opening no longer pays on its own, only cashing it in does, and it no longer matters who cashes
+  // it. The Sharp Shooting hit that *opens* the window is unaffected: dealAttackFor for that hit
+  // resolves before battle.weakPoint is set (see resolveAttackRoll in skills.ts), so it can never
+  // credit itself here — only hits that land *after* the window is already open do.
+  if (battle.weakPoint && effectiveDmg > 0) {
+    const opener = state.players.find((p) => p.id === battle.weakPoint!.ownerId);
+    if (opener?.charId === 'Kit') {
+      pushScore(state, { playerId: battle.weakPoint.ownerId, conditionId: 'kit1', points: scorePoints('kit1') });
+    }
+  }
   if (charId === 'Mira' && skillId === 'FrostBolt' && effectiveDmg > 10) {
     pushScore(state, { playerId, conditionId: 'mira2', points: scorePoints('mira2') });
   }
@@ -71,11 +84,22 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
  *  resolve through the same generic attackRoll success path (skills.ts), so the condition to
  *  credit has to be looked up by character rather than assumed. */
 export function onWeakPointOpened(state: GameState, playerId: PlayerId) {
+  // v0.3.16 first cut moved kit1 entirely onto the hits that cash the window in (onPlayerDealtDamage
+  // below), on the theory that opening a window nobody then hits into is a wasted turn and should not
+  // pay for itself. Measured effect was bigger than intended: kit1 dropped from 4.18 pts/win (the old
+  // open-pays-1 + ally-hits-pays-1 split) to 2.35, because a 4-slot window rarely sees more than ~1.4
+  // hits land — and doubling kit2 (Trap) afterwards barely moved Kit at all, since Trap's own
+  // frequency is the bottleneck, not its point value (0.06 -> still ~0.06 fires/win). Restored here:
+  // opening pays again, on top of — not instead of — the hit-based payout, so kit1 now double-dips
+  // the way it effectively did before v0.3.16, just consolidated under one id.
   const charId = state.players.find((p) => p.id === playerId)!.charId;
   const conditionId = charId === 'Kit' ? 'kit1' : charId === 'Dax' ? 'dax1' : null;
   if (conditionId) pushScore(state, { playerId, conditionId, points: scorePoints(conditionId) });
 }
 
+/** kit2 (v0.3.16): Trap actually triggers — the roll passed, so it dealt damage and cancelled the
+ *  boss's move. Restored after v0.3.15 repointed kit2 onto the weak point and left Trap without a
+ *  score condition of its own; springTrapOnBoss (skills.ts) calls this only on a passed roll. */
 export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
   pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2') });
 }
@@ -99,7 +123,9 @@ export function onHealResolved(state: GameState, healerId: PlayerId, targetId: P
   // Luna's condition explicitly says “heal a friend”: self-healing is legal and restores HP, but
   // does not award luna1. Mira's separate condition does not contain that restriction.
   if (charId === 'Luna' && targetId === healerId) return;
-  const conditionId = charId === 'Luna' ? 'luna1' : charId === 'Mira' ? 'mira1' : null;
+  // v0.3.15: Luna's luna1 moved off Heal entirely (see @content/characters) — healing is still her
+  // job, it just is not what her card pays for any more. Mira keeps the heal-based version.
+  const conditionId = charId === 'Mira' ? 'mira1' : null;
   if (conditionId) pushScore(state, { playerId: healerId, conditionId, points: scorePoints(conditionId) });
 }
 
@@ -117,9 +143,14 @@ export function onBattleEndScoring(state: GameState) {
     if (p.charId === 'Eric' && !f.everDiedThisBattle && f.everDroppedBelowHalfThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'matt3', points: scorePoints('matt3') });
     }
-    // v0.3.7 kit3: 5 -> 8. Multi Shot lands 3 attacks per declare, so the old bar cleared itself.
-    if (p.charId === 'Kit' && f.attackCountThisBattle >= 8) {
-      pushScore(state, { playerId: p.id, conditionId: 'kit3', points: scorePoints('kit3') });
+    // kit3 (v0.3.15): pays per KIT3_HITS_PER_POINT attacks instead of once at a threshold. The 8+
+    // bar was Kit's only real earner and it was capped at one payout a battle, so his best card
+    // topped out at 6 points for the whole game while Eric's and Liora's repeatables had no ceiling
+    // at all. Rewarding the rate rather than a single milestone also matches the fantasy the card
+    // is named for — continuous fire — and it keeps paying when he beats the old bar by a lot.
+    if (p.charId === 'Kit') {
+      const points = Math.floor(f.attackCountThisBattle / KIT3_HITS_PER_POINT) * scorePoints('kit3');
+      if (points > 0) pushScore(state, { playerId: p.id, conditionId: 'kit3', points });
     }
     // v0.3.7 vera3: surviving only pays if she also delivered the spell she was being protected for.
     if (p.charId === 'Liora' && !f.everDiedThisBattle && f.landedMeteorThisBattle) {

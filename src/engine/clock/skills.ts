@@ -20,7 +20,10 @@ const ATTACK_GATED_HP_THRESHOLD = 5;
 /** How many clock slots a sprung Trap! pushes the boss's declared move back by (v0.3.9 — it used to
  *  delete the move outright). See processTrapsAtMarker for why delaying costs the boss more tempo
  *  than cancelling did. */
-export const TRAP_DELAY_SLOTS = 2;
+/** How long a weak point stays open, in clock slots (v0.3.15). Matched to Blessing's four so the
+ *  two buffs a party stacks for a big hit have the same shape and can be lined up without a second
+ *  rule to learn. Replaces "until the boss's next action", which v0.3.14 made almost meaningless. */
+export const WEAK_POINT_SLOTS = 4;
 
 /** Somnivar's "มนตร์ง่วงงุน" tax: player-declared skills with base ⏱ >= 5 walk 2 extra slots. */
 export function applySomnivarTax(state: GameState, baseTime: number): number {
@@ -116,7 +119,7 @@ function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId,
   const battle = state.battle!;
   dealAttackFor(state, fighter, skillId, stats.primary!, false);
   if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng)) {
-    battle.weakPointActive = true;
+    battle.weakPoint = { ownerId: fighter.playerId, expiresAtSlot: battle.marker - WEAK_POINT_SLOTS };
     onWeakPointOpened(state, fighter.playerId);
   }
 }
@@ -365,42 +368,48 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
 
 /** Checks every trap against the marker every tick (before that slot's visit queue runs) — see
  *  docs/10-v0.3.0-rulings.md §6. Must run once per marker tick regardless of who's being visited. */
-export function processTrapsAtMarker(state: GameState, rng: RNG) {
+/** Clears traps the marker has reached without the boss stopping on them. The *trigger* no longer
+ *  lives here: since v0.3.15 a trap fires inside the boss's own action (springTrapOnBoss below), so
+ *  that it can interrupt a move the boss has already rolled. All this does now is expire the misses. */
+export function processTrapsAtMarker(state: GameState) {
   const battle = state.battle!;
   const here = battle.traps.filter((t) => t.slot === battle.marker);
   if (here.length === 0) return;
+  if (battle.bossSlot === battle.marker) return; // the boss is standing on it — springTrapOnBoss has it
   battle.traps = battle.traps.filter((t) => t.slot !== battle.marker);
-  for (const trap of here) {
-    if (battle.outcome !== 'in_progress') break;
-    if (battle.bossSlot !== battle.marker) {
-      battle.log.push({ t: 'RESOLVE_TRAP_EXPIRE', slot: trap.slot });
-      continue;
-    }
+  for (const trap of here) battle.log.push({ t: 'RESOLVE_TRAP_EXPIRE', slot: trap.slot });
+}
 
-    // The boss stopping on the trap only springs it — whether it actually cuts is a roll now (Kit's
-    // Skill Improvement passive, not the old per-battle ladder). A miss means no damage AND no
-    // cancel — the trap fired too weakly to do either.
-    const owner = battle.fighters.find((f) => f.playerId === trap.ownerId)!;
-    const success = rollLadder(state, owner, 'Trap', 'Trap trigger', rng);
-    if (!success) {
-      battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: 0, ownerId: trap.ownerId });
-      continue;
-    }
+/** Springs any trap the boss is standing on, called from declareBossAction *after* the boss has
+ *  rolled its move but *before* that move resolves. Returns true if the move was cancelled.
+ *
+ *  v0.3.15: back to cancelling, which is where this started — but it means something different now.
+ *  The pre-v0.3.9 cancel was weak because the boss's pawn never moved, so it simply declared a fresh
+ *  move on the spot and lost only that one roll. v0.3.9 swapped it for a delay to get real tempo
+ *  denial. Since v0.3.14 the boss acts and *then* walks its cooldown, so a cancel here costs it the
+ *  whole action while it still pays the full ⏱ — the strongest version of the card yet, and the only
+ *  one where the fantasy reads correctly: the hunter's snare closes on the beast mid-lunge.
+ *
+ *  The move is rolled before the trap is, so the table learns what it just stopped. That is the one
+ *  place in v0.3.14's design where the boss's intent becomes public, and Kit is the one who buys it. */
+export function springTrapOnBoss(state: GameState, rng: RNG): boolean {
+  const battle = state.battle!;
+  const trap = battle.traps.find((t) => t.slot === battle.marker);
+  if (!trap) return false;
+  battle.traps = battle.traps.filter((t) => t !== trap);
 
-    const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'Trap', countsAsAttack: false });
-    onTrapTriggered(state, trap.ownerId);
-    battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
-    // A sprung trap pushes the boss's *pawn* back TRAP_DELAY_SLOTS. v0.3.9 expressed the same idea
-    // as "delay the declared move"; since v0.3.14 the boss has no declared move to delay — it acts
-    // the instant it is visited — so the pawn is now the only thing a trap can act on, and it is
-    // also exactly the right thing: under the new model the pawn's position *is* the boss's next
-    // action. The push also takes the boss out of this tick's visit queue (walk.ts builds that
-    // queue after this runs), so it genuinely loses those slots rather than acting on the spot.
-    if (battle.outcome === 'in_progress') {
-      battle.bossSlot = Math.max(0, battle.bossSlot - TRAP_DELAY_SLOTS);
-      battle.bossStackSeq = battle.nextStackSeq++;
-    }
+  // Springing it is automatic; whether it actually cuts is a roll (Kit's Skill Improvement passive,
+  // not the old per-battle ladder). A miss means no damage AND no cancel — it fired too weakly.
+  const owner = battle.fighters.find((f) => f.playerId === trap.ownerId)!;
+  if (!rollLadder(state, owner, 'Trap', 'Trap trigger', rng)) {
+    battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: 0, ownerId: trap.ownerId });
+    return false;
   }
+
+  const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'Trap', countsAsAttack: false });
+  battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
+  onTrapTriggered(state, trap.ownerId);
+  return true;
 }
 
 /** Expires fixed-duration effects before anything at this marker can use them. Blessing declared at
@@ -408,6 +417,7 @@ export function processTrapsAtMarker(state: GameState, rng: RNG) {
 export function expireTimedEffectsAtMarker(state: GameState) {
   const battle = state.battle!;
   if (battle.partyBuff && battle.marker <= battle.partyBuff.expiresAtSlot) battle.partyBuff = null;
+  if (battle.weakPoint && battle.marker <= battle.weakPoint.expiresAtSlot) battle.weakPoint = null;
 }
 
 /** Multi Shot's early hits (kind: 'multiHit', @content/characters): fired the instant the marker

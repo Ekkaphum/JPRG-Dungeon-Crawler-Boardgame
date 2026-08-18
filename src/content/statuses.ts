@@ -133,7 +133,7 @@ export interface ActiveStatus {
 
 export function bossStatuses(battle: BattleState): ActiveStatus[] {
   const out: ActiveStatus[] = [];
-  if (battle.weakPointActive) out.push({ id: 'weakPoint', value: '+4' });
+  if (battle.weakPoint) out.push({ id: 'weakPoint', value: '+4' });
   if (battle.bossId === 'Ragorath') out.push({ id: 'rage', value: `${battle.rage}` });
   if (battle.armor > 0) out.push({ id: 'armor', value: `${battle.armor}` });
   if (battle.bossId === 'Somnivar') out.push({ id: 'sleepAura' });

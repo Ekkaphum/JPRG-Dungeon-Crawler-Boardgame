@@ -37,7 +37,7 @@ describe('boss status badges', () => {
   it('weak point shows on whichever boss is up', () => {
     const state = battleFor('Ragorath');
     expect(ids(bossStatuses(state.battle!))).not.toContain('weakPoint');
-    state.battle!.weakPointActive = true;
+    state.battle!.weakPoint = { ownerId: 1, expiresAtSlot: 0 };
     expect(ids(bossStatuses(state.battle!))).toContain('weakPoint');
   });
 });

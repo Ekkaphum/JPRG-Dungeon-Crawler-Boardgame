@@ -428,11 +428,18 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'matt2',
         charId: 'Eric',
         slot: 2,
-        points: 2,
+        points: 1,
         perOccurrence: true,
         // v0.3.7: was "Land the Last Shot" (3pts), which is now the universal LAST_SHOT_POINTS bonus
         // every character earns. Eric's protector role — the whole point of Guard — previously scored
         // nothing at all despite Guard being declared ~1,800 times per 3,000 sim games.
+        //
+        // v0.3.15: 2 pts -> 1. The v0.3.14 boss pass made the boss act roughly once more per battle,
+        // and this condition pays per redirect with no cap, so its firing rate went 0.46 -> 4.36 per
+        // win on its own. Measured effect: Eric took **82.3%** of individual wins (Kit 1.4%), and
+        // zeroing this one condition moved him back to 23.0% — it is the single cause, not the bots'
+        // fondness for Guard. Halving rather than capping keeps the condition's shape (every save
+        // counts, exactly as a protector's job should read) and only repricing what a save is worth.
         desc: { th: 'ปกป้องเพื่อนสำเร็จ — Guard รับดาเมจแทนเพื่อน', en: 'Guard successfully takes a hit aimed at an ally' },
       },
       {
@@ -466,39 +473,51 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'kit1',
         charId: 'Kit',
         slot: 1,
+        // v0.3.16 first cut: dropped the "opening pays" half and moved kit1 entirely onto the hits
+        // that cash the window in, by anyone — Kit's own follow-up shots included. Measured too
+        // costly on its own: kit1 fell from 4.18 pts/win (the old open+ally-hit split, under two ids)
+        // to 2.35, because a 4-slot window rarely sees more than ~1.4 hits land, and doubling kit2
+        // (Trap) afterwards couldn't make up the gap since Trap's frequency, not its point value, is
+        // the bottleneck. Restored the open-pays-1 half on top of the hit-pays-1 half: opening still
+        // isn't free (the party still has to actually use it, or nothing beyond that first point
+        // comes in), but a wasted window no longer costs Kit the whole point of having declared it.
         points: 1,
         perOccurrence: true,
-        desc: { th: 'เปิดจุดอ่อนสำเร็จ', en: 'Successfully open a weak point' },
+        desc: {
+          th: 'เปิดจุดอ่อนสำเร็จ หรือ ใครก็ตามตีเข้าจุดอ่อนที่ Kit เปิดไว้',
+          en: 'Open a weak point, or anyone lands a hit while the one Kit opened is still up',
+        },
       },
       {
         id: 'kit2',
         charId: 'Kit',
         slot: 2,
-        // 1 -> 2 (v0.3.8). The condition itself is right and stays as-is: the trap has to actually
-        // spring. But its frequency is effectively fixed — the boss stops on the armed slot 99.4% of
-        // the time, so the only variable is the trigger roll, and that is already governed by Kit's
-        // Skill Improvement passive rather than by anything tunable here (lowering the base 6 -> 5
-        // moved the success rate only 35.3% -> 38.8%). With frequency locked at ~0.13 fires per win,
-        // point value is the one lever left, and kit2 was contributing 1% of Kit's score.
+        // v0.3.16: restored after v0.3.15 moved the old kit2 onto the weak point and left Trap with
+        // no score condition at all — measured at 85 declares in 3,000 games with nothing paying for
+        // it. Back to a plain "the roll passed", which is also the roll that cancels the boss's move
+        // outright (springTrapOnBoss, skills.ts) — the single most powerful effect in the ruleset, so
+        // it stays gated behind the same roll rather than getting a condition of its own to chase.
+        //
+        // 1 -> 2: at 1 point this measured 0.06 fires/win, next to nothing — kit1 moving off "opening
+        // pays" onto "a hit has to land" cut Kit's income far more than expected (13.39 -> 11.60
+        // pts/win, win share 25.6% -> 11.6% at hard), and Trap's own frequency stayed too low for a
+        // single point to matter. Doubling it is the direct lever for that shortfall.
         points: 2,
         perOccurrence: true,
-        desc: { th: 'กับดักทำงานสำเร็จ', en: 'A trap successfully triggers' },
+        desc: { th: 'กับดักทำงานสำเร็จ', en: 'Trap successfully triggers' },
       },
       {
         id: 'kit3',
         charId: 'Kit',
         slot: 3,
-        // Raised to 3 alongside the 5 -> 8 bar, then measured back down to 2: at 8 attacks it fires
-        // ~0.96 times per win instead of 2.75, so 3 points made it a rare *spike* and Kit's win
-        // share jumped to 41.5%. Rarer and cheaper keeps it a goal without making him the runaway.
-        points: 2,
-        perOccurrence: false,
-        // v0.3.7: bar raised 5 -> 8 and value 2 -> 3. Multi Shot lands 3 separate attacks from one
-        // declare, so "5+" fired in 92% of battles — an automatic payout rather than a goal. 8 makes
-        // the continuous-fire fantasy something Kit actually builds toward, and the extra point
-        // raises his ceiling (he had the lowest score variance of the four, so he was consistently
-        // 2nd/3rd and rarely won).
-        desc: { th: 'จบยกบอสโดยโจมตีบอสไปแล้ว 8 ครั้งขึ้นไป', en: 'End the battle having attacked the boss 8+ times' },
+        // v0.3.15: 2 points at a one-off "8 or more" bar became 1 point per KIT3_HITS_PER_POINT
+        // attacks. The threshold version was Kit's only real earner and it was capped at a single
+        // payout per battle — 6 points across the whole game — while every other character's slot-①
+        // and slot-② conditions repeat without a ceiling. A typical battle lands 8-9 attacks, so the
+        // usual payout is unchanged; what changes is that beating the bar by a lot now pays for it.
+        points: 1,
+        perOccurrence: true,
+        desc: { th: 'โจมตีบอสครบทุก 4 ครั้ง', en: 'Every 4 attacks landed on the boss' },
       },
     ],
   },
@@ -548,9 +567,14 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'vera3',
         charId: 'Liora',
         slot: 3,
-        // 3 -> 2: at 3 this was the single largest personal payout in the game (7.38 pts/win under
-        // competitive play, against Eric's biggest at 5.20).
-        points: 2,
+        // 3 -> 2 (original tuning): at 3 this was the single largest personal payout in the game
+        // (7.38 pts/win under competitive play, against Eric's biggest at 5.20).
+        //
+        // 2 -> 3 (v0.3.16): reverted. The condition itself already gates hard — it only pays if she
+        // both survives AND lands the ⏱7 Meteor that risk was for, unlike Luna's luna3 (survive alone)
+        // or Eric's matt3 (drop below half, survive) which ask for less. At 2 she was underpaid for a
+        // harder bar than the other survival-style conditions clear.
+        points: 3,
         perOccurrence: false,
         // v0.3.7: was a bare "end the battle without dying" (2pts) — at a 91.5% win rate that fired
         // in 82% of battles and made up 39% of her score for doing nothing in particular, which is
@@ -577,17 +601,20 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         id: 'luna1',
         charId: 'Luna',
         slot: 1,
-        // 1 -> 3 (2026-08-11): with comboSynergyBonus now steering Luna toward Blessing whenever a
-        // teammate's big hit is lining up, Heal was barely worth declaring — balance sim showed it
-        // contributing under 3% of her total score in won games, next to nothing next to luna3's
-        // ~50%. Bots don't pick Heal for its point value (estimateChoiceValue's heal case is purely
-        // HP-need-driven; scoreConditionBonus doesn't touch luna1 at all), so this fire rate is a
-        // fixed multiplier — 2x wasn't enough to move Luna's total meaningfully (+0.1 pts/win over
-        // 4000 games); 3x still leaves it well under matt3's contribution at the same frequency
-        // scale. See docs/BALANCE_NOTES.md for the tested progression.
-        points: 3,
+        // v0.3.15: was "Heal restores at least 1 HP to an ally" at 3 points. That version's fire rate
+        // was outside her control — bots pick Heal on HP need, never on point value — so it had been
+        // repriced 1 -> 3 without ever fixing the real problem, which is structural: Luna is the only
+        // character with no card that can finish a boss, so she earns the universal Last Shot bonus
+        // 0.13 times per win against everyone else's 1.6-2.5. She loses roughly two points a game
+        // before play even starts, and no amount of healing pays that back.
+        //
+        // This version pays her for the thing she actually does: making everyone else's turn work.
+        // She scores whenever *anybody else* scores, which is the cleanest possible statement of the
+        // support role and the one payout that scales with how well the whole table is doing rather
+        // than with how injured it is.
+        points: 1,
         perOccurrence: true,
-        desc: { th: 'ใช้ Heal แล้วฟื้น HP ให้เพื่อนได้จริงอย่างน้อย 1 แต้ม', en: 'Heal restores at least 1 HP to an injured ally' },
+        desc: { th: 'ผู้เล่นคนอื่นทำแต้มครบทุก 4 ครั้ง', en: 'Every 4 scoring plays by other players' },
       },
       {
         id: 'luna2',
@@ -611,7 +638,12 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         // fired in ~70% of battles and accounted for 50% of Luna's entire score — the largest single
         // payout in the game, mostly earned by the party simply not dying. Cutting the value trims
         // her lead without touching what the condition rewards.
-        points: 2,
+        //
+        // 2 -> 3 (v0.3.16): her personal conditions were repriced under v0.3.14's more frequent boss
+        // actions, but the fix that has actually stuck is a spike, not a rate — luna1's per-occurrence
+        // trickle keeps her average score competitive without ever letting her win a close game the
+        // way Eric's matt3 or a big Meteor can. This is her one spike card, so it goes back up.
+        points: 3,
         perOccurrence: false,
         desc: { th: 'จบยกบอสโดยไม่มีใครในวงตายเลย', en: 'End the battle with no party member ever dying' },
       },
@@ -721,6 +753,16 @@ export const LAST_SHOT_CONDITION_ID = 'lastShot';
  *  turns setting up one cast. Set to 3 at first and measured at 0.00 fires per win across 3,000
  *  games — nobody ever banks that long — see docs/BALANCE_NOTES.md. */
 export const VERA_CHARGED_CAST_MANA = 2;
+
+/** kit3 pays 1 point per this many attacks on the boss (v0.3.15), replacing a single "8 or more"
+ *  milestone that could only ever pay once a battle. */
+export const KIT3_HITS_PER_POINT = 4;
+
+/** luna1 pays 1 point per this many scoring plays by *other* players (v0.3.15). Priced by
+ *  measurement, not taste: at 1 point per single event she scored 19.65/win against the party's ~13
+ *  and won 99.5% of games, so the condition's shape was right and only its rate was wrong. Same
+ *  count-and-exchange shape as KIT3_HITS_PER_POINT deliberately — one idea for the table to learn. */
+export const LUNA1_ALLY_SCORES_PER_POINT = 3;
 
 /** Liora's "one big impact" bar — scores vera1 on every hit that reaches it, and latches the half of
  *  vera3 that asks whether she actually delivered this battle. One threshold, both conditions. */

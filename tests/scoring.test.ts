@@ -29,7 +29,7 @@ describe("Luna cond3 — 'no one ever died' (§5.4: revived still counts as havi
     onBattleEndScoring(state);
     const lunaScore = state.scoreLog.filter((e) => e.playerId === luna.playerId && e.conditionId === 'luna3');
     expect(lunaScore).toHaveLength(1);
-    expect(lunaScore[0].points).toBe(2); // 3 -> 2 in v0.3.7 (it was 50% of Luna's whole score)
+    expect(lunaScore[0].points).toBe(3); // 2 -> 3 in v0.3.16 (her one spike card, see characters.ts)
   });
 
   it('does not crash when Luna simply is not in the game (regression: playerByChar used to assume she always was)', () => {
@@ -92,13 +92,25 @@ describe('Eric/Kit/Liora slot-3 end-of-battle conditions (v0.3.7)', () => {
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
     expect(scored(state, kit.playerId, 'kit3')).toBe(true);
+    // v0.3.15: 1 point per 4 attacks, so 8 pays the same 2 the old "8 or more" bar did.
+    expect(state.scoreLog.find((e) => e.conditionId === 'kit3')?.points).toBe(2);
   });
 
-  it('kit3: 7 attacks is no longer enough', () => {
+  it('kit3 (v0.3.15): beating the bar by a lot now pays for it', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
-    kit.attackCountThisBattle = 7;
+    kit.attackCountThisBattle = 15; // 3 full brackets of 4, remainder does not round up
+    state.battle!.outcome = 'boss_defeated';
+    onBattleEndScoring(state);
+    expect(state.scoreLog.find((e) => e.conditionId === 'kit3')?.points).toBe(3);
+  });
+
+  it('kit3: fewer than 4 attacks still pays nothing', () => {
+    const state = fixedDraftState();
+    prepareBattle(state);
+    const kit = findFighter(state, 'Kit');
+    kit.attackCountThisBattle = 3;
     state.battle!.outcome = 'boss_defeated';
     onBattleEndScoring(state);
     expect(scored(state, kit.playerId, 'kit3')).toBe(false);

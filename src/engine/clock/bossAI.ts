@@ -13,7 +13,7 @@
 import { BOSSES, rollBossMove } from '@content/bosses3';
 import { pickExtreme } from './rank';
 import { currentTotalScore } from './damage';
-import { applyBossDamageToFighter, dealDamageToFighterFromBoss, resolveQueuedCounter } from './skills';
+import { applyBossDamageToFighter, dealDamageToFighterFromBoss, resolveQueuedCounter, springTrapOnBoss } from './skills';
 import type { RNG } from '../rng';
 import type { BattleState, Fighter, GameState } from './types';
 
@@ -64,7 +64,15 @@ export function declareBossAction(state: GameState, rng: RNG) {
     moveKey: move.key,
   });
 
-  applyBossMove(state, move.key, rng);
+  // The trap rolls between the move being chosen and the move happening (v0.3.15). On a hit the
+  // action is cancelled outright — and the boss still pays the cooldown below, so it loses the turn
+  // rather than simply re-rolling on the spot the way the pre-v0.3.9 cancel let it.
+  const trapped = springTrapOnBoss(state, rng);
+  if (trapped) {
+    battle.log.push({ t: 'BOSS_MOVE_CANCELLED', bossId: battle.bossId, moveKey: move.key });
+  } else if (battle.outcome === 'in_progress') {
+    applyBossMove(state, move.key, rng);
+  }
 
   // Cooldown, applied after the blow lands — "ทำเสร็จแล้วค่อยเดินเวลา". Set unconditionally: if the
   // move killed the party or a Counter killed the boss, the walk loop stops on `outcome` anyway.
@@ -89,7 +97,6 @@ export function applyBossMove(state: GameState, moveKey: 'A' | 'B' | 'C', rng: R
       resolveAurelius(state, moveKey);
       break;
   }
-  battle.weakPointActive = false; // "จนกว่าบอสจะทำแอคชันถัดไป" — expires the instant the boss acts.
 }
 
 /** A single-target boss hit — applies damage and resolves any Counter riposte immediately, since

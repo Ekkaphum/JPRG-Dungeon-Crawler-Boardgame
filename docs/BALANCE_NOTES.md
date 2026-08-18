@@ -647,3 +647,86 @@ declares vs Slash's 6,376), which is a suspicious enough number that the heurist
 candidate. This project has already measured its own heuristic once by mistake (v0.3.5, the
 over-weighted bot preferences). **Do not tune `matt2` until that is separated.** Logged as
 BACKLOG §3.
+
+---
+
+## 2026-08-18 — v0.3.15: fixing what v0.3.14 broke about the party's own scoring
+
+v0.3.14's boss redesign was measured and compensated at the boss level (HP), but it also broke three
+things on the *player* side that HP can't fix, because they are about how the party's own score
+conditions interact with a boss that now acts far more often:
+
+1. **The weak point's lifetime collapsed.** It used to last "until the boss's next action" — fine
+   when the boss acted every other visit, nearly meaningless once it acts every visit. Kit's Sharp
+   Shooting fell to 0.75 declares/game at hard (from a design that assumed it stayed useful).
+2. **Trap! lost its score condition entirely** when an earlier iteration this session moved `kit2`
+   onto the weak point, leaving nothing to pay for a trap firing — measured at 85 declares in 3,000
+   games with zero backing.
+3. **`matt2` (Guard redirect) had scaled with boss frequency with no cap**, reaching 4.36 fires/win
+   and 45% of Eric's score, pushing his *individual win share* to 82.3% against Kit's 1.4% at hard —
+   a game where three of four characters had effectively stopped competing.
+
+### What shipped
+
+- `matt2`: 2 pts → **1 pt**. Halving rather than capping keeps its shape (every save counts) and only
+  reprices what a save is worth.
+- **Weak point is now a timed, owned window** (`WEAK_POINT_SLOTS = 4`, matching Blessing), not a bare
+  flag the boss's next action clears. `BattleState.weakPointActive: boolean` → `weakPoint: { ownerId,
+  expiresAtSlot } | null`.
+- **Trap! springs inside the boss's own action**, between the move being rolled and it resolving. A
+  passed roll cancels the move outright — the boss still pays its full ⏱ as cooldown, so it loses the
+  whole turn rather than just re-rolling on the spot (the pre-v0.3.9 version's weakness). The old
+  "push the pawn back 2 slots" behavior (v0.3.9-v0.3.14) is gone; `TRAP_DELAY_SLOTS` is removed.
+- **`kit1`** now pays 1 point both when Kit opens a weak point *and* when anyone (including Kit
+  himself) lands a hit inside it. A hit-only version was tried first and measured too costly on its
+  own (kit1 4.18 → 2.35 pts/win, Kit's hard win share 25.6% → 11.6%) before the open-pays-too half was
+  restored on top.
+- **`kit2`** restored as "Trap! successfully triggers", 2 points (tried at 1 first; measured almost no
+  effect, since Trap's frequency — not its point value — was the bottleneck: 0.06 fires/win either way).
+- **`kit3`**: "8+ attacks, 2 pts once per battle" → **1 point per `KIT3_HITS_PER_POINT` (4) attacks**,
+  uncapped. The old version was Kit's only real earner and topped out at 6 points across the whole game
+  while everyone else's repeatable conditions had no ceiling.
+- **`luna1`**: moved entirely off Heal (bots pick Heal on HP need, never on point value, so the old
+  version's fire rate was outside anyone's control) onto **"every `LUNA1_ALLY_SCORES_PER_POINT` (3)
+  scoring plays by other players, 1 point"** — the cleanest statement of the support role available:
+  she scores when the table is doing well, not when someone happens to be hurt. Tried at 4 first
+  (13.33 pts/win, too low) before landing on 3. Explicitly excludes Last Shot and the timeBonus payout
+  — both are rules-granted, not earned, and counting them would hand her 3 free points at the buzzer.
+  At 1 point per single event this measured 19.65 fires/win and a 99.5% individual win share — the
+  *shape* was exactly right, the *rate* was not.
+- **`luna3`**: 2 → **3 points**. Every other Luna condition pays in small per-occurrence pieces, so her
+  score was steady but could never spike; this is her one spike card, restored to its pre-v0.3.7 value.
+- **`vera3`**: 2 → **3 points**, on request after review — it already gates harder than Luna's/Eric's
+  equivalent survival conditions (needs both "survived" AND "landed the ⏱7 Meteor"), so 2 underpaid it
+  relative to the bar it clears.
+
+### Measured (5,000 games/tier, final state before this release)
+
+| | Eric | Kit | Liora | Luna |
+|---|---|---|---|---|
+| pts/win (hard) | 15.15 | 13.21 | 13.67 | 14.53 |
+| individual win share (hard) | 43.4% | 18.7% | 24.6% | 13.4% |
+| pts/win (medium) | 12.75 | 13.21 | 9.70 | 13.18 |
+| individual win share (medium) | 36.6% | 35.3% | 9.4% | 18.7% |
+
+Point spread is the tightest it has been all session (15.15/13.21 = 1.15×). **Individual win share is
+not** — Eric still takes the plurality of games in both tiers, unmoved by any of the tuning above,
+because `matt2` + `matt3` still account for >50% of his score. Not re-opened this pass; logged as
+BACKLOG §3.
+
+**HP was bumped again** to hold difficulty against the party getting indirectly stronger (bots chase
+the new point incentives, so they declare Sharp Shooting/Meteor more): Ragorath 72→76, Somnivar 46→48,
+Aurelius 82→88. Measured before this bump: hard 65.9% → 62.5%. After: **hard ~63-64%**, still short of
+the 66.1% baseline. **Deliberately shipped without closing that last gap** — the user chose to CPD at
+this point rather than keep iterating HP, so v0.3.15's win rate is a known, accepted ~2-3pp softer than
+target rather than a miss nobody noticed.
+
+### 🔴 Still open — Eric's individual win share, not just his score average
+
+The win-share reporting added this session (see `tools/balance.ts`) surfaced that score *average* and
+*win share* can disagree badly: v0.3.14's raw numbers made this look like a 2.1× problem (19.4 vs 9.1
+pts/win); the real number was 59× (82.3% vs 1.4% win share). After this whole pass, the average gap is
+tight (1.15×) but win share is not (43.4% vs 13.4-24.6%). This means the remaining problem is not any
+one condition's point value — it is `matt2` and `matt3` together being reliable, repeatable, low-variance
+income compared to everyone else's conditions, which still lets Eric win consistently even when his
+total isn't much higher. Untangling that is the next `docs/BACKLOG.md` §3 pass, not this one.

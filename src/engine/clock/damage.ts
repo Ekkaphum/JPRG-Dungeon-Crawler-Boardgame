@@ -3,7 +3,7 @@
 // per skill.
 
 import { BOSSES } from '@content/bosses3';
-import { CHARACTERS, type SkillId } from '@content/characters';
+import { CHARACTERS, LAST_SHOT_CONDITION_ID, LUNA1_ALLY_SCORES_PER_POINT, scorePoints, type SkillId } from '@content/characters';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
 /** Berserk's threshold (@content/characters PASSIVES.Eric) — always-on, checked here rather than
@@ -17,7 +17,7 @@ const BERSERK_HP_THRESHOLD = 7;
 export function computeOutgoingPlayerDamage(battle: BattleState, base: number, attackerId?: number): number {
   let dmg = base;
   if (battle.partyBuff) dmg += battle.partyBuff.atk;
-  if (battle.weakPointActive) dmg += 4;
+  if (battle.weakPoint) dmg += 4;
   if (attackerId != null) {
     const attacker = battle.fighters.find((f) => f.playerId === attackerId);
     if (attacker?.charId === 'Eric' && attacker.alive && attacker.hp < BERSERK_HP_THRESHOLD) dmg += 4;
@@ -169,11 +169,30 @@ export function reviveFighter(state: GameState, fighter: Fighter) {
   battle.log.push({ t: 'REVIVE', playerId: fighter.playerId, atSlot: battle.marker, hp: fighter.hp });
 }
 
+/** Payouts luna1 does not echo: its own entry (or it would recurse), and the two bonuses handed out
+ *  by the rules rather than earned by a play — the Last Shot bonus and Aurelius's leftover-clock time
+ *  bonus, the latter of which pays all four players at once and would hand Luna three free points at
+ *  the buzzer. */
+const LUNA1_IGNORES = ['luna1', LAST_SHOT_CONDITION_ID, 'timeBonus'];
+
 export function pushScore(state: GameState, entry: Omit<ScoreEntry, 'atSlot' | 'bossId'>) {
   const battle = state.battle!;
   const full: ScoreEntry = { ...entry, atSlot: battle.marker, bossId: battle.bossId };
   state.scoreLog.push(full);
   battle.log.push({ t: 'SCORE', entry: full });
+
+  // luna1 (v0.3.15): Luna scores 1 whenever anybody else does. It hangs off pushScore rather than
+  // off any one trigger because that is literally the condition — every other character's payout is
+  // her payout too. Guarded against recursing on its own entry, and against paying her for the
+  // shared bonuses (Last Shot, the leftover-clock time bonus), which are not anyone's *play*: they
+  // are handed out by the rules, and counting them would pay her three extra points at the buzzer
+  // for having done nothing.
+  if (LUNA1_IGNORES.includes(entry.conditionId)) return;
+  const luna = state.players.find((p) => p.charId === 'Luna');
+  if (!luna || luna.id === entry.playerId) return;
+  battle.allyScoresForLuna += 1;
+  if (battle.allyScoresForLuna % LUNA1_ALLY_SCORES_PER_POINT !== 0) return;
+  pushScore(state, { playerId: luna.id, conditionId: 'luna1', points: scorePoints('luna1') });
 }
 
 export function currentTotalScore(state: GameState, playerId: number): number {

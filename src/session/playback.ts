@@ -12,7 +12,7 @@
 // never drift across bursts.
 
 import type { BattleState, ClockLogEvent, GameState, SkillId } from '@engine/index';
-import { TRAP_DELAY_SLOTS } from '@engine/index';
+import { WEAK_POINT_SLOTS } from '@engine/index';
 import { BOSSES } from '@content/bosses3';
 import { CHARACTERS, SKILLS } from '@content/characters';
 
@@ -185,9 +185,10 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
     bossStackSeq: battle.fighters.length,
     traps: [],
     scheduledHits: [],
-    weakPointActive: false,
+    weakPoint: null,
     partyBuff: null,
     guard: null,
+    allyScoresForLuna: 0,
     finishedBy: null,
     finishedBySkill: null,
     outcome: 'in_progress',
@@ -242,6 +243,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
     case 'MARKER_TICK':
       b.marker = ev.marker;
       if (b.partyBuff && b.marker <= b.partyBuff.expiresAtSlot) b.partyBuff = null;
+      if (b.weakPoint && b.marker <= b.weakPoint.expiresAtSlot) b.weakPoint = null;
       break;
 
     case 'DECLARE': {
@@ -262,7 +264,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
 
     case 'BOSS_MOVE':
       // The weak point closes the moment the boss acts.
-      b.weakPointActive = false;
+      // v0.3.15: the weak point is timed now, so a boss move no longer closes it.
       break;
 
     case 'RESOLVE_ATTACK': {
@@ -304,12 +306,18 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
       break;
     }
 
+    case 'ROLL':
+      // The replayed display never tracked the weak point at all — it only ever cleared it on a
+      // boss move, so the badge could not appear. Now that the window is timed and owned it has to
+      // be reconstructed here, mirroring resolveAttackRoll in @engine/clock/skills.ts.
+      if (ev.playerId !== 'boss' && ev.purpose.endsWith('weak point') && ev.success) {
+        b.weakPoint = { ownerId: ev.playerId, expiresAtSlot: b.marker - WEAK_POINT_SLOTS };
+      }
+      break;
+
     case 'RESOLVE_TRAP_TRIGGER':
       b.bossHp = Math.max(0, b.bossHp - ev.dmg);
       b.traps = b.traps.filter((t) => t.slot !== ev.slot);
-      // Mirrors the engine's rule in @engine/clock/skills.ts: a connecting trap shoves the boss
-      // pawn back; a failed roll (dmg 0) neither hurts nor delays.
-      if (ev.dmg > 0) b.bossSlot = Math.max(0, b.bossSlot - TRAP_DELAY_SLOTS);
       break;
 
     case 'RESOLVE_TRAP_EXPIRE':
