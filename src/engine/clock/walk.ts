@@ -4,6 +4,9 @@
 import { CHARACTERS } from '@content/characters';
 import type { RNG } from '../rng';
 import { declareSkill, expireTimedEffectsAtMarker, legalTrapSlots, processScheduledHitsAtMarker, processTrapsAtMarker, resolveFighterPending } from './skills';
+import { expireAilmentsAtMarker, tickOnOwnVisit } from './ailments';
+import { pushScore } from './damage';
+import { SHADOW_MAX, scorePoints } from '@content/characters';
 import { declareBossAction } from './bossAI';
 import { reviveFighter } from './damage';
 import { onBattleEndScoring } from './scoring';
@@ -28,13 +31,30 @@ export function resolveOrderCompare(a: { stackSeq: number; isBoss?: boolean }, b
  *  queue and the post-boss-move sweep below (§4.1 fix, item 7) share the exact same visit logic. */
 function* resolvePlayerVisit(state: GameState, f: Fighter, rng: RNG): Generator<PendingDecision, void, Choice> {
   const battle = state.battle!;
+  // v0.4.0 — chronos2 asks whether the ally Chronos hastened actually spent the visit he bought
+  // them. Read here, before the pending resolves, and cleared either way so the credit only ever
+  // applies to that one visit.
+  const hastedBy = f.hastedByPlayerId;
+  f.hastedByPlayerId = null;
+  const damageBeforeVisit = f.damageDealtThisBattle;
+
   resolveFighterPending(state, f, rng);
   if (battle.outcome !== 'in_progress') return;
   if (!f.alive) return;
+
+  // Kage's Shadowless: a visit reached without the boss having touched him since the last one.
+  // `shadow` is zeroed by any boss hit (see applyBossDamageToFighter), so surviving untouched is
+  // the entire condition — nothing else needs tracking.
+  if (f.charId === 'Kage') f.shadow = Math.min(SHADOW_MAX, f.shadow + 1);
+
   const options = buildDeclareOptions(state, f);
   const choice = yield { kind: 'DECLARE_ACTION', playerId: f.playerId, options };
   if (choice.kind !== 'DECLARE_ACTION') throw new Error(`expected DECLARE_ACTION for player ${f.playerId}`);
   declareSkill(state, f, choice, rng);
+
+  if (hastedBy !== null && f.damageDealtThisBattle > damageBeforeVisit) {
+    pushScore(state, { playerId: hastedBy, conditionId: 'chronos2', points: scorePoints('chronos2') });
+  }
 }
 
 function buildDeclareOptions(state: GameState, fighter: Fighter): DeclareOptions {
@@ -83,6 +103,10 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
     // Fixed-duration buffs expire before traps, scheduled hits, player visits or the boss can use
     // them at this slot. Blessing declared at N therefore covers exactly N→N-4, not Luna's return.
     expireTimedEffectsAtMarker(state);
+    // Same slot, same reasoning as the buffs above: an ailment declared to last 4 slots covers
+    // exactly N→N-4. Doom *fires* here rather than lapsing — see expireAilmentsAtMarker.
+    expireAilmentsAtMarker(state);
+    if (battle.outcome !== 'in_progress') break;
 
     processTrapsAtMarker(state);
     if (battle.outcome !== 'in_progress') break;
@@ -117,6 +141,11 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
       const f = entry.fighter!;
       if (!f.alive) continue;
       visitedThisTick.add(f.playerId);
+      // Burn and bleed bite on the victim's own visit, before they get to act — being visited more
+      // often is the price of those two, which is exactly the inverse of poison.
+      tickOnOwnVisit(state, f);
+      if (!f.alive) continue;
+      if (battle.outcome !== 'in_progress') break;
       yield* resolvePlayerVisit(state, f, rng);
     }
 
@@ -160,4 +189,16 @@ export function resetFighterForNewBattle(fighter: Fighter, charId: Fighter['char
   fighter.everDroppedBelowHalfThisBattle = false;
   fighter.landedMeteorThisBattle = false;
   fighter.damageDealtThisBattle = 0;
+  // v0.4.0. Souls and sand deliberately reset per battle like mana does — none of the new
+  // resources bank across boss fights, so a long first battle can't front-load the third one.
+  fighter.sand = 0;
+  fighter.shadow = 0;
+  fighter.souls = 0;
+  fighter.soulsScored = 0;
+  fighter.stealthUntilSlot = null;
+  fighter.stealthStrikeBonus = 0;
+  fighter.everHitByBossThisBattle = false;
+  fighter.predictedBossMove = null;
+  fighter.hastedByPlayerId = null;
+  fighter.ailments = [];
 }

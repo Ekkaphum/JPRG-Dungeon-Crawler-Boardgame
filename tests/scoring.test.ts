@@ -33,13 +33,12 @@ describe("Luna cond3 — 'no one ever died' (§5.4: revived still counts as havi
   });
 
   it('does not crash when Luna simply is not in the game (regression: playerByChar used to assume she always was)', () => {
-    // 6 characters for a 4-player table (2026-08-11) means any single character, Luna included,
-    // may go undrafted in a real game. onBattleEndScoring's luna3 check called
-    // `playerByChar(state, 'Luna')!.id` unconditionally — a party that wins without Luna at the
-    // table would have crashed the instant nobody died. Swap her out entirely and confirm the win
-    // still scores cleanly.
+    // A roster larger than the table means any single character, Luna included, may go undrafted in
+    // a real game. onBattleEndScoring's luna3 check called `playerByChar(state, 'Luna')!.id`
+    // unconditionally — a party that wins without Luna at the table would have crashed the instant
+    // nobody died. Swap her out entirely and confirm the win still scores cleanly.
     const state = fixedDraftState();
-    setPlayerCharacter(state, 3, 'Dax'); // player 3 was Luna
+    setPlayerCharacter(state, 3, 'Kage'); // player 3 was Luna
     prepareBattle(state);
     state.battle!.outcome = 'boss_defeated';
     expect(() => onBattleEndScoring(state)).not.toThrow();

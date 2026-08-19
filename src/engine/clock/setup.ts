@@ -2,6 +2,8 @@ import type { RNG } from '../rng';
 import { CHAR_IDS, CHARACTERS, type CharId } from '@content/characters';
 import { BOSS_IDS, BOSSES } from '@content/bosses3';
 import { DIFFICULTY_MULTIPLIER, type Difficulty } from '@content/difficulty';
+import { STABLE_RULESET, hasV040Content, type RulesetVersion } from '@content/rulesets';
+import { V040_CHAR_IDS } from '@content/characters';
 import type { GameState, PlayerMeta, PlayerId, Choice, PendingDecision } from './types';
 
 export interface NewGameSetup {
@@ -9,6 +11,9 @@ export interface NewGameSetup {
   difficulty: Difficulty;
   /** Seat order for the character draft. Null = roll it randomly at the table (the default). */
   draftOrder?: PlayerId[] | null;
+  /** Defaults to the stable ruleset when omitted, so every existing caller (tests, the sim tool,
+   *  old saves) keeps its current behaviour without being touched. */
+  ruleset?: RulesetVersion;
 }
 
 /** Builds the initial GameState with no character assigned yet — draft happens via runDraft(). */
@@ -28,6 +33,7 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
     seed,
     rngState: seed,
     difficulty: setup.difficulty,
+    ruleset: setup.ruleset ?? STABLE_RULESET,
     draftOrder: setup.draftOrder ?? null,
     players,
     progress: {},
@@ -50,11 +56,18 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
 export function* runDraft(state: GameState, rng: RNG): Generator<PendingDecision, void, Choice> {
   // A chosen order is honoured as-is; otherwise the table rolls for it.
   const order = state.draftOrder ?? rng.shuffle(state.players.map((p) => p.id));
-  let available: CharId[] = [...CHAR_IDS];
+  let taken: CharId[] = [];
   for (const playerId of order) {
+    const available = draftPoolFor(state, playerId).filter((c) => !taken.includes(c));
+    if (available.length === 0) {
+      throw new Error(`No characters left for player ${playerId}`);
+    }
+    // Auto-assign only when this seat genuinely has no decision left. Checked per seat rather than
+    // globally because the pools differ: with v0.4.0 the last bot can be down to one legal pick
+    // while a human seat still has several, and vice versa.
     if (available.length === 1) {
       assignCharacter(state, playerId, available[0]);
-      available = [];
+      taken = [...taken, available[0]];
       continue;
     }
     const choice = yield { kind: 'CHOOSE_CHARACTER', playerId, available: [...available] };
@@ -62,9 +75,20 @@ export function* runDraft(state: GameState, rng: RNG): Generator<PendingDecision
       throw new Error(`Invalid draft choice for player ${playerId}`);
     }
     assignCharacter(state, playerId, choice.charId);
-    available = available.filter((c) => c !== choice.charId);
+    taken = [...taken, choice.charId];
   }
   state.phase = 'BATTLE_INTRO';
+}
+
+/** Which characters a given seat may draft. The v0.4.0 three are gated twice over: the ruleset has
+ *  to include them at all, and the seat has to be a human. Bots are excluded on purpose — their
+ *  heuristics price a skill by damage-per-⏱ and cannot see sand, shadow, souls, stealth, or a marker
+ *  rewind, so a bot holding one would play it badly and any sim run on it would be measuring the
+ *  bot rather than the character (docs/EXPANSION_DESIGN.md §4.2). */
+export function draftPoolFor(state: GameState, playerId: PlayerId): CharId[] {
+  const player = state.players.find((p) => p.id === playerId);
+  const canTakeNew = hasV040Content(state.ruleset) && player?.kind === 'human';
+  return canTakeNew ? [...CHAR_IDS, ...V040_CHAR_IDS] : [...CHAR_IDS];
 }
 
 function assignCharacter(state: GameState, playerId: PlayerId, charId: CharId) {
@@ -100,6 +124,7 @@ export function prepareBattle(state: GameState) {
     traps: [],
     scheduledHits: [],
     weakPoint: null,
+    currentMoveKey: null,
     partyBuff: null,
     guard: null,
     allyScoresForLuna: 0,
@@ -129,6 +154,17 @@ export function prepareBattle(state: GameState) {
         everDroppedBelowHalfThisBattle: false,
         landedMeteorThisBattle: false,
         damageDealtThisBattle: 0,
+        // v0.4.0 — inert unless a v0.4.0 character is drafted.
+        sand: 0,
+        shadow: 0,
+        souls: 0,
+        soulsScored: 0,
+        stealthUntilSlot: null,
+        stealthStrikeBonus: 0,
+        everHitByBossThisBattle: false,
+        predictedBossMove: null,
+        hastedByPlayerId: null,
+        ailments: [],
       };
     }),
   };

@@ -2,19 +2,28 @@
 // Lv2 numbers are NOT in the source doc — see docs/10-v0.3.0-rulings.md §1 for the extrapolation
 // rule (~35-50% power bump) used to fill them in so the EXP/level system has real weight.
 
-// Dax/Mira (2026-08-11): added to make the draft pool bigger than the table so the last pick is
-// never forced. Temporarily disabled (2026-08-12) — GAME_DESIGN.md/README still describe a
-// 4-character roster (4 character sheets, 12 skill cards, Aurelius's armor-break combo analysis
-// assuming Kit+Luna+Liora are all at the table), and having them silently draftable contradicted
-// that document. Their data/skills/score conditions and all engine support stay in place — this is
-// the only line that needs to change to re-enable them once the docs are updated to match, or a
-// content pass reconciles the two. See docs/BALANCE_NOTES.md.
-export type CharId = 'Eric' | 'Kit' | 'Liora' | 'Luna' | 'Dax' | 'Mira';
+// Dax and Mira were removed entirely in v0.4.0. They had been disabled since 2026-08-12 (out of
+// CHAR_IDS but still fully implemented) and never came back: Mira failed the §8.0 role template
+// outright — her slot ③ was `buffMana` with numbers identical to Liora's ManaCharge, so she had no
+// signature of her own — and the sim independently flagged her as the roster's outlier at 0.99
+// pts/win against everyone else's 5-8. Keeping two half-alive characters in every Record<CharId,…>
+// and every test fixture cost more than they were worth, and v0.4.0's three new characters occupy
+// the design space they were holding.
+export type CharId = 'Eric' | 'Kit' | 'Liora' | 'Luna' | 'Chronos' | 'Kage' | 'Morvane';
+
+/** The v0.3.x roster — the only characters bots ever play, and the whole pool in the stable
+ *  ruleset. v0.4.0's three additions are human-only; see V040_CHAR_IDS. */
 export const CHAR_IDS: CharId[] = ['Eric', 'Kit', 'Liora', 'Luna'];
-/** Full roster including disabled characters — for anything that must enumerate every CharId
- *  regardless of draft availability (Record<CharId,...> exhaustiveness, tests). Never use this for
- *  the draft pool itself; that's CHAR_IDS above. */
-export const ALL_CHAR_IDS: CharId[] = ['Eric', 'Kit', 'Liora', 'Luna', 'Dax', 'Mira'];
+
+/** v0.4.0 (experimental): human-only additions. Bots have no heuristics for their resources —
+ *  `estimateChoiceValue` prices skills by damage-per-⏱ and cannot see sand, shadow, souls, or a
+ *  marker rewind at all — so letting a bot draft one would measure the bot's blind spot rather
+ *  than the character. Gated behind the v0.4.0 ruleset AND behind being a human seat. */
+export const V040_CHAR_IDS: CharId[] = ['Chronos', 'Kage', 'Morvane'];
+
+/** Every CharId that exists — for Record<CharId,…> exhaustiveness and tests. Never the draft
+ *  pool; use charPool() for that. */
+export const ALL_CHAR_IDS: CharId[] = [...CHAR_IDS, ...V040_CHAR_IDS];
 
 export type SkillId =
   // Eric
@@ -37,28 +46,41 @@ export type SkillId =
   | 'AuraSmite'
   | 'Blessing'
   | 'Heal'
-  // Dax / Mira — unchanged by the v0.4.0 redesign, still content-complete but excluded from
-  // CHAR_IDS (see the comment on ALL_CHAR_IDS above).
-  | 'Flurry'
-  | 'Riposte'
-  | 'Focus'
-  | 'FrostBolt'
-  | 'ArcaneWard'
-  | 'MendingWind';
+  // Chronos (v0.4.0)
+  | 'Tick'
+  | 'HourglassShard'
+  | 'Haste'
+  | 'Rewind'
+  // Kage (v0.4.0)
+  | 'Shuriken'
+  | 'TwinFang'
+  | 'SmokeBomb'
+  | 'Assassinate'
+  // Morvane (v0.4.0)
+  | 'Drain'
+  | 'SoulSiphon'
+  | 'RaiseDead'
+  | 'DeathCoil';
 
 /** Which resolution family a skill belongs to — see docs/RULINGS.md §5. */
 export type SkillKind =
-  | 'attack' // Slash, Power Strike, Quick Shot, Air Push, Hitting, Aura Smite, Twin Shot, Smite — plain damage to boss, resolves next visit
-  | 'attackGated' // (unused since v0.4.0 — Eric's HP-gated damage is now the always-on Berserk passive instead of a per-skill tier)
-  | 'attackRoll' // Sharp Shooting, Focus — attack + dice roll → weak point buff, resolves next visit
-  | 'attackMana' // Fireball, Meteor, Frost Bolt — attack scaled by mana paid, resolves next visit
+  | 'attack' // Slash, Power Strike, Quick Shot, Air Push, Hitting, Aura Smite, Tick, Shuriken, Twin Fang, Drain, Soul Siphon — plain damage to boss
+  | 'attackGated' // (unused — Eric's HP-gated damage is the always-on Berserk passive instead of a per-skill tier)
+  | 'attackRoll' // Sharp Shooting — attack + dice roll → weak point buff
+  | 'attackMana' // Fireball, Meteor — attack scaled by mana paid
   | 'multiHit' // Multi Shot — one hit at resolve + extra hits scheduled at earlier slots (see earlyHits)
-  | 'heal' // Heal, Mending Wind — targeted heal, resolves next visit
-  | 'buffCounter' // Counter Attack, Riposte — immediate self-shield + conditional counter-strike
+  | 'heal' // Heal — targeted heal, resolves next visit
+  | 'buffCounter' // Counter Attack — immediate self-shield + conditional counter-strike
   | 'buffParty' // Blessing — immediate party-wide atk/defense buff
-  | 'buffMana' // Aura Charge, Arcane Ward — immediate self-shield; Liora's own mana gain comes from her ManaCharge passive, not this
+  | 'buffMana' // Aura Charge — immediate self-shield; Liora's mana gain comes from her ManaCharge passive, not this
   | 'guard' // Guard — immediate damage-redirect link from an ally onto the caster
-  | 'trap'; // Trap!, Set Trap — immediate token placement
+  | 'trap' // Trap! — immediate token placement
+  // ── v0.4.0 ── one new kind per new character's slot ②, per §8.0's rule that no two characters'
+  // support cards may share a SkillKind.
+  | 'buffHaste' // Haste (Chronos) — immediate: drags an ally's pawn back up the clock so they act sooner
+  | 'buffStealth' // Smoke Bomb (Kage) — immediate: hides everyone sharing the caster's slot
+  | 'raise' // Raise Dead (Morvane) — immediate: revives a downed ally now instead of on their revive slot
+  | 'rewind'; // Rewind (Chronos ③) — immediate: walks the *clock marker itself* back up
 
 export interface SkillLevelStats {
   time: number;
@@ -97,7 +119,15 @@ export interface SkillDef {
   lv2: SkillLevelStats;
 }
 
-export type PassiveId = 'Berserk' | 'SkillImprovement' | 'ManaCharge' | 'HolyWater';
+export type PassiveId =
+  | 'Berserk'
+  | 'SkillImprovement'
+  | 'ManaCharge'
+  | 'HolyWater'
+  // v0.4.0
+  | 'TimeSpiral'
+  | 'Shadowless'
+  | 'UndeadPact';
 
 export interface PassiveDef {
   id: PassiveId;
@@ -144,7 +174,34 @@ export const PASSIVES: Partial<Record<CharId, PassiveDef>> = {
     name: { th: 'HolyWater', en: 'Holy Water' },
     desc: {
       th: 'ทำงานเองตลอดเวลา: เมื่อบอสโจมตี Luna โดยตรง (ท่าเดี่ยว ไม่ใช่ AoE) สถานะผิดปกติที่ท่านั้นจะติดให้เธอถูกยกเลิกทันที — ยังไม่มีท่าบอสใดในเนื้อหาปัจจุบันที่ติดสถานะผิดปกติ ดังนั้นตอนนี้ยังไม่มีผลจริงในเกม แต่กลไกพร้อมรองรับบอสในอนาคต',
-      en: "Always active: when the boss hits Luna with a single-target move, any debuff status it would apply to her is cancelled — no boss move in the current 3-boss content actually applies one, so this has no observable effect yet, but the hook is wired for future boss content.",
+      en: "Always active: when the boss hits Luna with a single-target move, any debuff status it would apply to her is cancelled. v0.4.0 finally gives this something to do — the bosses now inflict real statuses.",
+    },
+  },
+  Chronos: {
+    id: 'TimeSpiral',
+    charId: 'Chronos',
+    name: { th: 'เกลียวเวลา', en: 'Time Spiral' },
+    desc: {
+      th: 'ทำงานเองตลอดเวลา: ทุกครั้งที่ประกาศสกิลที่ใช้เวลา ⏱3 ขึ้นไป ได้เม็ดทราย +1 (สูงสุด 4) — ทรายคือค่าใช้จ่ายของ Rewind',
+      en: 'Always active: every time Chronos declares a skill costing ⏱3 or more, he gains 1 sand (max 4). Sand is what Rewind spends.',
+    },
+  },
+  Kage: {
+    id: 'Shadowless',
+    charId: 'Kage',
+    name: { th: 'ไร้เงา', en: 'Shadowless' },
+    desc: {
+      th: 'ทำงานเองตลอดเวลา: ทุกครั้งที่ถึงตาของ Kage โดยที่เขาไม่โดนบอสโจมตีเลยนับจากตาที่แล้ว ได้เงา +1 (สูงสุด 3) — เงาคือค่าใช้จ่ายของ Assassinate',
+      en: 'Always active: each time Kage is visited without having been hit by the boss since his last visit, he gains 1 shadow (max 3). Shadow is what Assassinate spends.',
+    },
+  },
+  Morvane: {
+    id: 'UndeadPact',
+    charId: 'Morvane',
+    name: { th: 'สัญญาอันเดด', en: 'Undead Pact' },
+    desc: {
+      th: 'ทำงานเองตลอดเวลา: Morvane เป็นอันเดด — **รักษาด้วย Heal ไม่ได้เลย** ต้องดูดเลือดเอาเองจาก Drain/Soul Siphon · แลกกับการได้วิญญาณ +1 ทุกครั้งที่เสีย HP 3 ขึ้นไปจากการโจมตีครั้งเดียว และทุกครั้งที่มีใครสักคนบนกระดานล้มลง',
+      en: 'Always active: Morvane is undead — **healing cannot restore his HP at all**; only his own Drain and Soul Siphon can. In exchange he gains 1 soul whenever a single hit costs him 3+ HP, and 1 whenever anyone on the board goes down.',
     },
   },
 };
@@ -337,71 +394,143 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     lv2: { time: 3, primary: 9 },
   },
 
-  // Dax — Duelist. Only uses skill kinds the engine already treats generically (attack,
-  // buffCounter, attackRoll) so no new mechanic had to be added — see the CharId comment above.
-  Flurry: {
-    id: 'Flurry',
-    charId: 'Dax',
+  // ══ v0.4.0 — Chronos, the Time Mage ══
+  // His ⏱ numbers are deliberately ordinary; his speed axis is "ช้า" (slow) expressed as a ⏱6
+  // signature rather than a global modifier, so nothing in the engine needs a speed multiplier.
+  Tick: {
+    id: 'Tick',
+    charId: 'Chronos',
     kind: 'attack',
-    name: { th: 'Flurry', en: 'Flurry' },
-    // primary = damage per hit, secondary = hit count (same shape as Kit's Twin Shot)
-    lv1: { time: 5, primary: 3, secondary: 3 },
-    lv2: { time: 5, primary: 4, secondary: 3 },
+    immediate: true,
+    name: { th: 'Tick', en: 'Tick' },
+    lv1: { time: 2, primary: 2 },
+    lv2: { time: 2, primary: 3 },
   },
-  Riposte: {
-    id: 'Riposte',
-    charId: 'Dax',
-    kind: 'buffCounter',
-    name: { th: 'Riposte', en: 'Riposte' },
-    // A lighter parry than Eric's Counter Attack: less damage reduction and a smaller riposte,
-    // but ⏱4 instead of ⏱5.
-    lv1: { time: 4, primary: 40, secondary: 8 },
-    lv2: { time: 4, primary: 45, secondary: 12 },
+  HourglassShard: {
+    id: 'HourglassShard',
+    charId: 'Chronos',
+    kind: 'attack',
+    immediate: true,
+    name: { th: 'Hourglass Shard', en: 'Hourglass Shard' },
+    // Inflicts 💫 daze (+1 ⏱ on the boss's next move) when it lands — the cheap, repeatable half of
+    // his clock control, against Rewind's expensive one.
+    lv1: { time: 3, primary: 5 },
+    lv2: { time: 3, primary: 7 },
   },
-  Focus: {
-    id: 'Focus',
-    charId: 'Dax',
-    kind: 'attackRoll',
-    name: { th: 'Focus', en: 'Focus' },
-    // A second weak-point opener alongside Kit's Quick Shot — ⏱4 (a slot slower) for slightly
-    // more base damage, so the party isn't dead in the water if Kit isn't at the table.
-    lv1: { time: 4, primary: 5, rollBaseTarget: 5 },
-    lv2: { time: 4, primary: 7, rollBaseTarget: 4 },
+  Haste: {
+    id: 'Haste',
+    charId: 'Chronos',
+    kind: 'buffHaste',
+    name: { th: 'Haste', en: 'Haste' },
+    // primary = how many slots the target ally's pawn is dragged back *up* the clock (toward the
+    // marker), so they are visited sooner. Touches the damage economy the way §8.0 demands without
+    // dealing damage: it buys the party extra pawn-visits, and visits are where all damage happens.
+    lv1: { time: 3, primary: 2 },
+    lv2: { time: 3, primary: 3 },
+  },
+  Rewind: {
+    id: 'Rewind',
+    charId: 'Chronos',
+    kind: 'rewind',
+    name: { th: 'Rewind', en: 'Rewind' },
+    // primary = slots the *marker* walks back up. The one card in the game that fights the actual
+    // lose condition (marker reaches 0 with the boss alive). Safe by construction: every pawn is
+    // always at or below the marker, so moving the marker up can never step over one and re-trigger
+    // it. Costs SAND_PER_REWIND on top of ⏱6 — he pays 6 personal slots to hand 3 slots to all four
+    // seats, which is why it reads as selfless rather than as a tempo cheat.
+    lv1: { time: 6, primary: 3 },
+    lv2: { time: 6, primary: 4 },
   },
 
-  // Mira — Elementalist. A "battle medic": her own Heal is deliberately a notch weaker/slower than
-  // Luna's dedicated one, and her attack is a cheaper, lower-scaling Fireball — she can cover for a
-  // missing healer or a missing mage, but isn't strictly better than either specialist.
-  FrostBolt: {
-    id: 'FrostBolt',
-    charId: 'Mira',
-    kind: 'attackMana',
-    name: { th: 'Frost Bolt', en: 'Frost Bolt' },
-    lv1: { time: 4, primary: 4, secondary: 2 },
-    lv2: { time: 4, primary: 6, secondary: 2 },
+  // ══ v0.4.0 — Kage, the Ninja ══
+  // Speed "เร็วมาก" is baked straight into these ⏱ values (2/2/3/4 — the fastest kit in the game)
+  // rather than applied as a −1 modifier, so there is no floor rule to enforce anywhere.
+  Shuriken: {
+    id: 'Shuriken',
+    charId: 'Kage',
+    kind: 'attack',
+    immediate: true,
+    name: { th: 'Shuriken', en: 'Shuriken' },
+    lv1: { time: 2, primary: 3 },
+    lv2: { time: 2, primary: 4 },
   },
-  ArcaneWard: {
-    id: 'ArcaneWard',
-    charId: 'Mira',
-    kind: 'buffMana',
-    name: { th: 'Arcane Ward', en: 'Arcane Ward' },
-    // primary = mana gained, secondary = incoming-damage reduction (flat). Reduction raised to
-    // match Liora's ManaCharge (2026-08-11): the original, weaker numbers made Mira noticeably more
-    // likely to die than Liora despite 1 more base HP — mira3 ("never died") fired at 0.24/win vs
-    // liora3's 1.30/win in a 3000-game sim. See docs/BALANCE_NOTES.md.
-    lv1: { time: 3, primary: 1, secondary: 3 },
-    lv2: { time: 3, primary: 1, secondary: 5 },
+  TwinFang: {
+    id: 'TwinFang',
+    charId: 'Kage',
+    kind: 'attack',
+    immediate: true,
+    name: { th: 'Twin Fang', en: 'Twin Fang' },
+    // secondary = hit count, same overload `attack` already uses. Two separate hits means two
+    // separate weak-point/Blessing applications, and two chances to break Aurelius's armor.
+    lv1: { time: 2, primary: 4, secondary: 2 },
+    lv2: { time: 2, primary: 6, secondary: 2 },
   },
-  MendingWind: {
-    id: 'MendingWind',
-    charId: 'Mira',
-    kind: 'heal',
-    name: { th: 'Mending Wind', en: 'Mending Wind' },
-    // ⏱5 -> ⏱4 (2026-08-11): matching Luna's Heal speed while keeping a lower heal amount (5 vs 6)
-    // for differentiation — the slower ⏱ was compounding with the smaller amount to make this
-    // strictly worse in every comparison, so bots essentially never chose it (0.06 fires/win).
-    lv1: { time: 4, primary: 5 },
-    lv2: { time: 4, primary: 8 },
+  SmokeBomb: {
+    id: 'SmokeBomb',
+    charId: 'Kage',
+    kind: 'buffStealth',
+    name: { th: 'Smoke Bomb', en: 'Smoke Bomb' },
+    // primary = the damage bonus on the first attack each hidden fighter makes coming out of
+    // stealth; secondary = how many clock slots the stealth lasts. Feeds the damage economy through
+    // that bonus, and it applies to *everyone sharing Kage's slot* — which is the whole reason his
+    // size is เล็ก (small): small fighters may always stack onto an occupied slot.
+    lv1: { time: 3, primary: 3, secondary: 4 },
+    lv2: { time: 3, primary: 5, secondary: 4 },
+  },
+  Assassinate: {
+    id: 'Assassinate',
+    charId: 'Kage',
+    kind: 'attack',
+    ignoresArmor: true,
+    name: { th: 'Assassinate', en: 'Assassinate' },
+    // Costs SHADOW_PER_ASSASSINATE. Execute bonus below ASSASSINATE_EXECUTE_THRESHOLD boss HP is
+    // applied in skills.ts, not here, because it reads live boss HP.
+    lv1: { time: 4, primary: 12 },
+    lv2: { time: 4, primary: 16 },
+  },
+
+  // ══ v0.4.0 — Morvane, the Necromancer ══
+  Drain: {
+    id: 'Drain',
+    charId: 'Morvane',
+    kind: 'attack',
+    immediate: true,
+    name: { th: 'Drain', en: 'Drain' },
+    // secondary is NOT a hit count here — Drain and Soul Siphon are the only two `attack`-kind
+    // skills that self-heal, and skills.ts reads `lifesteal` off the SkillDef rather than off
+    // stats, precisely so `secondary` keeps meaning "hit count" everywhere else.
+    lv1: { time: 2, primary: 2 },
+    lv2: { time: 2, primary: 3 },
+  },
+  SoulSiphon: {
+    id: 'SoulSiphon',
+    charId: 'Morvane',
+    kind: 'attack',
+    immediate: true,
+    name: { th: 'Soul Siphon', en: 'Soul Siphon' },
+    lv1: { time: 3, primary: 6 },
+    lv2: { time: 3, primary: 8 },
+  },
+  RaiseDead: {
+    id: 'RaiseDead',
+    charId: 'Morvane',
+    kind: 'raise',
+    name: { th: 'Raise Dead', en: 'Raise Dead' },
+    // primary = percent of max HP the revived ally comes back with. Feeds the damage economy the
+    // most directly of any support card in the game: a downed ally is ~6 slots of missing pawn
+    // visits, and this buys all of them back at once.
+    lv1: { time: 4, primary: 50 },
+    lv2: { time: 4, primary: 75 },
+  },
+  DeathCoil: {
+    id: 'DeathCoil',
+    charId: 'Morvane',
+    kind: 'attack',
+    name: { th: 'Death Coil', en: 'Death Coil' },
+    // Costs SOULS_PER_DEATH_COIL. The optional HP surcharge (pay DEATH_COIL_HP_COST for
+    // `secondary` damage instead of `primary`) is resolved in skills.ts.
+    lv1: { time: 5, primary: 14, secondary: 20 },
+    lv2: { time: 5, primary: 18, secondary: 26 },
   },
 };
 
@@ -655,89 +784,140 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
       },
     ],
   },
-  Dax: {
-    id: 'Dax',
-    job: { th: 'Duelist', en: 'Duelist' },
-    hp: 11,
-    startSlot: 21,
+
+  // ══════════════ v0.4.0 — human-only roster (see V040_CHAR_IDS) ══════════════
+
+  Chronos: {
+    id: 'Chronos',
+    job: { th: 'Time Mage', en: 'Time Mage' },
+    hp: 10,
+    startSlot: 23,
     reviveHp: 5,
-    // ① Flurry ② Focus (a second weak-point opener) ③ Riposte.
-    skills: ['Flurry', 'Focus', 'Riposte'],
+    // ① Hourglass Shard ② Haste ③ Rewind. The only character who can move the clock itself.
+    skills: ['Tick', 'HourglassShard', 'Haste', 'Rewind'],
     score: [
       {
-        id: 'dax1',
-        charId: 'Dax',
+        id: 'chronos1',
+        charId: 'Chronos',
         slot: 1,
-        points: 1,
-        perOccurrence: true,
-        desc: { th: 'เปิดจุดอ่อนสำเร็จด้วย Focus', en: 'Successfully open a weak point with Focus' },
-      },
-      {
-        id: 'dax2',
-        charId: 'Dax',
-        slot: 2,
-        points: 1,
-        perOccurrence: true,
-        desc: { th: 'สวนกลับด้วย Riposte แล้วดาเมจเข้าจริง', en: 'A Riposte counter-strike lands real damage' },
-      },
-      {
-        id: 'dax3',
-        charId: 'Dax',
-        slot: 3,
-        points: 2,
-        perOccurrence: false,
-        desc: { th: 'จบยกบอสด้วย HP มากกว่าครึ่ง', en: 'End the battle above half HP' },
-      },
-    ],
-  },
-  Mira: {
-    id: 'Mira',
-    job: { th: 'Elementalist', en: 'Elementalist' },
-    hp: 9,
-    startSlot: 20,
-    reviveHp: 4,
-    // ① Frost Bolt ② Mending Wind ③ Arcane Ward — but ③ is a template violation, not a signature:
-    // Arcane Ward is `buffMana` with the same numbers as Liora's ManaCharge, so Mira has nothing
-    // that is *hers*. This is the same character the sim already flags as the roster's outlier
-    // (0.99 pts/win vs. everyone else's 5-8, docs/BALANCE_NOTES.md) — the role template (§8.0) and
-    // the balance data agree, and she stays out of CHAR_IDS until she has a real slot ③.
-    skills: ['FrostBolt', 'MendingWind', 'ArcaneWard'],
-    score: [
-      {
-        id: 'mira1',
-        charId: 'Mira',
-        slot: 1,
+        // The one condition in the game built on hidden information. v0.3.14 made the boss stop
+        // announcing its move, so *which* move is coming is the only thing on the board nobody can
+        // read — Chronos is the only character who is paid for reading it anyway. Declared alongside
+        // an action (`predictedBossMove` on the choice), checked the next time the boss acts.
         points: 2,
         perOccurrence: true,
-        // desc deliberately says "someone" rather than "an ally": unlike Luna's old Heal condition,
-        // this one has no self-heal exclusion (see onHealResolved, scoring.ts) — Mira healing
-        // herself counts the same as healing anyone else.
         desc: {
-          th: 'ใช้ Mending Wind แล้วฟื้น HP ให้ใครก็ตามได้จริงอย่างน้อย 1 แต้ม (รวมตัวเอง)',
-          en: 'Mending Wind restores at least 1 HP to someone (herself included)',
+          th: 'ทำนายท่าบอสถูก — ประกาศ A/B/C ไว้ตอนสั่งแอคชัน แล้วบอสออกท่านั้นจริง',
+          en: "Correctly call the boss's next move (A/B/C), declared alongside your action",
         },
       },
       {
-        id: 'mira2',
-        charId: 'Mira',
+        id: 'chronos2',
+        charId: 'Chronos',
         slot: 2,
         points: 1,
         perOccurrence: true,
-        desc: { th: 'ทำ dmg ครั้งเดียวได้มากกว่า 10 ด้วย Frost Bolt', en: 'Deal more than 10 damage in one hit with Frost Bolt' },
+        desc: {
+          th: 'เพื่อนที่คุณเร่งด้วย Haste ทำดาเมจใส่บอสในตาที่ถูกเร่ง',
+          en: 'An ally you hasted deals damage on the visit you bought them',
+        },
       },
       {
-        id: 'mira3',
-        charId: 'Mira',
+        id: 'chronos3',
+        charId: 'Chronos',
         slot: 3,
-        // Replaced the original "end with mana banked" condition entirely (2026-08-11), after
-        // trying >=2 and >=1 mana thresholds both landed near 0.01-0.05 fires/win in a 3000-game
-        // sim: attackMana's value estimate always rewards spending more mana with nothing modeling
-        // a reason to hold back, so bots almost never end a battle with any banked regardless of
-        // the bar. Switched to survival, the same condition shape that already performs well for
-        // Liora (liora3, ~49% of her total) — Mira is nearly as fragile (9 HP vs Liora's 8).
-        points: 2,
+        // His whole kit spends his own ⏱ to buy the table time, so the end-of-battle clock is the
+        // honest scoreboard for whether that trade paid off.
+        points: 3,
         perOccurrence: false,
-        desc: { th: 'จบยกบอสโดยไม่ตาย', en: 'End the battle without dying' },
+        desc: {
+          th: 'จบยกบอสโดยเหลือเวลาอย่างน้อย 8 ช่อง',
+          en: 'End the battle with at least 8 clock slots left',
+        },
+      },
+    ],
+  },
+
+  Kage: {
+    id: 'Kage',
+    job: { th: 'Ninja', en: 'Ninja' },
+    hp: 11,
+    startSlot: 23,
+    reviveHp: 6,
+    // ① Twin Fang ② Smoke Bomb ③ Assassinate. Fastest kit in the game (⏱2/2/3/4).
+    skills: ['Shuriken', 'TwinFang', 'SmokeBomb', 'Assassinate'],
+    score: [
+      {
+        id: 'kage1',
+        charId: 'Kage',
+        slot: 1,
+        // Reads `battle.finishedBySkill`, which the engine has recorded since v0.3.0 with no rule
+        // ever reading it (DESIGN_VARIABLES §2 #19). This is that hook finally being used.
+        points: 4,
+        perOccurrence: false,
+        desc: { th: 'ปิดจ๊อบบอสด้วย Assassinate', en: 'Land the killing blow with Assassinate' },
+      },
+      {
+        id: 'kage2',
+        charId: 'Kage',
+        slot: 2,
+        points: 1,
+        perOccurrence: true,
+        desc: { th: 'ออกจากการซ่อนตัวแล้วโจมตีเข้า', en: 'Break stealth with a landed attack' },
+      },
+      {
+        id: 'kage3',
+        charId: 'Kage',
+        slot: 3,
+        points: 3,
+        perOccurrence: false,
+        desc: {
+          th: 'จบยกบอสโดยไม่เคยถูกบอสโจมตีเลยสักครั้ง',
+          en: 'End the battle having never been hit by the boss',
+        },
+      },
+    ],
+  },
+
+  Morvane: {
+    id: 'Morvane',
+    job: { th: 'Necromancer', en: 'Necromancer' },
+    hp: 9,
+    startSlot: 23,
+    reviveHp: 5,
+    // ① Soul Siphon ② Raise Dead ③ Death Coil. Undead: Heal cannot touch him.
+    skills: ['Drain', 'SoulSiphon', 'RaiseDead', 'DeathCoil'],
+    score: [
+      {
+        id: 'morvane1',
+        charId: 'Morvane',
+        slot: 1,
+        // Count-and-exchange, the same shape as kit3 and luna1 — one idea for the table to learn.
+        points: 1,
+        perOccurrence: true,
+        desc: { th: 'สะสมวิญญาณครบทุก 3 ดวง', en: 'Every 3 souls collected' },
+      },
+      {
+        id: 'morvane2',
+        charId: 'Morvane',
+        slot: 2,
+        // Deliberately the largest per-occurrence payout any character has. A character who profits
+        // from death is only safe in a semi-co-op game if the profitable thing is *undoing* it —
+        // this is what keeps him from wanting allies to stay down.
+        points: 3,
+        perOccurrence: true,
+        desc: { th: 'ชุบเพื่อนที่ล้มแล้วให้กลับมาด้วย Raise Dead', en: 'Bring a downed ally back with Raise Dead' },
+      },
+      {
+        id: 'morvane3',
+        charId: 'Morvane',
+        slot: 3,
+        points: 3,
+        perOccurrence: false,
+        desc: {
+          th: 'จบยกบอสโดย HP เหลือน้อยกว่า 4 แต่ไม่เคยล้ม',
+          en: 'End the battle below 4 HP without ever going down',
+        },
       },
     ],
   },
@@ -785,12 +965,62 @@ export const VERA_BIG_HIT_DAMAGE = 14;
  *  change it here. (Doesn't cover 'timeBonus'/'lastShot', which aren't personal conditions — the
  *  first is computed from the clock's remaining slots, the second is the flat bonus above.) */
 export function scorePoints(conditionId: string): number {
-  // ALL_CHAR_IDS, not CHAR_IDS: this must keep resolving Dax/Mira's own condition ids even while
-  // they're excluded from the draft pool, since their content/tests still exist independently of
-  // whether the pool offers them.
+  // ALL_CHAR_IDS, not CHAR_IDS: v0.4.0's three characters are outside the bot-facing pool but
+  // their conditions still have to resolve whenever a human is playing one.
   for (const charId of ALL_CHAR_IDS) {
     const c = CHARACTERS[charId].score.find((s) => s.id === conditionId);
     if (c) return c.points;
   }
   throw new Error(`unknown score condition: ${conditionId}`);
 }
+
+// ══════════════════════ v0.4.0 tuning constants ══════════════════════
+// All of these are first-guess numbers. Nothing here has been through a balance sim — the three
+// v0.4.0 characters are human-only precisely because the sim cannot price them (bots value skills
+// by damage-per-⏱ and cannot see sand, shadow, souls, stealth, or a marker rewind at all).
+
+/** Chronos: sand cap, the ⏱ bar a declare must meet to bank sand, and what Rewind costs.
+ *
+ *  The bar is 3, not 4. At 4 the economy deadlocked outright: his only ⏱4+ card is Rewind itself,
+ *  so the one action that could bank sand was the one that required it, and he could never cast it
+ *  at all. At 3 both Hourglass Shard and Haste feed the meter, which puts Rewind about three
+ *  committed turns away — a signature you build toward rather than a rotation piece. */
+export const SAND_MAX = 4;
+export const SAND_PER_SLOW_DECLARE = 3;
+export const SAND_PER_REWIND = 3;
+
+/** Kage: shadow cap and Assassinate's cost. Shadow only accrues on visits where the boss did not
+ *  touch him, so the resource itself is a reward for playing evasively. */
+export const SHADOW_MAX = 3;
+export const SHADOW_PER_ASSASSINATE = 2;
+/** Assassinate deals its `secondary` execute damage when the boss is at or below this fraction of
+ *  max HP. Kept as a fraction rather than a flat number so it reads the same on all three bosses. */
+export const ASSASSINATE_EXECUTE_THRESHOLD = 0.25;
+/** Bonus damage the execute window adds on top of `primary`. */
+export const ASSASSINATE_EXECUTE_BONUS = 8;
+
+/** Morvane: souls needed per morvane1 payout, Death Coil's soul cost, and the HP surcharge that
+ *  upgrades Death Coil from `primary` to `secondary` damage. */
+export const SOULS_PER_POINT = 3;
+export const SOULS_PER_DEATH_COIL = 3;
+export const DEATH_COIL_HP_COST = 3;
+/** A single hit costing him this much HP or more yields a soul. Set at 3 so ordinary chip damage
+ *  does not feed the engine — he has to actually be in danger. */
+export const SOUL_HP_LOSS_THRESHOLD = 3;
+/** Self-heal on Drain / Soul Siphon. The only HP Morvane can ever regain: Heal is barred by his
+ *  Undead Pact passive, which is the single hardest rule exception on the roster. */
+export const LIFESTEAL: Partial<Record<SkillId, number>> = { Drain: 1, SoulSiphon: 2 };
+
+/** chronos3's clock bar, and how far Haste drags an ally up the clock (read off the skill's
+ *  `primary`, this is only the ceiling used for validation). */
+export const CHRONOS_TIME_LEFT_BAR = 8;
+
+/** Which characters may only ever be taken by a human seat, and only in the v0.4.0 ruleset. */
+export function isHumanOnlyCharacter(charId: CharId): boolean {
+  return V040_CHAR_IDS.includes(charId);
+}
+
+/** morvane3's bar — "alive, but only just". Harsher than eric3's half-HP latch on purpose: he is
+ *  the one character Heal cannot touch, so finishing a battle this low is a real achievement rather
+ *  than an accident. */
+export const MORVANE_LOW_HP_BAR = 4;

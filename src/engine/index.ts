@@ -5,11 +5,12 @@
 export * from './clock/types';
 export { createRNG, rngFromState } from './rng';
 export type { RNG } from './rng';
-export { newGame, runDraft, prepareBattle } from './clock/setup';
+export { newGame, runDraft, prepareBattle, draftPoolFor } from './clock/setup';
 export { playGame } from './clock/game';
 export { runClockBattle, resetFighterForNewBattle, resolveOrderCompare } from './clock/walk';
 export {
   applySomnivarTax,
+  effectiveDeclareTime,
   WEAK_POINT_SLOTS,
   declareSkill,
   legalTrapSlots,

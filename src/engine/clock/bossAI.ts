@@ -12,8 +12,10 @@
 
 import { BOSSES, rollBossMove } from '@content/bosses3';
 import { pickExtreme } from './rank';
-import { currentTotalScore } from './damage';
+import { currentTotalScore, pushScore } from './damage';
+import { scorePoints } from '@content/characters';
 import { applyBossDamageToFighter, dealDamageToFighterFromBoss, resolveQueuedCounter, springTrapOnBoss } from './skills';
+import { applyAilment, tickPoisonOnBossAction } from './ailments';
 import type { RNG } from '../rng';
 import type { BattleState, Fighter, GameState } from './types';
 
@@ -86,6 +88,16 @@ export function applyBossMove(state: GameState, moveKey: 'A' | 'B' | 'C', rng: R
   const battle = state.battle!;
   // Announce the move before it lands, so the UI names it ahead of the damage numbers.
   battle.log.push({ t: 'BOSS_MOVE', bossId: battle.bossId, moveKey });
+  // Recorded so inflictMoveAilment can look up the move's ailment without every hit site having to
+  // thread it through. Cleared at the end of the move.
+  battle.currentMoveKey = moveKey;
+  // chronos1 (v0.4.0): settle everyone's outstanding call on this move before it resolves, so the
+  // prediction is scored against what was actually rolled and cleared either way.
+  settleBossMovePredictions(state, moveKey);
+  // Poison is the ailment that runs on the boss's clock rather than the party's, so it ticks here —
+  // before the move lands, so a poisoned fighter can be finished by the poison itself.
+  tickPoisonOnBossAction(state);
+  if (battle.outcome !== 'in_progress') return;
   switch (battle.bossId) {
     case 'Ragorath':
       resolveRagorath(state, moveKey, rng);
@@ -97,6 +109,7 @@ export function applyBossMove(state: GameState, moveKey: 'A' | 'B' | 'C', rng: R
       resolveAurelius(state, moveKey);
       break;
   }
+  battle.currentMoveKey = null;
 }
 
 /** A single-target boss hit — applies damage and resolves any Counter riposte immediately, since
@@ -114,6 +127,9 @@ function hit(state: GameState, target: Fighter, baseDmg: number, opts: { pierces
     wasted: false,
     ...(recipient.playerId !== target.playerId ? { redirectedFrom: target.playerId } : {}),
   });
+  // The ailment follows the damage, so Guard soaking a hit also soaks the debuff — the guardian
+  // takes both, which is the same "Guard is dangerous against the right move" trade Eric already has.
+  inflictMoveAilment(state, recipient, { singleTarget: true });
 }
 
 /** A multi-target boss move (an AoE, or Nightmare's two rolled shots) — every target takes damage
@@ -140,10 +156,36 @@ function hitAll(state: GameState, targets: Fighter[], baseDmg: number | ((f: Fig
       wasted: false,
       ...(recipient.playerId !== f.playerId ? { redirectedFrom: f.playerId } : {}),
     });
+    inflictMoveAilment(state, recipient);
     if (counterDmg > 0) queued.push({ fighter: recipient, counterDmg });
   }
   for (const { fighter, counterDmg } of queued) {
     resolveQueuedCounter(state, fighter, counterDmg);
+  }
+}
+
+/** The ailment carried by the move currently resolving. Read off the move def rather than passed
+ *  down, so adding an ailment to a boss move is a one-line content edit and nothing in this file
+ *  has to change. */
+function inflictMoveAilment(state: GameState, target: Fighter, opts: { singleTarget?: boolean } = {}) {
+  const battle = state.battle!;
+  if (battle.currentMoveKey === null) return;
+  const move = BOSSES[battle.bossId].moves.find((m) => m.key === battle.currentMoveKey);
+  if (!move?.inflicts) return;
+  applyAilment(state, target, move.inflicts, opts);
+}
+
+/** chronos1: resolve every outstanding call on the boss's move. Cleared whether right or wrong, so
+ *  a prediction is a commitment for exactly one boss action rather than a standing bet. */
+function settleBossMovePredictions(state: GameState, moveKey: 'A' | 'B' | 'C') {
+  for (const f of state.battle!.fighters) {
+    if (f.predictedBossMove === null) continue;
+    const wasRight = f.predictedBossMove === moveKey;
+    f.predictedBossMove = null;
+    if (wasRight && f.charId === 'Chronos') {
+      state.battle!.log.push({ t: 'PREDICTION_HIT', playerId: f.playerId, moveKey });
+      pushScore(state, { playerId: f.playerId, conditionId: 'chronos1', points: scorePoints('chronos1') });
+    }
   }
 }
 

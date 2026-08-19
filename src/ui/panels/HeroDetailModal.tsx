@@ -1,5 +1,5 @@
 import type { BattleState, GameState } from '@engine/index';
-import { CHARACTERS, PASSIVES, SKILLS, skillStats } from '@content/characters';
+import { CHARACTERS, PASSIVES, SAND_MAX, SHADOW_MAX, SKILLS, skillStats } from '@content/characters';
 import { skillEffectText } from '@content/skillText';
 import { heroStatuses } from '@content/statuses';
 import { landSlotDisplay } from '@content/eventText';
@@ -47,6 +47,9 @@ export function HeroDetailModal({
           <div className="text-xs text-gold-dim mt-1">
             {t('game.hp')} {f.hp}/{f.maxHp}
             {p.charId === 'Liora' && <span className="ml-2">💧 {t('game.mana')} {f.mana}/3</span>}
+            {p.charId === 'Chronos' && <span className="ml-2">⏳ {t('game.sand')} {f.sand}/{SAND_MAX}</span>}
+            {p.charId === 'Kage' && <span className="ml-2">🌑 {t('game.shadow')} {f.shadow}/{SHADOW_MAX}</span>}
+            {p.charId === 'Morvane' && <span className="ml-2">💀 {t('game.souls')} {f.souls}</span>}
           </div>
           <div className="text-xs text-gold-dim mt-1">{t('game.marker', { n: f.slot })}</div>
           {pending && (

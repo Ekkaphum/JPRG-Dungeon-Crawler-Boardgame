@@ -186,6 +186,7 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
     traps: [],
     scheduledHits: [],
     weakPoint: null,
+    currentMoveKey: null,
     partyBuff: null,
     guard: null,
     allyScoresForLuna: 0,

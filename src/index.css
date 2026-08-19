@@ -702,3 +702,14 @@ html, body, #root {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* v0.4.0 — ruleset picker / version labelling. Kept to two rules: the menu note that says which
+   ruleset the play button launches, and the amber warning used wherever an experimental ruleset is
+   named. */
+.menu-version-note {
+  color: rgba(212, 169, 74, 0.62);
+  letter-spacing: 0.02em;
+}
+.version-warn {
+  color: #e0a33c;
+}

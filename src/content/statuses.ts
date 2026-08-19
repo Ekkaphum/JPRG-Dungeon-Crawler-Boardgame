@@ -1,6 +1,11 @@
 import type { BattleState, Fighter } from '@engine/index';
+import { AILMENTS } from './ailments';
 
+/** v0.4.0 ailments are addressed as `ailment:<id>` rather than being enumerated here, so adding one
+ *  to @content/ailments is enough — the badge row and the detail modal both pick it up. */
 export type StatusId =
+  | `ailment:${string}`
+  | 'stealth'
   | 'weakPoint'
   | 'rage'
   | 'armor'
@@ -23,7 +28,7 @@ export interface StatusDef {
 /** Every status the board can show over a character's head, with the plain-language explanation
  *  shown in the detail modal. Keep this the single source — the badge row and the modal both read
  *  it, so an icon can never appear without an explanation behind it. */
-export const STATUS_DEF: Record<StatusId, StatusDef> = {
+export const STATUS_DEF: Record<Exclude<StatusId, `ailment:${string}`>, StatusDef> = {
   weakPoint: {
     icon: '⚡',
     tone: 'good',
@@ -114,6 +119,15 @@ export const STATUS_DEF: Record<StatusId, StatusDef> = {
       en: 'Off the clock for now, auto-reviving at half HP 6 slots later — or not at all this battle if fewer than 6 slots remain.',
     },
   },
+  stealth: {
+    icon: '🌫️',
+    tone: 'good',
+    label: { th: 'ซ่อนตัว', en: 'Hidden' },
+    desc: {
+      th: 'บอสเลือกคุณเป็นเป้าไม่ได้ (ยกเว้นท่าที่ตีทุกคน) · ออกจากการซ่อนทันทีที่โจมตี และการโจมตีนั้นแรงขึ้น',
+      en: 'The boss cannot single you out (AoE still lands). Attacking breaks it — and that attack hits harder.',
+    },
+  },
   pending: {
     icon: '⏳',
     tone: 'neutral',
@@ -131,6 +145,16 @@ export interface ActiveStatus {
   value?: string;
 }
 
+/** Resolves a StatusId to its definition, mapping the `ailment:<id>` family through to
+ *  @content/ailments so ailments never need duplicate entries in STATUS_DEF. */
+export function statusDef(id: StatusId): StatusDef {
+  if (id.startsWith('ailment:')) {
+    const a = AILMENTS[id.slice('ailment:'.length) as keyof typeof AILMENTS];
+    return { icon: a.icon, tone: 'bad', label: a.name, desc: a.desc };
+  }
+  return STATUS_DEF[id as Exclude<StatusId, `ailment:${string}`>];
+}
+
 export function bossStatuses(battle: BattleState): ActiveStatus[] {
   const out: ActiveStatus[] = [];
   if (battle.weakPoint) out.push({ id: 'weakPoint', value: '+4' });
@@ -146,6 +170,12 @@ export function heroStatuses(battle: BattleState, f: Fighter): ActiveStatus[] {
     out.push({ id: 'down', value: f.reviveAtSlot != null ? `→${f.reviveAtSlot}` : '✕' });
     return out;
   }
+  // v0.4.0 ailments render ahead of the buffs so bad news reads first. Empty in the v0.3 ruleset,
+  // where nothing ever applies one.
+  for (const a of f.ailments) {
+    out.push({ id: `ailment:${a.id}`, value: a.stacks > 1 ? `×${a.stacks}` : undefined });
+  }
+  if (f.stealthUntilSlot != null) out.push({ id: 'stealth' });
   if (f.shield?.kind === 'counter') out.push({ id: 'counter', value: `-${f.shield.reduction}%` });
   if (f.shield?.kind === 'mana') out.push({ id: 'manaShield', value: `-${f.shield.reduction}` });
   if (battle.partyBuff) out.push({ id: 'blessing', value: `+${battle.partyBuff.atk}/-${battle.partyBuff.dmgReduction}` });

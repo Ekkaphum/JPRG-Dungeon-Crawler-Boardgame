@@ -59,7 +59,7 @@ async function main() {
   let wins = 0;
   const bossCleared: Partial<Record<BossId, number>> = {};
   const bossAttempts: Partial<Record<BossId, number>> = {};
-  const scoreByChar: Record<CharId, number[]> = { Eric: [], Kit: [], Liora: [], Luna: [], Dax: [], Mira: [] };
+  const scoreByChar: Record<CharId, number[]> = { Eric: [], Kit: [], Liora: [], Luna: [], Chronos: [], Kage: [], Morvane: [] };
   // Who actually took the individual win, not just who scored well. These two can disagree: a
   // character with a high average can still lose most head-to-heads if their points arrive in
   // games the party was going to lose anyway, or if another character's floor is higher.

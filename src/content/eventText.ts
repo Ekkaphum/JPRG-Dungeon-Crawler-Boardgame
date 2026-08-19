@@ -1,6 +1,7 @@
 import type { ClockLogEvent } from '@engine/index';
 import { SKILLS } from './characters';
 import { BOSSES } from './bosses3';
+import { AILMENTS } from './ailments';
 
 function skillLabel(id: string): string {
   return id === 'BossMove' ? 'Boss' : SKILLS[id as keyof typeof SKILLS]?.name.th ?? id;
@@ -38,6 +39,31 @@ export function describeEvent(ev: ClockLogEvent): string | null {
       const m = BOSSES[ev.bossId].moves.find((x) => x.key === ev.moveKey);
       return m ? `🪤 กับดักตัดจังหวะ — ${m.name.th} ถูกยกเลิก` : null;
     }
+    // ── v0.4.0 ──
+    case 'AILMENT_APPLIED':
+      return `${AILMENTS[ev.ailment].icon} ${who(ev.playerId)} ติด${AILMENTS[ev.ailment].name.th}`;
+    case 'AILMENT_TICK':
+      return `${AILMENTS[ev.ailment].icon} ${who(ev.playerId)} เสีย ${ev.dmg} HP จาก${AILMENTS[ev.ailment].name.th}`;
+    case 'AILMENT_EXPIRED':
+      return `${who(ev.playerId)} หายจาก${AILMENTS[ev.ailment].name.th}`;
+    case 'AILMENT_CLEANSED':
+      return `✨ ${who(ev.playerId)} ถูกชำระสถานะผิดปกติทั้งหมด`;
+    case 'AILMENT_WARDED':
+      // Luna's Holy Water finally doing something — worth naming explicitly the first time players
+      // ever see it fire.
+      return `💧 Holy Water ปัดป้อง${AILMENTS[ev.ailment].name.th}ให้ ${who(ev.playerId)}`;
+    case 'MARKER_REWOUND':
+      return `⏳ ${who(ev.playerId)} ย้อนเวลา — มาร์กเกอร์ถอยขึ้น ${ev.slots} ช่อง (เหลือ ${ev.marker})`;
+    case 'PREDICTION_HIT':
+      return `🔮 ${who(ev.playerId)} ทำนายท่าบอสถูก`;
+    case 'HASTED':
+      return `⚡ ${who(ev.playerId)} เร่ง ${who(ev.targetId)} ไปช่อง ${ev.slot}`;
+    case 'STEALTH_ENTERED':
+      return `🌫️ ${who(ev.playerId)} เข้าสู่การซ่อนตัว`;
+    case 'STEALTH_BROKEN':
+      return `🌫️ ${who(ev.playerId)} ออกจากการซ่อนตัว`;
+    case 'SOULS_GAINED':
+      return `💀 ${who(ev.playerId)} ได้วิญญาณ +${ev.amount} (รวม ${ev.total})`;
     case 'RESOLVE_ATTACK':
       return ev.wasted
         ? `${who(ev.playerId)} ${skillLabel(ev.skillId)} — เงื่อนไขไม่ครบ เสียฟรี`

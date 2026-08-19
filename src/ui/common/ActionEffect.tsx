@@ -19,11 +19,19 @@ const EFFECT_BY_SKILL: Partial<Record<SkillId, ActionEffectKind>> = {
   AuraSmite: 'smash',
   Blessing: 'blessing',
   Heal: 'heal',
-  Flurry: 'sword',
-  Riposte: 'sword',
-  FrostBolt: 'magic',
-  ArcaneWard: 'magic',
-  MendingWind: 'heal',
+  // v0.4.0
+  Tick: 'magic',
+  HourglassShard: 'magic',
+  Haste: 'magic',
+  Rewind: 'magic',
+  Shuriken: 'bow',
+  TwinFang: 'sword',
+  SmokeBomb: 'magic',
+  Assassinate: 'sword',
+  Drain: 'magic',
+  SoulSiphon: 'magic',
+  RaiseDead: 'heal',
+  DeathCoil: 'magic',
 };
 
 export function actionEffectKind(skillId: SkillId): ActionEffectKind | null {

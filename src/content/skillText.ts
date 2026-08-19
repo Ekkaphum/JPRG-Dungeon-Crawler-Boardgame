@@ -45,6 +45,30 @@ export function skillBriefText(skillId: SkillId, isLv2: boolean, lang: Lang): st
       return th ? `ทั้งวง +${p} ATK · เกราะ +${q} เป็นเวลา 4 ช่อง` : `Party +${p} ATK · +${q} armor for 4 slots`;
     case 'AuraSmite':
       return th ? `โจมตี ${p} — ไม่สนเกราะ` : `${p} damage, ignores armor`;
+    // ── v0.4.0 ──
+    case 'Tick':
+    case 'Shuriken':
+      return th ? `โจมตีบอส ${p} (สกิลพื้นฐาน)` : `${p} damage to the boss (common attack)`;
+    case 'Drain':
+      return th ? `โจมตี ${p} · ดูดเลือดตัวเอง 1` : `${p} damage · drain 1 HP for yourself`;
+    case 'HourglassShard':
+      return th ? `โจมตี ${p} · บอสติดมึนงง (+1 ⏱)` : `${p} damage · dazes the boss (+1 ⏱)`;
+    case 'Haste':
+      return th ? `เลื่อนหมากเพื่อนขึ้น ${p} ช่อง` : `Pull an ally ${p} slots up the clock`;
+    case 'Rewind':
+      return th ? `ย้อนมาร์กเกอร์ขึ้น ${p} ช่อง` : `Rewind the marker ${p} slots`;
+    case 'TwinFang':
+      return th ? `โจมตี ${p} สองครั้ง` : `${p} damage, twice`;
+    case 'SmokeBomb':
+      return th ? `ซ่อนตัว ${q} ช่อง · ออกมาตีครั้งแรก +${p}` : `Hide for ${q} slots · +${p} on the strike that breaks it`;
+    case 'Assassinate':
+      return th ? `โจมตี ${p} ทะลุเกราะ · บอสเลือดน้อยยิ่งแรง` : `${p} damage, ignores armor · harder on a wounded boss`;
+    case 'SoulSiphon':
+      return th ? `โจมตี ${p} · ดูดเลือด 2 · วิญญาณ +1` : `${p} damage · drain 2 HP · +1 soul`;
+    case 'RaiseDead':
+      return th ? `ชุบเพื่อนที่ล้มกลับมาทันที (HP ${p}%)` : `Revive a downed ally now at ${p}% HP`;
+    case 'DeathCoil':
+      return th ? `โจมตี ${p} · จ่าย HP เพิ่มเป็น ${q}` : `${p} damage · pay HP to make it ${q}`;
     default:
       return '';
   }
@@ -111,6 +135,53 @@ export function skillEffectText(skillId: SkillId, isLv2: boolean, lang: Lang): s
         : `On declare: the whole party gains +${p} attack and +${q} armor for exactly 4 clock slots, independent of Luna's next turn (party-only, never the boss).`;
     case 'AuraSmite':
       return th ? `โจมตีบอส ${p} ดาเมจ — ไม่สนเกราะ` : `Deal ${p} damage to the boss, ignoring armor.`;
+    // ── v0.4.0 ──
+    case 'Tick':
+      return th
+        ? `โจมตีบอส ${p} ดาเมจ · ⏱2 เร็วเกินกว่าจะสะสมเม็ดทราย (ต้อง ⏱3 ขึ้นไป)`
+        : `Deal ${p} damage. At ⏱2 this is too fast to bank sand — that needs ⏱3 or slower.`;
+    case 'HourglassShard':
+      return th
+        ? `โจมตีบอส ${p} ดาเมจ และทำให้บอสติด 💫 มึนงง (ท่าถัดไปของบอสใช้เวลา +1 ⏱) · ⏱3 จึงได้เม็ดทราย +1 ทุกครั้งที่ประกาศ`
+        : `Deal ${p} damage and daze the boss (+1 ⏱ on its next move). At ⏱3 it also banks 1 sand every time you declare it.`;
+    case 'Haste':
+      return th
+        ? `เลื่อนหมากของเพื่อน 1 คนขึ้นไปหามาร์กเกอร์ ${p} ช่อง — เขาจะได้เล่นเร็วขึ้น · ไม่มีวันเลื่อนขึ้นไปถึงหรือเลยมาร์กเกอร์`
+        : `Drag one ally's pawn ${p} slots back up toward the marker so they act sooner. It can never reach or pass the marker.`;
+    case 'Rewind':
+      return th
+        ? `จ่ายเม็ดทราย 3 — มาร์กเกอร์เดินย้อนขึ้น ${p} ช่อง ทั้งโต๊ะได้เวลาคืน · ไม่มีอะไรถูกทริกเกอร์ซ้ำ เพราะหมากทุกตัวอยู่ต่ำกว่ามาร์กเกอร์เสมอ`
+        : `Spend 3 sand: the clock marker walks back up ${p} slots, giving the whole table time back. Nothing re-triggers — every pawn always sits below the marker.`;
+    case 'Shuriken':
+      return th ? `โจมตีบอส ${p} ดาเมจ` : `Deal ${p} damage to the boss.`;
+    case 'TwinFang':
+      return th
+        ? `โจมตีบอส ${p} ดาเมจ สองครั้งแยกกัน — แต่ละครั้งกินบัฟและจุดอ่อนของตัวเอง`
+        : `Two separate ${p}-damage hits — each one takes buffs and the weak point on its own.`;
+    case 'SmokeBomb':
+      return th
+        ? `ตัวเองและทุกคนที่ยืนช่องเดียวกันเข้าสู่การซ่อนตัว ${q} ช่อง · บอสเลือกคนที่ซ่อนเป็นเป้าไม่ได้ (ยกเว้นท่าที่ตีทุกคน) · การโจมตีครั้งแรกที่ออกจากการซ่อน +${p} ดาเมจ`
+        : `You and everyone sharing your slot hide for ${q} slots. The boss cannot single out a hidden fighter (AoE still lands), and the attack that breaks stealth deals +${p}.`;
+    case 'Assassinate':
+      return th
+        ? `จ่ายเงา 2 — โจมตีบอส ${p} ดาเมจ ทะลุเกราะ · ถ้าบอสเหลือ HP ไม่ถึง 25% ดาเมจเพิ่มอีก 8`
+        : `Spend 2 shadow: ${p} damage, ignoring armor. +8 more when the boss is at or below 25% HP.`;
+    case 'Drain':
+      return th
+        ? `โจมตีบอส ${p} ดาเมจ และฟื้น HP ตัวเอง 1 — Morvane เป็นอันเดด รักษาด้วย Heal ไม่ได้ นี่คือทางฟื้นทางเดียวของเขา`
+        : `Deal ${p} damage and restore 1 HP to yourself. Morvane is undead and cannot be healed — this is his only way back.`;
+    case 'SoulSiphon':
+      return th
+        ? `โจมตีบอส ${p} ดาเมจ · ฟื้น HP ตัวเอง 2 · ได้วิญญาณ +1`
+        : `Deal ${p} damage, restore 2 HP to yourself, and gain 1 soul.`;
+    case 'RaiseDead':
+      return th
+        ? `ชุบเพื่อนที่ล้มแล้วให้กลับมาทันทีด้วย HP ${p}% ของสูงสุด แทนที่จะต้องรอ 6 ช่อง`
+        : `Bring a downed ally back immediately at ${p}% of max HP, instead of waiting out the 6-slot revive.`;
+    case 'DeathCoil':
+      return th
+        ? `จ่ายวิญญาณ 3 — โจมตีบอส ${p} ดาเมจ · เลือกจ่าย HP ตัวเอง 3 เพิ่มได้ เพื่อให้เป็น ${q} (จ่ายไม่ได้ถ้าจะทำให้ตัวเองตาย)`
+        : `Spend 3 souls for ${p} damage. Optionally pay 3 of your own HP to make it ${q} — refused if that would kill you.`;
     default:
       return '';
   }

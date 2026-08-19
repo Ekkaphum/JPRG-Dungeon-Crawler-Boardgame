@@ -10,6 +10,8 @@
 import type { CharId, SkillId } from '@content/characters';
 import type { BossId } from '@content/bosses3';
 import type { Difficulty } from '@content/difficulty';
+import type { RulesetVersion } from '@content/rulesets';
+import type { ActiveAilment, AilmentId } from '@content/ailments';
 
 export type PlayerId = number; // 0..3, index into GameState.players / progress
 
@@ -44,6 +46,9 @@ export interface PendingAction {
   targetPlayerId?: PlayerId; // Heal, Guard
   manaSpent?: number; // Fireball / Meteor
   trapSlot?: number; // SetTrap (placed immediately; kept here for log/UI only)
+  /** Death Coil's optional HP surcharge — paid at declare, but read again at resolve to pick the
+   *  damage tier, so it has to survive on the pending action. */
+  payHp?: boolean;
   /** True once this action's effect has already run — set by declareSkill for skills marked
    *  `immediate` in @content/characters (their damage/roll fires at declare, not at resolve).
    *  resolveFighterPending checks this and, when true, just frees the pawn without re-running
@@ -98,6 +103,44 @@ export interface Fighter {
   /** Total effective damage this fighter has put into the boss this battle. Ragorath's Frenzy
    *  (v0.3.14) hunts the maximum — the party's best damage dealer, not its weakest member. */
   damageDealtThisBattle: number;
+
+  // ─────────────── v0.4.0 ───────────────
+  // These are inert for the v0.3.x roster: only Chronos/Kage/Morvane ever write to them, and only
+  // the v0.4.0 ruleset can draft those three. They live on every Fighter rather than in a side map
+  // so nothing has to branch on ruleset just to read a fighter.
+
+  /** Chronos's sand (0..SAND_MAX). Gained on every ⏱4+ declare via his Time Spiral passive, spent
+   *  by Rewind. */
+  sand: number;
+  /** Kage's shadow (0..SHADOW_MAX). Gained on a visit where the boss did not touch him since his
+   *  last one, spent by Assassinate. */
+  shadow: number;
+  /** Morvane's souls. Gained when a single hit costs him SOUL_HP_LOSS_THRESHOLD+ HP, and whenever
+   *  anyone on the board goes down. Spent by Death Coil; every SOULS_PER_POINT scores morvane1. */
+  souls: number;
+  /** How many souls have already been paid out as morvane1 points, so the count-and-exchange only
+   *  fires on each new completed set rather than re-scoring the whole pile. */
+  soulsScored: number;
+  /** Kage only: the clock slot at which Smoke Bomb's stealth lapses (marker counts down, so stealth
+   *  holds while `marker > stealthUntilSlot`). null when not hidden. Set on any fighter sharing
+   *  Kage's slot when he declares it, not just on Kage. */
+  stealthUntilSlot: number | null;
+  /** Set when a hidden fighter's next attack is still owed its Smoke Bomb bonus damage. Separate
+   *  from `stealthUntilSlot` because stealth ends the moment they attack, but the bonus applies to
+   *  that very attack. */
+  stealthStrikeBonus: number;
+  /** kage3: whether the boss has landed anything on this fighter at all this battle. Latched, never
+   *  cleared — same "history not final frame" reasoning as everDroppedBelowHalfThisBattle. */
+  everHitByBossThisBattle: boolean;
+  /** Chronos's live call on the boss's next move (chronos1), declared alongside an action and
+   *  cleared the next time the boss acts — whether or not it was right. */
+  predictedBossMove: 'A' | 'B' | 'C' | null;
+  /** v0.4.0 status ailments currently on this fighter. Always an array, even in the v0.3 ruleset
+   *  where nothing ever writes to it, so no read site has to null-check. */
+  ailments: ActiveAilment[];
+  /** Set on the ally Haste moved this visit, so chronos2 can tell "dealt damage on the visit
+   *  Chronos bought them" from ordinary damage. Cleared when that ally is next visited. */
+  hastedByPlayerId: PlayerId | null;
 }
 
 export interface TrapToken {
@@ -156,6 +199,24 @@ export type ClockLogEvent =
   /** v0.3.15: Kit's trap cut the boss down mid-lunge — the move was rolled and then cancelled, so
    *  the party sees what they just avoided. Carries the move it stopped for exactly that reason. */
   | { t: 'BOSS_MOVE_CANCELLED'; bossId: BossId; moveKey: 'A' | 'B' | 'C' }
+  // ── v0.4.0 ailments ──
+  | { t: 'AILMENT_APPLIED'; playerId: PlayerId; ailment: AilmentId }
+  | { t: 'AILMENT_TICK'; playerId: PlayerId; ailment: AilmentId; dmg: number }
+  | { t: 'AILMENT_EXPIRED'; playerId: PlayerId; ailment: AilmentId }
+  | { t: 'AILMENT_CLEANSED'; playerId: PlayerId }
+  /** Luna's Holy Water cancelled a single-target debuff aimed at her. */
+  | { t: 'AILMENT_WARDED'; playerId: PlayerId; ailment: AilmentId }
+  /** Chronos rewound the marker back up the clock. */
+  | { t: 'MARKER_REWOUND'; playerId: PlayerId; slots: number; marker: number }
+  /** Chronos called the boss's move correctly (chronos1). */
+  | { t: 'PREDICTION_HIT'; playerId: PlayerId; moveKey: 'A' | 'B' | 'C' }
+  /** Chronos dragged an ally's pawn up the clock. */
+  | { t: 'HASTED'; playerId: PlayerId; targetId: PlayerId; slot: number }
+  /** A fighter entered Kage's smoke. Logged per fighter, since it covers everyone sharing his slot. */
+  | { t: 'STEALTH_ENTERED'; playerId: PlayerId; expiresAtSlot: number }
+  | { t: 'STEALTH_BROKEN'; playerId: PlayerId }
+  /** Morvane gained souls (from his own wounds, or from anyone going down). */
+  | { t: 'SOULS_GAINED'; playerId: PlayerId; amount: number; total: number }
   | { t: 'MARKER_TICK'; marker: number }
   | { t: 'BATTLE_END'; outcome: 'boss_defeated' | 'clock_ran_out' | 'party_wiped'; finishedBy: PlayerId | null; expGranted: number };
 
@@ -178,6 +239,9 @@ export interface BattleState {
    *  Now it runs a fixed WEAK_POINT_SLOTS like Blessing does, and carries its owner so `kit2` can
    *  pay Kit when an ally cashes the window in. */
   weakPoint: { ownerId: PlayerId; expiresAtSlot: number } | null;
+  /** v0.4.0: which move the boss is resolving right now, so the ailment attached to it can be
+   *  looked up at each hit site. null outside a boss action. */
+  currentMoveKey: 'A' | 'B' | 'C' | null;
   /** Blessing starts on declare and lasts exactly four clock slots, independent of Luna's pawn. */
   partyBuff: { atk: number; dmgReduction: number; ownerId: PlayerId; expiresAtSlot: number } | null;
   guard: GuardLink | null;
@@ -197,6 +261,10 @@ export interface GameState {
   seed: number;
   rngState: number;
   difficulty: Difficulty;
+  /** Which ruleset this game is being played under. Stored on the game rather than read from
+   *  settings at each use site, so a save keeps the rules it was started with even if the menu
+   *  selection changes later. */
+  ruleset: RulesetVersion;
   /** Fixed draft pick order chosen before the game; null means it was rolled randomly. */
   draftOrder: PlayerId[] | null;
   players: PlayerMeta[];
@@ -244,6 +312,11 @@ export type Choice =
       targetPlayerId?: PlayerId;
       manaSpent?: number;
       trapSlot?: number;
+      // ── v0.4.0 ──
+      /** Morvane only: pay Death Coil's HP surcharge for its bigger damage tier. */
+      payHp?: boolean;
+      /** Chronos only: his call on the boss's next move, scored by chronos1 when the boss acts. */
+      predictedBossMove?: 'A' | 'B' | 'C';
     }
   | { kind: 'CHOOSE_CHARACTER'; charId: CharId }
   | { kind: 'PLACE_EXP'; allocations: { skillId: SkillId; count: number }[] };

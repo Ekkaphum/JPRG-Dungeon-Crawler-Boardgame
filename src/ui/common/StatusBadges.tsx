@@ -1,4 +1,4 @@
-import { STATUS_DEF, type ActiveStatus } from '@content/statuses';
+import { statusDef, type ActiveStatus } from '@content/statuses';
 import { useAppStore } from '@session/store';
 
 const TONE_CLASS = {
@@ -14,7 +14,7 @@ export function StatusBadges({ statuses }: { statuses: ActiveStatus[] }) {
   return (
     <div className="flex gap-0.5 flex-shrink-0 pointer-events-none">
       {statuses.map((s) => {
-        const def = STATUS_DEF[s.id];
+        const def = statusDef(s.id);
         return (
           <span
             key={s.id}
@@ -37,7 +37,7 @@ export function StatusList({ statuses }: { statuses: ActiveStatus[] }) {
   return (
     <div className="flex flex-col gap-2">
       {statuses.map((s) => {
-        const def = STATUS_DEF[s.id];
+        const def = statusDef(s.id);
         return (
           <div key={s.id} className="flex gap-2">
             <span className={`text-xs px-1.5 py-0.5 rounded border h-fit flex-shrink-0 ${TONE_CLASS[def.tone]}`}>

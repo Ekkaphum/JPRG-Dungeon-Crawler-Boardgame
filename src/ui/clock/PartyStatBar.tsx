@@ -1,4 +1,4 @@
-import type { BattleState, GameState } from '@engine/index';
+import type { BattleState, CharId, Fighter, GameState } from '@engine/index';
 import { SKILLS } from '@content/characters';
 import { landSlotDisplay } from '@content/eventText';
 import { charImageUrl } from '@ui/common/assets';
@@ -9,6 +9,24 @@ import { CLASS_COLOR } from '@content/charColors';
 /** FF4-style stat readout — one aligned row per hero (portrait · name · HP bar · numbers), the
  *  right-hand panel of the bottom battle bar in the reference screenshot. Reads the paced display
  *  battle, not live engine state, so bars move in step with the action banner. */
+/** The one personal-resource counter each character carries, if any. Mana was the only one until
+ *  v0.4.0 added three more; keeping them in a single helper means the row stays one column wide no
+ *  matter how many characters own a resource. */
+function resourcePip(charId: CharId, f: Fighter): string {
+  switch (charId) {
+    case 'Liora':
+      return `💧${f.mana}`;
+    case 'Chronos':
+      return `⏳${f.sand}`;
+    case 'Kage':
+      return `🌑${f.shadow}`;
+    case 'Morvane':
+      return `💀${f.souls}`;
+    default:
+      return '';
+  }
+}
+
 export function PartyStatBar({
   state,
   battle,
@@ -71,7 +89,7 @@ function HeroRow({
       <span className="text-xs font-mono text-gold-bright w-14 text-right flex-shrink-0">
         {f.hp}/{f.maxHp}
       </span>
-      <span className="text-[10px] font-mono text-gold-dim w-8 text-right flex-shrink-0">{p.charId === 'Liora' ? `💧${f.mana}` : ''}</span>
+      <span className="text-[10px] font-mono text-gold-dim w-8 text-right flex-shrink-0">{resourcePip(p.charId, f)}</span>
       <span className="text-xs font-mono text-gold-bright w-7 text-right flex-shrink-0">{score}p</span>
       <span className="text-[9px] text-gold-dim w-24 truncate hidden sm:block">
         {!f.alive

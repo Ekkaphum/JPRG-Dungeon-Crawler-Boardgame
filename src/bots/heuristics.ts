@@ -182,10 +182,14 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
     // charge nudge. Opening a second window while one is already up scores nothing extra either way,
     // so this does not fire then.
     if (choice.skillId === 'SharpShooting' && !battle.weakPoint) bonus += 1.5;
-    // kit2 (v0.3.16, restored): Trap paying again on a successful trigger — sized modestly since the
-    // roll is still the real gate (springTrapOnBoss) and Trap's main value is the cancel itself, which
-    // estimateChoiceValue already prices through the damage/tempo it denies rather than through this.
-    if (choice.skillId === 'Trap') bonus += 0.5;
+    // kit2: Trap pays only when the trap actually triggers, so this is gated on the trap being armed
+    // where it can connect at all — the boss pawn only moves on its own turn, so a trap on the slot
+    // it is already sitting on is the only placement that reliably springs. Ungated (as it was at
+    // 0.5) the nudge is added even to a doomed placement, cancelling out estimateChoiceValue's own
+    // 0.2 misplacement floor; a probe at +10 ungated had Kit arming 32k traps with 56% expiring
+    // unsprung and the party never killing anything (0% win rate). Sized to beat Sharp Shooting's
+    // 1.5 nudge once placement is right, since a connecting trap cancels the boss's entire turn.
+    if (choice.skillId === 'Trap' && choice.trapSlot === battle.bossSlot) bonus += 0.5;
   }
   if (player.charId === 'Luna') {
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;

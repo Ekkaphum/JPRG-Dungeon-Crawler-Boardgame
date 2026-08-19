@@ -1,6 +1,7 @@
 import { useAppStore } from '@session/store';
 import { SELECTABLE_VISUAL_MODES } from '@session/persistence';
 import { useT } from '@content/i18n/useT';
+import { rulesetDef } from '@content/rulesets';
 
 export function MenuScreen() {
   const t = useT();
@@ -9,6 +10,8 @@ export function MenuScreen() {
   const continueGame = useAppStore((s) => s.continueGame);
   const visualMode = useAppStore((s) => s.settings.visualMode);
   const updateSettings = useAppStore((s) => s.updateSettings);
+  const ruleset = useAppStore((s) => s.ruleset);
+  const activeRuleset = rulesetDef(ruleset);
 
   return (
     <main className="menu-hero min-h-screen flex items-center justify-center p-5 sm:p-8">
@@ -56,6 +59,16 @@ export function MenuScreen() {
 
         <div className="flex flex-col gap-3 w-full">
           <MenuButton primary onClick={() => setScreen('setup')}>{t('menu.newGame')}</MenuButton>
+          {/* Which ruleset the button above actually launches. Stated on the front screen rather
+              than only inside setup, because the experimental ruleset changes the roster and the
+              boss behaviour — finding that out after starting a game is too late. */}
+          <p className="menu-version-note text-center text-xs -mt-1">
+            {t('menu.playingVersion')}{' '}
+            <strong className="gold-text">{activeRuleset.label}</strong>
+            {activeRuleset.experimental && (
+              <span className="version-warn"> · {t('menu.versionExperimental')}</span>
+            )}
+          </p>
           {hasSave && <MenuButton onClick={continueGame}>{t('menu.continue')}</MenuButton>}
           <MenuButton onClick={() => setScreen('tutorial')}>{t('menu.tutorial')}</MenuButton>
           <MenuButton onClick={() => setScreen('stats')}>{t('menu.stats')}</MenuButton>

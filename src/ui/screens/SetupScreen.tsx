@@ -1,12 +1,15 @@
 import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
 import type { Difficulty } from '@content/difficulty';
+import { RULESETS, rulesetDef, type RulesetVersion } from '@content/rulesets';
 
 export function SetupScreen() {
   const t = useT();
   const {
     players,
     difficulty,
+    ruleset,
+    setRuleset,
     seedText,
     draftMode,
     draftOrder,
@@ -57,6 +60,43 @@ export function SetupScreen() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Ruleset first, above difficulty: it decides which characters even exist, so choosing it
+            after picking a difficulty would read backwards. */}
+        <div className="mt-4">
+          <label className="text-sm gold-text">{t('setup.ruleset')}</label>
+          <div className="text-[11px] text-gold-dim mt-1">{t('setup.rulesetHint')}</div>
+          <div className="flex flex-col gap-2 mt-2">
+            {(Object.keys(RULESETS) as RulesetVersion[]).map((v) => {
+              const def = rulesetDef(v);
+              const selected = ruleset === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => setRuleset(v)}
+                  className={`text-left px-3 py-2 rounded border ${
+                    selected ? 'bg-gold/25 border-gold/60 text-gold-bright' : 'bg-black/20 border-transparent text-gold-dim'
+                  }`}
+                >
+                  <div className="flex items-baseline gap-2">
+                    <strong className="text-sm">{def.label}</strong>
+                    <span className="text-xs">{def.name.th}</span>
+                    {def.experimental && <span className="version-warn text-[11px]">⚠️</span>}
+                  </div>
+                  <div className="text-[11px] mt-0.5 opacity-90">{def.desc.th}</div>
+                  <ul className="text-[11px] mt-1 opacity-80 list-disc list-inside">
+                    {def.highlights.map((h) => (
+                      <li key={h.th}>{h.th}</li>
+                    ))}
+                  </ul>
+                </button>
+              );
+            })}
+          </div>
+          {rulesetDef(ruleset).experimental && (
+            <div className="version-warn text-[11px] mt-2">{t('setup.rulesetExperimentalWarning')}</div>
+          )}
         </div>
 
         <div className="mt-4">

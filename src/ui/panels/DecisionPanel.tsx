@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { applySomnivarTax, type Choice, type GameState, type PendingDecision, type SkillId } from '@engine/index';
+import { effectiveDeclareTime, type Choice, type GameState, type PendingDecision, type SkillId } from '@engine/index';
 import { CHARACTERS, CHAR_IDS, SKILLS, skillStats } from '@content/characters';
 import { landSlotDisplay } from '@content/eventText';
 import { useT } from '@content/i18n/useT';
@@ -118,7 +118,7 @@ function DeclareActionPanel({
             // show for things already declared — surfacing it here too lets a player line their
             // pick up against what's already on the board before committing to it, instead of only
             // finding out where they landed after the fact.
-            const landedSlot = battle.marker - applySomnivarTax(state, stats.time);
+            const landedSlot = battle.marker - effectiveDeclareTime(state, fighter, stats.time);
             // <=0, not <0: slot 0 itself is never playable (the battle ends the instant the marker
             // reaches it, before anything there resolves).
             const tooSlow = landedSlot <= 0;

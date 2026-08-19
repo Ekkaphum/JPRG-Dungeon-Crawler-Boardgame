@@ -15,7 +15,7 @@ import {
   type Choice,
   type PendingDecision,
 } from '@engine/index';
-import { CHAR_IDS, ALL_CHAR_IDS, scorePoints } from '@content/characters';
+import { CHAR_IDS, ALL_CHAR_IDS, V040_CHAR_IDS, isHumanOnlyCharacter, scorePoints } from '@content/characters';
 import { fixedDraftState } from './testUtils';
 
 // Regression tests for the 2026-08-12 critical review (9 numbered fixes). Each block below maps
@@ -326,17 +326,32 @@ describe('5. declareSkill validates at the engine boundary, not just via the UI'
   });
 });
 
-describe('9. Dax and Mira are temporarily out of the draft pool', () => {
-  it('CHAR_IDS (the draft pool) excludes Dax and Mira', () => {
-    expect(CHAR_IDS).not.toContain('Dax');
-    expect(CHAR_IDS).not.toContain('Mira');
-    expect(CHAR_IDS).toHaveLength(4);
+describe('9. Roster split — bot-facing pool vs the v0.4.0 human-only additions', () => {
+  it('CHAR_IDS (the bot-facing pool) is exactly the original four', () => {
+    expect(CHAR_IDS).toEqual(['Eric', 'Kit', 'Liora', 'Luna']);
   });
 
-  it('ALL_CHAR_IDS still includes them, so their data/score conditions keep resolving', () => {
-    expect(ALL_CHAR_IDS).toContain('Dax');
-    expect(ALL_CHAR_IDS).toContain('Mira');
-    expect(() => scorePoints('dax1')).not.toThrow();
-    expect(() => scorePoints('mira1')).not.toThrow();
+  it('the v0.4.0 three are human-only and stay out of the bot-facing pool', () => {
+    for (const charId of V040_CHAR_IDS) {
+      expect(CHAR_IDS).not.toContain(charId);
+      expect(isHumanOnlyCharacter(charId)).toBe(true);
+    }
+    for (const charId of CHAR_IDS) {
+      expect(isHumanOnlyCharacter(charId)).toBe(false);
+    }
+  });
+
+  it('ALL_CHAR_IDS covers both, so every score condition resolves', () => {
+    expect(ALL_CHAR_IDS).toHaveLength(7);
+    for (const id of ['chronos1', 'kage1', 'morvane1']) {
+      expect(() => scorePoints(id)).not.toThrow();
+    }
+  });
+
+  it('Dax and Mira are gone entirely — their conditions no longer resolve', () => {
+    expect(ALL_CHAR_IDS).not.toContain('Dax' as never);
+    expect(ALL_CHAR_IDS).not.toContain('Mira' as never);
+    expect(() => scorePoints('dax1')).toThrow();
+    expect(() => scorePoints('mira1')).toThrow();
   });
 });

@@ -3,12 +3,12 @@
 // instant they happen; the "slot 3" end-of-battle conditions are checked once here after a boss
 // dies.
 
-import { KIT3_HITS_PER_POINT, LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
+import { CHRONOS_TIME_LEFT_BAR, KIT3_HITS_PER_POINT, LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, MORVANE_LOW_HP_BAR, SOULS_PER_POINT, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
 import { pushScore, currentTotalScore } from './damage';
 import type { GameState, PlayerId } from './types';
 
-// A 6-character roster drafted 4-at-a-table (2026-08-11) means any single character, Luna
-// included, may simply not be in a given game — this must never assume otherwise and throw.
+// A roster larger than the table means any single character, Luna included, may simply not be in a
+// given game — this must never assume otherwise and throw.
 function playerByChar(state: GameState, charId: string): PlayerId | null {
   return state.players.find((p) => p.charId === charId)?.id ?? null;
 }
@@ -68,21 +68,18 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
       pushScore(state, { playerId: battle.weakPoint.ownerId, conditionId: 'kit1', points: scorePoints('kit1') });
     }
   }
-  if (charId === 'Mira' && skillId === 'FrostBolt' && effectiveDmg > 10) {
-    pushScore(state, { playerId, conditionId: 'mira2', points: scorePoints('mira2') });
-  }
-  // Riposte's counter-strike used to always log as skillId 'CounterAttack' regardless of which
-  // buffCounter skill actually fired (see dealDamageToFighterFromBoss in skills.ts) — fixed
-  // alongside adding Dax, since a wrongly-attributed hit here would have made this condition
-  // unreachable rather than just cosmetically mislabeled.
-  if (charId === 'Dax' && skillId === 'Riposte' && effectiveDmg > 0) {
-    pushScore(state, { playerId, conditionId: 'dax2', points: scorePoints('dax2') });
+  // kage2 (v0.4.0): the attack that breaks stealth has to actually connect. `stealthUntilSlot` is
+  // cleared by dealAttackFor *after* this runs, so the flag is still set here — that ordering is
+  // what makes "came out of hiding to land this" checkable at all.
+  const kageFighter = charId === 'Kage' ? battle.fighters.find((x) => x.playerId === playerId) : undefined;
+  if (kageFighter?.stealthUntilSlot != null && effectiveDmg > 0) {
+    pushScore(state, { playerId, conditionId: 'kage2', points: scorePoints('kage2') });
   }
 }
 
-/** Which character's weak-point-opener condition this is — Kit's Quick Shot and Dax's Focus both
- *  resolve through the same generic attackRoll success path (skills.ts), so the condition to
- *  credit has to be looked up by character rather than assumed. */
+/** Which character's weak-point-opener condition this is. Looked up by character rather than
+ *  assumed: `attackRoll` is a generic path and a future character could own one without owning
+ *  kit1. (Dax used to be the second one here before he was removed in v0.4.0.) */
 export function onWeakPointOpened(state: GameState, playerId: PlayerId) {
   // v0.3.16 first cut moved kit1 entirely onto the hits that cash the window in (onPlayerDealtDamage
   // below), on the theory that opening a window nobody then hits into is a wasted turn and should not
@@ -93,8 +90,7 @@ export function onWeakPointOpened(state: GameState, playerId: PlayerId) {
   // opening pays again, on top of — not instead of — the hit-based payout, so kit1 now double-dips
   // the way it effectively did before v0.3.16, just consolidated under one id.
   const charId = state.players.find((p) => p.id === playerId)!.charId;
-  const conditionId = charId === 'Kit' ? 'kit1' : charId === 'Dax' ? 'dax1' : null;
-  if (conditionId) pushScore(state, { playerId, conditionId, points: scorePoints(conditionId) });
+  if (charId === 'Kit') pushScore(state, { playerId, conditionId: 'kit1', points: scorePoints('kit1') });
 }
 
 /** kit2 (v0.3.16): Trap actually triggers — the roll passed, so it dealt damage and cancelled the
@@ -115,18 +111,12 @@ export function onGuardRedirected(state: GameState, guardianId: PlayerId) {
   pushScore(state, { playerId: guardianId, conditionId: 'eric2', points: scorePoints('eric2') });
 }
 
-/** Same character-lookup reasoning as onWeakPointOpened: Luna's Heal and Mira's Mending Wind both
- *  resolve through the same generic heal-kind path. */
-export function onHealResolved(state: GameState, healerId: PlayerId, targetId: PlayerId, actualAmount: number) {
-  if (actualAmount < 1) return;
-  const charId = state.players.find((p) => p.id === healerId)!.charId;
-  // Luna's condition explicitly says “heal a friend”: self-healing is legal and restores HP, but
-  // does not award luna1. Mira's separate condition does not contain that restriction.
-  if (charId === 'Luna' && targetId === healerId) return;
-  // v0.3.15: Luna's luna1 moved off Heal entirely (see @content/characters) — healing is still her
-  // job, it just is not what her card pays for any more. Mira keeps the heal-based version.
-  const conditionId = charId === 'Mira' ? 'mira1' : null;
-  if (conditionId) pushScore(state, { playerId: healerId, conditionId, points: scorePoints(conditionId) });
+/** Kept as a hook with no scoring body since v0.4.0: luna1 moved off Heal in v0.3.15 and Mira, the
+ *  only other character whose condition rode this path, was removed. Healing still happens — it just
+ *  pays nobody a point any more. The call site stays so a future heal-based condition has somewhere
+ *  to live, and so the resolve path doesn't have to change shape to add one. */
+export function onHealResolved(_state: GameState, _healerId: PlayerId, _targetId: PlayerId, _actualAmount: number) {
+  // intentionally empty
 }
 
 /** "Slot 3" end-of-battle conditions — only meaningful when the boss was actually defeated. */
@@ -156,11 +146,26 @@ export function onBattleEndScoring(state: GameState) {
     if (p.charId === 'Liora' && !f.everDiedThisBattle && f.landedMeteorThisBattle) {
       pushScore(state, { playerId: p.id, conditionId: 'liora3', points: scorePoints('liora3') });
     }
-    if (p.charId === 'Dax' && f.alive && f.hp > f.maxHp / 2) {
-      pushScore(state, { playerId: p.id, conditionId: 'dax3', points: scorePoints('dax3') });
+    // ── v0.4.0 slot-③ conditions ──
+    // chronos3: his whole kit spends his own ⏱ to buy the table time; the leftover clock is the
+    // honest scoreboard for whether that trade paid.
+    if (p.charId === 'Chronos' && battle.marker >= CHRONOS_TIME_LEFT_BAR) {
+      pushScore(state, { playerId: p.id, conditionId: 'chronos3', points: scorePoints('chronos3') });
     }
-    if (p.charId === 'Mira' && !f.everDiedThisBattle) {
-      pushScore(state, { playerId: p.id, conditionId: 'mira3', points: scorePoints('mira3') });
+    // kage1 reads finishedBySkill, which the engine has recorded since v0.3.0 with nothing ever
+    // reading it. kage3 asks for a completely untouched battle — the hardest bar on the roster.
+    if (p.charId === 'Kage') {
+      if (battle.finishedBy === p.id && battle.finishedBySkill === 'Assassinate') {
+        pushScore(state, { playerId: p.id, conditionId: 'kage1', points: scorePoints('kage1') });
+      }
+      if (!f.everHitByBossThisBattle) {
+        pushScore(state, { playerId: p.id, conditionId: 'kage3', points: scorePoints('kage3') });
+      }
+    }
+    // morvane3: alive, but only just. Mirrors eric3's "battered but unbroken" shape at a harsher bar,
+    // which suits a character who cannot be healed at all.
+    if (p.charId === 'Morvane' && !f.everDiedThisBattle && f.hp < MORVANE_LOW_HP_BAR) {
+      pushScore(state, { playerId: p.id, conditionId: 'morvane3', points: scorePoints('morvane3') });
     }
   }
   const noOneEverDied = battle.fighters.every((f) => !f.everDiedThisBattle);

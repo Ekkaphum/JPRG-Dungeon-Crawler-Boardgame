@@ -1,8 +1,8 @@
 import { CLASS_COLOR } from '@content/charColors';
 import type { CharId } from '@engine/index';
 
-// Dax and Mira (2026-08-11) don't have painted portraits like the original four — there was no way
-// to source matching artwork for them. Rather than a broken <img> or a photo-style placeholder that
+// The v0.4.0 roster (Chronos/Kage/Morvane) doesn't have painted portraits like the original four —
+// there was no way to source matching artwork. Rather than a broken <img> or a placeholder that
 // would read as an unfinished attempt at matching the painted style, they get a hand-drawn SVG
 // "sigil card": a gradient panel in the class color with a simple geometric emblem, at the exact
 // same 480x720 aspect ratio as the real cards (public/assets/cards/*.webp) so they sit correctly in
@@ -32,7 +32,7 @@ function frame(color: string, glyph: string): string {
   </svg>`;
 }
 
-/** Crossed blades, for Dax the Duelist. */
+/** Crossed blades — Kage the Ninja. */
 function daggersGlyph(color: string): string {
   const blade = (rotate: number) => `
     <g transform="rotate(${rotate} ${CX} ${CY})">
@@ -43,18 +43,35 @@ function daggersGlyph(color: string): string {
   return blade(-42) + blade(42);
 }
 
-/** A six-point frost shard, for Mira the Elementalist. */
-function frostGlyph(color: string): string {
-  const spike = (rotate: number) => `
-    <g transform="rotate(${rotate} ${CX} ${CY})">
-      <polygon points="${CX},${CY - 130} ${CX + 13},${CY - 30} ${CX},${CY + 10} ${CX - 13},${CY - 30}" fill="${color}" opacity="0.92"/>
+/** An hourglass — Chronos the Time Mage. */
+function hourglassGlyph(color: string): string {
+  return `
+    <g>
+      <polygon points="${CX - 78},${CY - 110} ${CX + 78},${CY - 110} ${CX + 8},${CY} ${CX + 78},${CY + 110} ${CX - 78},${CY + 110} ${CX - 8},${CY}" fill="none" stroke="${color}" stroke-width="9" stroke-linejoin="round"/>
+      <polygon points="${CX - 58},${CY - 92} ${CX + 58},${CY - 92} ${CX + 5},${CY - 8} ${CX - 5},${CY - 8}" fill="${color}" opacity="0.85"/>
+      <polygon points="${CX - 30},${CY + 92} ${CX + 30},${CY + 92} ${CX + 4},${CY + 40} ${CX - 4},${CY + 40}" fill="${color}" opacity="0.85"/>
+      <rect x="${CX - 92}" y="${CY - 126}" width="184" height="16" rx="6" fill="${color}"/>
+      <rect x="${CX - 92}" y="${CY + 110}" width="184" height="16" rx="6" fill="${color}"/>
     </g>`;
-  return [0, 60, 120, 180, 240, 300].map(spike).join('') + `<circle cx="${CX}" cy="${CY}" r="14" fill="#e8f6fb"/>`;
+}
+
+/** A skull — Morvane the Necromancer. */
+function skullGlyph(color: string): string {
+  return `
+    <g>
+      <path d="M ${CX - 82},${CY - 6} a 82,92 0 1 1 164,0 v 44 a 24,24 0 0 1 -24,24 h -18 l -12,34 h -56 l -12,-34 h -18 a 24,24 0 0 1 -24,-24 z" fill="${color}" opacity="0.92"/>
+      <circle cx="${CX - 34}" cy="${CY - 14}" r="24" fill="#0b0e14"/>
+      <circle cx="${CX + 34}" cy="${CY - 14}" r="24" fill="#0b0e14"/>
+      <polygon points="${CX},${CY + 10} ${CX + 13},${CY + 38} ${CX - 13},${CY + 38}" fill="#0b0e14"/>
+    </g>`;
 }
 
 const SIGILS: Partial<Record<CharId, (color: string) => string>> = {
-  Dax: daggersGlyph,
-  Mira: frostGlyph,
+  // v0.4.0 roster — no painted portraits, so they render as a sigil the way Dax/Mira did before
+  // they were removed. Kage reuses the crossed blades; Chronos and Morvane get their own below.
+  Chronos: hourglassGlyph,
+  Kage: daggersGlyph,
+  Morvane: skullGlyph,
 };
 
 export function hasSigil(charId: CharId): boolean {

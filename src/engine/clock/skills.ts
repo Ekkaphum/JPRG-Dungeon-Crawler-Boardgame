@@ -1,9 +1,28 @@
 // Declare + resolve logic for every adventurer skill. See docs/RULINGS.md §5 and §7 for the
 // declare-immediate vs resolve-delayed split this file implements skill-by-skill.
 
-import { CHARACTERS, SKILLS, skillStats, type SkillDef, type SkillId, type SkillLevelStats } from '@content/characters';
-import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter } from './damage';
+import {
+  ASSASSINATE_EXECUTE_BONUS,
+  ASSASSINATE_EXECUTE_THRESHOLD,
+  CHARACTERS,
+  DEATH_COIL_HP_COST,
+  LIFESTEAL,
+  SHADOW_MAX,
+  SHADOW_PER_ASSASSINATE,
+  SKILLS,
+  SOULS_PER_DEATH_COIL,
+  SAND_MAX,
+  SAND_PER_REWIND,
+  SAND_PER_SLOW_DECLARE,
+  scorePoints,
+  skillStats,
+  type SkillDef,
+  type SkillId,
+  type SkillLevelStats,
+} from '@content/characters';
+import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter, pushScore, reviveFighterNow } from './damage';
 import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
+import { ailmentRollPenalty, ailmentTimeTax, consumeTimeTaxAilments, isSilenced } from './ailments';
 import type { Choice, Fighter, GameState } from './types';
 import type { RNG } from '../rng';
 
@@ -25,12 +44,28 @@ const ATTACK_GATED_HP_THRESHOLD = 5;
  *  rule to learn. Replaces "until the boss's next action", which v0.3.14 made almost meaningless. */
 export const WEAK_POINT_SLOTS = 4;
 
+/** Highest slot the marker may ever sit on — the clock starts at 24 and counts down, so Rewind can
+ *  restore time but never manufacture more than the battle began with. */
+const CLOCK_TOP_SLOT = 24;
+
+/** Skills 🔇 silence blocks — every one that spends a resource. Listed explicitly rather than
+ *  derived from SkillKind because the tell is the cost, not the family: Fireball and Meteor spend
+ *  mana but are ordinary `attackMana` cards, while Assassinate and Death Coil are plain `attack`. */
+const SPENDS_RESOURCE = new Set<SkillId>(['Fireball', 'Meteor', 'Rewind', 'Assassinate', 'DeathCoil']);
+
 /** Somnivar's "มนตร์ง่วงงุน" tax: player-declared skills with base ⏱ >= 5 walk 2 extra slots. */
 export function applySomnivarTax(state: GameState, baseTime: number): number {
   if (state.battle!.bossId !== 'Somnivar') return baseTime;
   if (baseTime >= 6) return baseTime + 2;
   if (baseTime >= 4) return baseTime + 1;
   return baseTime;
+}
+
+/** Every ⏱ modifier that applies to one declare, in one place: Somnivar's aura first, then the
+ *  fighter's own ❄️/💫 ailments on top. Kept separate from applySomnivarTax because the bots call
+ *  that one directly to price candidate skills and must keep seeing the boss-level tax alone. */
+export function effectiveDeclareTime(state: GameState, fighter: Fighter, baseTime: number): number {
+  return applySomnivarTax(state, baseTime) + ailmentTimeTax(fighter);
 }
 
 /** Slots Trap! may legally be armed on: strictly inside the skill's own ⏱ window (so the trap is
@@ -72,6 +107,9 @@ function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpos
     const attempt = fighter.rollAttempt[skillId] ?? 0;
     target = attempt >= 4 ? 0 : Math.max(1, base - attempt);
   }
+  // 👁️ blind (v0.4.0) is applied after the ladder, so it can push a target back above the floor the
+  // ladder just brought it down to — the point of the ailment is that the ladder stops rescuing you.
+  if (target > 0) target += ailmentRollPenalty(fighter);
 
   const die = rng.int(1, 6);
   const success = target === 0 || die >= target;
@@ -92,17 +130,56 @@ function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpos
  *  path (resolveFighterPending, for everyone else) so both run through the exact same math. */
 function dealAttackFor(state: GameState, fighter: Fighter, skillId: SkillId, rawBase: number, ignoresArmor: boolean, manaSpent = 0) {
   const battle = state.battle!;
-  const outgoing = computeOutgoingPlayerDamage(battle, rawBase, fighter.playerId);
+  // v0.4.0 — Smoke Bomb's payoff rides the *first* attack out of hiding, so it is added before the
+  // usual buff pipeline and consumed whether or not the hit ends up mattering.
+  const stealthBonus = fighter.stealthUntilSlot != null ? fighter.stealthStrikeBonus : 0;
+  const outgoing = computeOutgoingPlayerDamage(battle, rawBase + stealthBonus, fighter.playerId);
   const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor, skillId });
+  // Ordering matters: kage2 asks "did you come out of hiding to land this", so scoring has to read
+  // the stealth flag *before* the attack clears it.
   onPlayerDealtDamage(state, fighter.playerId, skillId, result.effective, manaSpent);
+  if (fighter.stealthUntilSlot != null) {
+    fighter.stealthUntilSlot = null;
+    fighter.stealthStrikeBonus = 0;
+    battle.log.push({ t: 'STEALTH_BROKEN', playerId: fighter.playerId });
+  }
   battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: 'boss', dmg: result.effective, wasted: false });
+  // Morvane's only route back to HP — Heal cannot touch him (see healFighter). Applied after the
+  // hit so a Drain that finishes the boss still heals him.
+  const drain = LIFESTEAL[skillId];
+  if (drain && result.effective > 0) healSelfUndead(fighter, drain);
   return result;
+}
+
+/** Bypasses healFighter's undead block on purpose: this is Morvane draining life himself, which is
+ *  exactly the thing his passive says still works. */
+function healSelfUndead(fighter: Fighter, amount: number) {
+  if (!fighter.alive) return;
+  fighter.hp = Math.min(fighter.maxHp, fighter.hp + amount);
+}
+
+/** Assassinate's and Death Coil's live damage, which both read state the skill table cannot: the
+ *  boss's current HP fraction, and whether Morvane chose to pay the HP surcharge. */
+function v040SignatureDamage(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, paidHp: boolean): number {
+  const battle = state.battle!;
+  if (skillId === 'Assassinate') {
+    const executing = battle.bossHp <= battle.bossHpMax * ASSASSINATE_EXECUTE_THRESHOLD;
+    return (stats.primary ?? 0) + (executing ? ASSASSINATE_EXECUTE_BONUS : 0);
+  }
+  if (skillId === 'DeathCoil') return paidHp ? (stats.secondary ?? 0) : (stats.primary ?? 0);
+  return stats.primary ?? 0;
 }
 
 /** Resolves an `attack`-kind skill's hit(s) — single or multi-hit, driven by whether `secondary`
  *  (hit count) is set. Used by both the immediate and resolve-delayed paths. */
-function resolveAttackHits(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, def: SkillDef) {
+function resolveAttackHits(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, def: SkillDef, paidHp = false) {
   const battle = state.battle!;
+  // Assassinate and Death Coil read state the skill table cannot see (live boss HP; whether the HP
+  // surcharge was paid), so their damage is computed rather than looked up. Both are single-hit.
+  if (skillId === 'Assassinate' || skillId === 'DeathCoil') {
+    dealAttackFor(state, fighter, skillId, v040SignatureDamage(state, fighter, skillId, stats, paidHp), def.ignoresArmor === true);
+    return;
+  }
   if (stats.secondary != null) {
     for (let i = 0; i < stats.secondary; i++) {
       if (battle.outcome !== 'in_progress') break;
@@ -146,6 +223,26 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       throw new Error(`illegal mana spend ${spent} for player ${fighter.playerId} (has ${fighter.mana})`);
     }
   }
+  // v0.4.0 resource gates. Validated here with mana rather than at each resolution site so an
+  // illegal declare is rejected before the pawn has moved.
+  // Checked here rather than in the 'rewind' case below so the Time Spiral grant further down
+  // cannot part-fund the very declare that spends it.
+  if (skillId === 'Rewind' && fighter.sand < SAND_PER_REWIND) {
+    throw new Error(`Rewind needs ${SAND_PER_REWIND} sand (player ${fighter.playerId} has ${fighter.sand})`);
+  }
+  if (skillId === 'Assassinate' && fighter.shadow < SHADOW_PER_ASSASSINATE) {
+    throw new Error(`Assassinate needs ${SHADOW_PER_ASSASSINATE} shadow (player ${fighter.playerId} has ${fighter.shadow})`);
+  }
+  if (skillId === 'DeathCoil') {
+    if (fighter.souls < SOULS_PER_DEATH_COIL) {
+      throw new Error(`Death Coil needs ${SOULS_PER_DEATH_COIL} souls (player ${fighter.playerId} has ${fighter.souls})`);
+    }
+    // The HP surcharge is optional and has to be survivable — paying it cannot be what kills him,
+    // or the card would read as a suicide button rather than a gamble.
+    if (choice.payHp && fighter.hp <= DEATH_COIL_HP_COST) {
+      throw new Error(`Death Coil's HP surcharge would kill player ${fighter.playerId}`);
+    }
+  }
   if (def.kind === 'heal') {
     const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
     if (!target || !target.alive) {
@@ -164,9 +261,20 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     }
   }
 
+  // 🔇 silence (v0.4.0) bars anything that spends a resource. Validated at the engine boundary
+  // alongside the other declare checks, for the same reason those are: a bot or a hand-built Choice
+  // bypasses the UI entirely.
+  if (isSilenced(fighter) && SPENDS_RESOURCE.has(skillId)) {
+    throw new Error(`${skillId} cannot be declared while silenced (player ${fighter.playerId})`);
+  }
+
   const stats = skillStats(skillId, isLv2(state, fighter, skillId));
-  const time = applySomnivarTax(state, stats.time);
+  const time = effectiveDeclareTime(state, fighter, stats.time);
   const landedAtSlot = battle.marker - time;
+  // Where the caster is standing as they declare, captured before the pawn walks below. Smoke Bomb
+  // needs it: reading fighter.slot after the move would cover whoever happens to be at the
+  // *destination* rather than the people standing with Kage when he threw it.
+  const declaredFromSlot = fighter.slot;
 
   fighter.pending = {
     skillId,
@@ -175,6 +283,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     targetPlayerId: choice.targetPlayerId,
     manaSpent: choice.manaSpent,
     trapSlot: choice.trapSlot,
+    payHp: choice.payHp,
   };
   fighter.slot = landedAtSlot;
   fighter.stackSeq = battle.nextStackSeq++;
@@ -189,6 +298,26 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     landSlot: landedAtSlot,
     label: def.name.th,
   });
+
+  // ── v0.4.0 passives that fire on the declare itself ──
+  // Chronos's Time Spiral: sand accrues from *committing* to a slow action, so the resource is
+  // earned by the same patience Rewind then spends.
+  if (fighter.charId === 'Chronos' && stats.time >= SAND_PER_SLOW_DECLARE) {
+    fighter.sand = Math.min(SAND_MAX, fighter.sand + 1);
+  }
+  // Costs are paid on declare, not on resolve: the commitment is the turn, and a boss that kills
+  // the caster before the hit lands must not also refund the resource.
+  if (skillId === 'Assassinate') fighter.shadow -= SHADOW_PER_ASSASSINATE;
+  if (skillId === 'DeathCoil') {
+    fighter.souls -= SOULS_PER_DEATH_COIL;
+    if (choice.payHp) applyDamageToFighter(state, fighter, DEATH_COIL_HP_COST, { selfInflicted: true });
+  }
+  // Chronos's call on the boss's next move (chronos1), carried until the boss actually acts.
+  if (fighter.charId === 'Chronos' && choice.predictedBossMove) {
+    fighter.predictedBossMove = choice.predictedBossMove;
+  }
+  // ❄️/💫 are spent by the declare they taxed, not by the clock — so the penalty lands exactly once.
+  consumeTimeTaxAilments(state, fighter);
 
   switch (def.kind) {
     case 'buffCounter':
@@ -206,6 +335,65 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       fighter.mana = Math.min(3, fighter.mana + stats.primary!);
       fighter.shield = { kind: 'mana', reduction: stats.secondary! };
       break;
+    case 'buffHaste': {
+      // Chronos's Haste. Drags an ally's pawn back *up* the clock toward the marker so they are
+      // visited sooner — the mirror image of every boss effect that pushes pawns down. Capped at
+      // marker-1 so it can never place a pawn on or above the marker, which would either skip the
+      // ally's visit entirely or re-trigger one the marker has already passed.
+      const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+      if (!target || !target.alive || target.playerId === fighter.playerId) {
+        throw new Error(`illegal Haste target ${choice.targetPlayerId} for player ${fighter.playerId} (must be a different, living ally)`);
+      }
+      const moved = Math.min(battle.marker - 1, target.slot + (stats.primary ?? 0));
+      if (moved > target.slot) {
+        target.slot = moved;
+        target.stackSeq = battle.nextStackSeq++;
+        // chronos2 reads this on the ally's next visit, then clears it.
+        target.hastedByPlayerId = fighter.playerId;
+        battle.log.push({ t: 'HASTED', playerId: fighter.playerId, targetId: target.playerId, slot: moved });
+      }
+      break;
+    }
+    case 'buffStealth': {
+      // Kage's Smoke Bomb. Hides him *and everyone sharing his slot* — which is the mechanical
+      // reason his size is small: small fighters may always stack onto an occupied slot, so he can
+      // choose who the smoke covers by choosing where to stand.
+      const until = battle.marker - (stats.secondary ?? 4);
+      for (const f of battle.fighters) {
+        // The caster is always covered, even though his own pawn has already walked off
+        // declaredFromSlot by the time this runs — the smoke is thrown from where he was standing.
+        const shared = f.playerId === fighter.playerId || f.slot === declaredFromSlot;
+        if (!f.alive || !shared) continue;
+        f.stealthUntilSlot = until;
+        f.stealthStrikeBonus = stats.primary ?? 0;
+        battle.log.push({ t: 'STEALTH_ENTERED', playerId: f.playerId, expiresAtSlot: until });
+      }
+      break;
+    }
+    case 'raise': {
+      // Morvane's Raise Dead. Buys back the ~6 slots of missing pawn-visits a downed ally costs the
+      // party, which is why a card that deals no damage still clears §8.0's "must touch the damage
+      // economy" bar — it is the most direct damage restoration in the game.
+      const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+      if (!target || target.alive || target.playerId === fighter.playerId) {
+        throw new Error(`illegal Raise Dead target ${choice.targetPlayerId} (must be a downed ally)`);
+      }
+      reviveFighterNow(state, target, stats.primary ?? 50);
+      pushScore(state, { playerId: fighter.playerId, conditionId: 'morvane2', points: scorePoints('morvane2') });
+      break;
+    }
+    case 'rewind': {
+      // Chronos's Rewind — the only card in the game that touches the clock marker.
+      //
+      // Safe by construction: every pawn is always at or below the marker, so walking the marker
+      // *up* cannot step over one and re-trigger it. Nothing is re-run; the runway simply gets
+      // longer. He pays ⏱6 and SAND_PER_REWIND to hand `primary` slots to all four seats.
+      fighter.sand -= SAND_PER_REWIND;
+      const slots = stats.primary ?? 3;
+      battle.marker = Math.min(CLOCK_TOP_SLOT, battle.marker + slots);
+      battle.log.push({ t: 'MARKER_REWOUND', playerId: fighter.playerId, slots, marker: battle.marker });
+      break;
+    }
     case 'guard':
       // Declare-immediate (docs/RULINGS.md §5 group B): the protection has to be up *before* the
       // boss's already-announced move lands, or reading the boss — the whole point of §4.4 — would
@@ -291,7 +479,7 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
 
   switch (def.kind) {
     case 'attack': {
-      resolveAttackHits(state, fighter, skillId, stats, def);
+      resolveAttackHits(state, fighter, skillId, stats, def, pending.payHp === true);
       break;
     }
     case 'attackGated': {
@@ -417,6 +605,14 @@ export function springTrapOnBoss(state: GameState, rng: RNG): boolean {
 export function expireTimedEffectsAtMarker(state: GameState) {
   const battle = state.battle!;
   if (battle.partyBuff && battle.marker <= battle.partyBuff.expiresAtSlot) battle.partyBuff = null;
+  // v0.4.0 stealth runs on the same slot-counted timer as everything else here.
+  for (const f of battle.fighters) {
+    if (f.stealthUntilSlot != null && battle.marker <= f.stealthUntilSlot) {
+      f.stealthUntilSlot = null;
+      f.stealthStrikeBonus = 0;
+      battle.log.push({ t: 'STEALTH_BROKEN', playerId: f.playerId });
+    }
+  }
   if (battle.weakPoint && battle.marker <= battle.weakPoint.expiresAtSlot) battle.weakPoint = null;
 }
 
@@ -475,6 +671,13 @@ export function applyBossDamageToFighter(
   opts: { piercesPartyMitigation?: boolean } = {}
 ): { applied: number; counterDmg: number; recipient: Fighter } {
   const { recipient, reduction } = redirectTarget(state, fighter);
+  // kage3 ("never hit all battle") and his Shadowless passive both hang off this one fact, so it is
+  // latched at the single point every boss-sourced hit passes through. Recorded before mitigation:
+  // being hit for 0 through a shield still counts as having been hit.
+  if (rawDamage > 0) {
+    recipient.everHitByBossThisBattle = true;
+    recipient.shadow = 0;
+  }
   // Read before applying: dying clears the shield.
   const counterDmg = recipient.shield?.kind === 'counter' ? recipient.shield.counterDmg ?? 0 : 0;
   // Scored before the damage lands, so a hit that kills the guardian still counts as protection

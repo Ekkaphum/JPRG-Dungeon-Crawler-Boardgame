@@ -3,7 +3,7 @@
 // per skill.
 
 import { BOSSES } from '@content/bosses3';
-import { CHARACTERS, LAST_SHOT_CONDITION_ID, LUNA1_ALLY_SCORES_PER_POINT, scorePoints, type SkillId } from '@content/characters';
+import { SOULS_PER_POINT, SOUL_HP_LOSS_THRESHOLD, CHARACTERS, LAST_SHOT_CONDITION_ID, LUNA1_ALLY_SCORES_PER_POINT, scorePoints, type SkillId } from '@content/characters';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
 /** Berserk's threshold (@content/characters PASSIVES.Eric) — always-on, checked here rather than
@@ -80,7 +80,7 @@ export function applyDamageToFighter(
   state: GameState,
   fighter: Fighter,
   rawDamage: number,
-  opts: { piercesPartyMitigation?: boolean } = {}
+  opts: { piercesPartyMitigation?: boolean; selfInflicted?: boolean } = {}
 ): number {
   // An AoE resolves one target at a time. Guard can redirect an earlier target's share onto Eric
   // and kill him before the loop reaches Eric's own share; that later share must not kill/log/count
@@ -91,6 +91,14 @@ export function applyDamageToFighter(
   // Aurelius's Procession pierces this (v0.3.11): a king's judgment is not talked down by a
   // cleric's blessing. Deliberately narrow — it ignores the *party-wide* buff only. Guard still
   // redirects it and a personal shield still absorbs it, so both remain real answers to it.
+  // A cost the fighter chose to pay is not an attack: it ignores every mitigation layer, and it
+  // must not feed Morvane's soul engine or Death Coil would partly refund its own surcharge.
+  if (opts.selfInflicted) {
+    fighter.hp = Math.max(0, fighter.hp - Math.max(0, rawDamage));
+    if (fighter.hp * 2 < fighter.maxHp) fighter.everDroppedBelowHalfThisBattle = true;
+    if (fighter.hp === 0) killFighter(state, fighter);
+    return Math.max(0, rawDamage);
+  }
   if (battle.partyBuff && !opts.piercesPartyMitigation) dmg -= battle.partyBuff.dmgReduction;
   if (fighter.shield?.kind === 'mana') dmg -= fighter.shield.reduction;
   if (fighter.shield?.kind === 'counter') {
@@ -102,8 +110,27 @@ export function applyDamageToFighter(
   // Latched, never cleared until the next battle — eric3 asks whether he *was* beaten down at any
   // point, so a later heal must not undo it. Strictly below half, so exactly half doesn't count.
   if (fighter.hp * 2 < fighter.maxHp) fighter.everDroppedBelowHalfThisBattle = true;
+  // v0.4.0. Morvane's Undead Pact: a wound worth SOUL_HP_LOSS_THRESHOLD or more feeds him. Ordinary
+  // chip damage deliberately does not, so the engine only turns over when he is genuinely in danger.
+  if (fighter.charId === 'Morvane' && dmg >= SOUL_HP_LOSS_THRESHOLD) {
+    grantSouls(state, fighter, 1);
+  }
   if (fighter.hp === 0) killFighter(state, fighter);
   return dmg;
+}
+
+/** Morvane's soul counter, and the count-and-exchange payout that rides it. Every SOULS_PER_POINT
+ *  souls scores morvane1 once — `soulsScored` tracks what has already been paid so the pile is not
+ *  re-scored each time it grows. */
+export function grantSouls(state: GameState, fighter: Fighter, amount: number) {
+  if (amount <= 0 || fighter.charId !== 'Morvane') return;
+  fighter.souls += amount;
+  state.battle!.log.push({ t: 'SOULS_GAINED', playerId: fighter.playerId, amount, total: fighter.souls });
+  const owed = Math.floor(fighter.souls / SOULS_PER_POINT) - fighter.soulsScored;
+  if (owed > 0) {
+    fighter.soulsScored += owed;
+    pushScore(state, { playerId: fighter.playerId, conditionId: 'morvane1', points: owed * scorePoints('morvane1') });
+  }
 }
 
 /** Heals a fighter, capped at maxHp. Returns the actual amount restored (0 if already full or dead
@@ -111,6 +138,10 @@ export function applyDamageToFighter(
  *  target). */
 export function healFighter(fighter: Fighter, amount: number): number {
   if (!fighter.alive) return 0;
+  // v0.4.0 — Morvane's Undead Pact, the hardest rule exception on the roster: no external healing
+  // reaches him at all. His own Drain/Soul Siphon restore HP through a separate path (see
+  // dealAttackFor's lifesteal), which is the whole reason those two cards exist.
+  if (fighter.charId === 'Morvane') return 0;
   const before = fighter.hp;
   fighter.hp = Math.min(fighter.maxHp, fighter.hp + amount);
   return fighter.hp - before;
@@ -123,6 +154,14 @@ export function killFighter(state: GameState, fighter: Fighter) {
   const battle = state.battle!;
   fighter.alive = false;
   fighter.everDiedThisBattle = true;
+  // v0.4.0: anyone going down feeds every Morvane at the table. Referenced as "someone died" rather
+  // than by character, per DESIGN_VARIABLES §5.2 — and paired with morvane2 paying 3 points for
+  // *undoing* a death, which is what stops the engine from rewarding him for wanting one.
+  for (const other of battle.fighters) {
+    if (other.charId === 'Morvane' && other.playerId !== fighter.playerId && other.alive) {
+      grantSouls(state, other, 1);
+    }
+  }
   state.deathCounts[fighter.playerId] = (state.deathCounts[fighter.playerId] ?? 0) + 1;
   fighter.pending = null;
   fighter.shield = null;
@@ -154,6 +193,21 @@ export function killFighter(state: GameState, fighter: Fighter) {
     battle.outcome = 'party_wiped';
     battle.log.push({ t: 'BATTLE_END', outcome: 'party_wiped', finishedBy: null, expGranted: 0 });
   }
+}
+
+/** Morvane's Raise Dead: back on the board *now*, at a fraction of max HP, instead of waiting out
+ *  the standard 6-slot revive timer. Separate from reviveFighter because the HP is different (a
+ *  share of max rather than the character's fixed reviveHp) and because there is no timer to clear
+ *  in the normal way — the fighter is being pulled up ahead of schedule. */
+export function reviveFighterNow(state: GameState, fighter: Fighter, percentOfMax: number) {
+  const battle = state.battle!;
+  fighter.alive = true;
+  fighter.hp = Math.max(1, Math.floor((fighter.maxHp * percentOfMax) / 100));
+  fighter.reviveAtSlot = null;
+  fighter.pending = null;
+  fighter.slot = battle.marker;
+  fighter.stackSeq = battle.nextStackSeq++;
+  battle.log.push({ t: 'REVIVE', playerId: fighter.playerId, atSlot: battle.marker, hp: fighter.hp });
 }
 
 export function reviveFighter(state: GameState, fighter: Fighter) {

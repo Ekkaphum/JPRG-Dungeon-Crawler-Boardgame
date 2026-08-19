@@ -5,7 +5,7 @@ import { StatusBadges } from '@ui/common/StatusBadges';
 import { heroStatuses } from '@content/statuses';
 import type { DamagePopup } from '@session/playback';
 import type { ActionFlash } from '@session/playback';
-import { HeroSprite } from './HeroSprite';
+import { HeroSprite, hasSpriteSheet } from './HeroSprite';
 import { latestDamagePopupId } from './spriteHit';
 
 const EDGE_FADE = 'radial-gradient(ellipse 60% 62% at 50% 45%, #000 55%, transparent 98%)';
@@ -40,7 +40,7 @@ export function HeroFigures({
             title={p.name}
             className="hero-figure relative flex-1 min-h-0 w-full flex flex-col items-center justify-end group cursor-pointer"
           >
-            {p.charId === 'Dax' || p.charId === 'Mira' ? (
+            {!hasSpriteSheet(p.charId) ? (
               <img
                 src={charImageUrl(p.charId)}
                 alt={p.charId}

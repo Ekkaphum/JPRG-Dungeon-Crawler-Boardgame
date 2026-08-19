@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { NewGameSetup } from '@engine/index';
+import { STABLE_RULESET, type RulesetVersion } from '@content/rulesets';
 import { GameSession } from './GameSession';
 import {
   DEFAULT_SETTINGS,
@@ -33,6 +34,9 @@ interface AppState {
   /** Always exactly 4 — v0.3.0 is 4-players-only (GAME_DESIGN_v0_3_0.md §1/§12). */
   players: PlayerFormEntry[];
   difficulty: Difficulty;
+  /** Which ruleset the next new game starts under. Persisted with settings so the menu can label
+   *  the play button with it. */
+  ruleset: RulesetVersion;
   seedText: string;
   draftMode: 'random' | 'manual';
   /** Seat indices in pick order — only used when draftMode is 'manual'. */
@@ -44,6 +48,7 @@ interface AppState {
   updateSettings: (s: Partial<Settings>) => void;
   updatePlayer: (i: number, patch: Partial<PlayerFormEntry>) => void;
   setDifficulty: (d: Difficulty) => void;
+  setRuleset: (v: RulesetVersion) => void;
   setSeedText: (s: string) => void;
   setDraftMode: (m: 'random' | 'manual') => void;
   moveDraftSlot: (index: number, dir: -1 | 1) => void;
@@ -76,6 +81,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   players: defaultPlayers(),
   difficulty: 'standard',
+  ruleset: STABLE_RULESET,
   seedText: '',
   draftMode: 'random',
   draftOrder: [0, 1, 2, 3],
@@ -100,6 +106,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setDifficulty: (d) => set({ difficulty: d }),
+  setRuleset: (v) => set({ ruleset: v }),
   setSeedText: (s) => set({ seedText: s }),
 
   setDraftMode: (m) => set({ draftMode: m }),
@@ -116,11 +123,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Must happen inside this real click handler, not later when a bot's sound first tries to
     // play — browsers refuse to start audio outside a user gesture.
     audioEngine.unlock();
-    const { players, difficulty, seedText, draftMode, draftOrder } = get();
+    const { players, difficulty, ruleset, seedText, draftMode, draftOrder } = get();
     const setup: NewGameSetup = {
       players: players.map((p) => ({ name: p.name || 'Player', kind: p.kind, botLevel: p.kind === 'bot' ? p.botLevel : undefined })),
       difficulty,
       draftOrder: draftMode === 'manual' ? draftOrder : null,
+      ruleset,
     };
     const seed = seedText.trim() ? hashSeed(seedText.trim()) : randomSeed();
     const session = new GameSession(setup, seed, undefined, get().settings.animDelayMs);
