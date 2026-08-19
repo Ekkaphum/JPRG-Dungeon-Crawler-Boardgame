@@ -730,3 +730,82 @@ tight (1.15×) but win share is not (43.4% vs 13.4-24.6%). This means the remain
 one condition's point value — it is `matt2` and `matt3` together being reliable, repeatable, low-variance
 income compared to everyone else's conditions, which still lets Eric win consistently even when his
 total isn't much higher. Untangling that is the next `docs/BACKLOG.md` §3 pass, not this one.
+
+---
+
+## 2026-08-19 — first balance run on the v0.4.0 ruleset
+
+### What a v0.4 sim can and cannot measure
+
+`npm run balance -- <games> [medium|hard] [v0.3|v0.4]`. Flags are matched by value, not position —
+they were positional at first, and `balance 5000 v0.4` silently ran v0.3 with a bot tier literally
+named "v0.4" while printing a v0.3 header. A mislabelled balance number is worse than no number, so
+unrecognised flags are now a hard error.
+
+**A v0.4 run is not a measurement of Chrono, Kage or Morvane.** Bots can only draft the base four
+(`draftPoolFor` gates the new three to human seats), and the heuristics price a skill by
+damage-per-⏱ and cannot see sand, shadow, souls, stealth or a marker rewind. What a v0.4 run *does*
+measure, cleanly, is **what the boss ailments do to a party otherwise identical to the v0.3
+baseline** — the roster is held constant across both runs, which is exactly what makes the
+comparison honest.
+
+### Headline: ailments cost the party ~10pp of win rate
+
+| 5,000 games | v0.3 | v0.4 |
+|---|---|---|
+| hard | **62.3%** | **51.7%** |
+| medium | 76.1% | 69.0% |
+
+Per-game ailment load at hard: **daze 10.3×** (by far the most common — Ground Stomp is an AoE and
+daze costs ⏱ rather than HP, so it never shows up as damage but taxes the whole party's tempo),
+bleed 2.1×, blind 1.8×, doom 1.1×, burn 0.4×. Total ailment damage ≈ 4.9 HP per game.
+
+### 🔴 The run found a real bug: doom had no counterplay at all
+
+Doom's rules text has always read *"unless it is cleansed first"*. **`cleanseAilments` existed in the
+engine with no caller anywhere in the game** — nothing could cleanse. Doom was therefore a delayed
+execution, not a status: it landed on the party's score leader (Aurelius's Procession) and killed
+them 8 slots later with no answer available to any drafted character.
+
+Measured: **5,413 dooms applied, 2,221 reached zero — a 41% kill rate**, and 25,052 HP of the 40,419
+total ailment damage came from doom alone. That one status was 62% of the entire system's damage.
+
+`tests/ailmentBalance.test.ts` now asserts the *design* invariant rather than the number: any boss
+ailment that kills outright must be flagged `cleansable`, so the same hole cannot reopen when new
+boss content is added.
+
+### The fix, and the wrong turn taken on the way to it
+
+**First attempt — Heal cleanses.** Thematically obvious (she is the cleric) and measurably wrong.
+Once bots were taught to value it, hard win rate went **54.1% → 47.8%**: the party stopped dying to
+doom and started losing to the clock instead. Doom deaths fell to 164, and it still made things
+worse.
+
+> **This is §8.0's Guard-v1 lesson reproducing exactly**, on a different card, five versions later:
+> *a support action that produces no damage cannot pay its own ⏱ in this ruleset.* Cleansing cost
+> Luna a whole turn, and the party does not have a spare turn to give.
+
+**Shipped — Aura Smite cleanses the whole party.** It is her light-element attack, and the element
+table (`EXPANSION_DESIGN.md` §1.4) already had light as *pierces armor + washes off status*. The
+answer to a status now arrives **attached to damage instead of instead of it**, and Luna never has to
+choose between healing and saving. Doom deaths 2,221 → 1,030 without surrendering the damage race.
+
+### ⚠️ Caveats on the numbers above
+
+- **51.7% is a bot number, not a ceiling.** A human playing Luna cleanses deliberately; the bot only
+  reaches for Aura Smite when its rescue valuation happens to beat another attack. The spread across
+  three heuristic variants (47.8% / 51.7% / 54.1%) is mostly measuring *the bot's understanding*,
+  which is the very thing that cannot be trusted here — so no further heuristic tuning was done. The
+  structural fix is the deliverable; the exact percentage is not.
+- **v0.3 is verified untouched** at 62.3% / Eric 31.1% · Kit 21.7% · Liora 28.5% · Luna 18.7%,
+  identical to the pre-v0.4 baseline.
+- **Nothing here prices the three new characters.** That still requires bot heuristics for their
+  resources, and until those exist a sim including them would measure the bot's blind spot.
+
+### Still open
+
+- **Daze at 10.3 applications per game is the loudest number in the run** and is pure tempo tax with
+  no damage attached, so it is invisible in every damage-based readout. Whether it is *fun* rather
+  than merely punishing is a playtest question, not a sim question.
+- Luna sits lowest in win share under v0.4 at both tiers (15-19%) despite the ailment system finally
+  giving her passive and her ① card real work. Worth watching once humans play it.

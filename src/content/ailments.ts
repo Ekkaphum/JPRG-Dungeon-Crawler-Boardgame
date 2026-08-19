@@ -36,6 +36,14 @@ export interface AilmentDef {
   mental?: boolean;
   /** True for ailments that work on flesh — the family an elemental/golem body ignores. */
   physical?: boolean;
+  /** Whether anything in the game can actually remove this early.
+   *
+   *  Added after the first v0.4.0 balance run: doom's own rules text has always read "unless it is
+   *  cleansed first", but `cleanseAilments` had no caller anywhere, so doom was a delayed execution
+   *  with no counterplay for any drafted character. It fired 2,221 times in 5,000 games — a 41% kill
+   *  rate on the party's score leader. A lethal ailment has to have an answer; the flag exists so
+   *  `ailmentBalance.test.ts` can hold future boss content to that rule rather than trusting prose. */
+  cleansable?: boolean;
 }
 
 export const AILMENTS: Record<AilmentId, AilmentDef> = {
@@ -130,11 +138,12 @@ export const AILMENTS: Record<AilmentId, AilmentDef> = {
     icon: '⏳',
     name: { th: 'นับถอยหลัง', en: 'Doom' },
     desc: {
-      th: 'ล้มทันทีเมื่อครบ 8 ช่อง ถ้ายังไม่ถูกล้าง',
-      en: 'You go down when the 8 slots run out unless it is cleansed first.',
+      th: 'ล้มทันทีเมื่อครบ 8 ช่อง ถ้ายังไม่ถูกล้าง — Aura Smite ของ Luna ชำระให้ทั้งวง',
+      en: "You go down when the 8 slots run out unless cleansed. Luna's Aura Smite cleanses the whole party.",
     },
     slots: 8,
     maxStacks: 1,
+    cleansable: true,
   },
 };
 

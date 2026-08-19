@@ -11,18 +11,42 @@ import { createMediumBot } from '../src/bots/medium';
 import { createHardBot } from '../src/bots/hard';
 import type { Agent } from '../src/bots/Agent';
 import { CHARACTERS } from '../src/content/characters';
+import { AILMENTS, type AilmentId } from '../src/content/ailments';
+import type { RulesetVersion } from '../src/content/rulesets';
 
 // Bot tier matters enormously for score-condition measurement: only the HARD bot consults
 // scoreConditionBonus(), so conditions that need deliberate setup (banking mana for Liora's charged
 // cast) never fire under medium bots, which play purely for the party. Pass 'hard' as argv[3] to
 // measure competitive play instead of altruistic play.
-const BOT_LEVEL = (process.argv[3] ?? 'medium') as 'medium' | 'hard';
+// Flags are matched by *value*, not by position. They used to be positional, and
+// `balance 5000 v0.4` silently ran v0.3 with a bot tier named "v0.4" — printing a header that said
+// v0.3 while the caller believed they had measured v0.4. A mislabelled balance number is worse than
+// no number, so the parse is now order-independent and anything unrecognised is a hard error.
+const ARGS = process.argv.slice(3);
+const BOT_LEVEL = (ARGS.find((a) => a === 'medium' || a === 'hard') ?? 'medium') as 'medium' | 'hard';
 const makeBot = (i: number, rand: () => number) => (BOT_LEVEL === 'hard' ? createHardBot(i, rand) : createMediumBot(i, rand));
+
+// argv[4]: which ruleset to measure. Default stays v0.3 so every historical invocation in
+// BALANCE_NOTES still means what it meant.
+//
+// ⚠️ What a v0.4 run does and does not measure. Bots can only ever draft the base four (the three
+// v0.4.0 characters are gated to human seats — see draftPoolFor), so a v0.4 run is **not** a
+// measurement of Chrono/Kage/Morvane. It measures exactly one thing: what the boss ailments do to a
+// party that is otherwise identical to the v0.3 baseline. That is a clean, honest comparison
+// precisely *because* the roster is held constant across the two runs.
+const RULESET = (ARGS.find((a) => a === 'v0.3' || a === 'v0.4') ?? 'v0.3') as RulesetVersion;
+
+for (const a of ARGS) {
+  if (!['medium', 'hard', 'v0.3', 'v0.4'].includes(a)) {
+    throw new Error(`unknown balance flag "${a}" — expected one of: medium, hard, v0.3, v0.4`);
+  }
+}
 
 function setup(): NewGameSetup {
   return {
     players: Array.from({ length: 4 }, (_, i) => ({ name: `P${i}`, kind: 'bot' as const, botLevel: BOT_LEVEL })),
     difficulty: 'standard',
+    ruleset: RULESET,
   };
 }
 
@@ -89,6 +113,13 @@ async function main() {
   let bossDamageEvents = 0;
   let bossDamage = 0;
   const counterPerWindow: number[] = [];
+  // v0.4.0 ailments. `warded` is Luna's Holy Water actually cancelling something — the passive that
+  // did nothing at all for the whole of v0.3.
+  const ailApplied: Partial<Record<AilmentId, number>> = {};
+  const ailTickDmg: Partial<Record<AilmentId, number>> = {};
+  const ailTicks: Partial<Record<AilmentId, number>> = {};
+  let ailWarded = 0;
+  let doomKills = 0;
 
   for (let seed = 0; seed < games; seed++) {
     const { state, logs } = await runOne(seed);
@@ -115,6 +146,13 @@ async function main() {
           }
         }
         if (ev.t === 'BOSS_MOVE') bossMoves++;
+        if (ev.t === 'AILMENT_APPLIED') ailApplied[ev.ailment] = (ailApplied[ev.ailment] ?? 0) + 1;
+        if (ev.t === 'AILMENT_TICK') {
+          ailTicks[ev.ailment] = (ailTicks[ev.ailment] ?? 0) + 1;
+          ailTickDmg[ev.ailment] = (ailTickDmg[ev.ailment] ?? 0) + ev.dmg;
+          if (ev.ailment === 'doom') doomKills++;
+        }
+        if (ev.t === 'AILMENT_WARDED') ailWarded++;
         if (ev.t === 'RESOLVE_ATTACK' && !ev.wasted) {
           if (ev.playerId === 'boss') {
             bossDamageEvents++;
@@ -180,7 +218,7 @@ async function main() {
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(1) : '0.0');
 
-  console.log(`\n=== balance sim — ${games} games, 4 ${BOT_LEVEL} bots ===`);
+  console.log(`\n=== balance sim — ${games} games, 4 ${BOT_LEVEL} bots, ruleset ${RULESET} ===`);
   console.log(`win rate: ${pct(wins, games)}%`);
   console.log('per-boss clear rate:');
   for (const boss of Object.keys(bossAttempts) as BossId[]) {
@@ -211,6 +249,26 @@ async function main() {
   const zero = counterPerWindow.filter((n) => n === 0).length;
   console.log(`  never hit: ${pct(zero, counterPerWindow.length)}%   |   2+ ripostes: ${pct(multi, counterPerWindow.length)}%`);
   console.log(`boss: ${bossMoves} moves resolved, ${bossDamageEvents} damage events, ${bossDamage} total damage dealt`);
+
+  if (RULESET === 'v0.4') {
+    console.log('\nailments (applied / ticks / total tick damage / per game):');
+    const ailIds = Object.keys(AILMENTS) as AilmentId[];
+    let totalAilDmg = 0;
+    for (const id of ailIds) {
+      const applied = ailApplied[id] ?? 0;
+      if (applied === 0) continue;
+      const dmg = ailTickDmg[id] ?? 0;
+      totalAilDmg += dmg;
+      console.log(
+        `  ${AILMENTS[id].name.en.padEnd(8)} ${String(applied).padStart(6)}  ${String(ailTicks[id] ?? 0).padStart(6)}  ${String(dmg).padStart(7)}  ${(applied / games).toFixed(2)}/game`
+      );
+    }
+    // The number that actually matters for difficulty: how much extra damage the party eats that
+    // the v0.3 baseline never had to absorb.
+    console.log(`  total ailment damage: ${totalAilDmg} (${(totalAilDmg / games).toFixed(2)} per game)`);
+    console.log(`  doom countdowns that reached 0: ${doomKills}`);
+    console.log(`  Holy Water wards (Luna cancelling a single-target debuff): ${ailWarded}`);
+  }
 
   console.log('\nindividual win share (who took the win in each won game):');
   for (const charId of Object.keys(scoreByChar) as CharId[]) {

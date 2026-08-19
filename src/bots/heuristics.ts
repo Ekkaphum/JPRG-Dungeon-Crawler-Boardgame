@@ -17,6 +17,18 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
   let value: number;
   switch (def.kind) {
     case 'attack': {
+      // v0.4.0: Aura Smite cleanses the whole party, so its worth is its damage *plus* whatever the
+      // party is currently carrying — a doomed ally is priced as the life the smite is about to
+      // save. Because the cleanse rides an attack, valuing it never pulls the bot away from the
+      // damage race the way a heal-based cleanse did.
+      if (choice.skillId === 'AuraSmite') {
+        const doomed = battle.fighters.filter((f) => f.alive && f.ailments.some((a) => a.id === 'doom'));
+        const otherAilments = battle.fighters.reduce((n, f) => n + (f.alive ? f.ailments.length : 0), 0) - doomed.length;
+        const rescue = doomed.reduce((n, f) => n + f.hp * 1.5, 0) + otherAilments * 1.5;
+        const armorS = def.ignoresArmor ? 0 : battle.armor;
+        value = Math.max(0, stats.primary! + buffAtk - armorS) + rescue;
+        break;
+      }
       // Multi-hit is driven by whether `secondary` (hit count) is set, not by which skill this is
       // — matches the engine's own resolve logic (skills.ts). Was hardcoded to 'TwinShot'
       // specifically, which would have made bots value Dax's Flurry (also multi-hit) at 1/3 of its

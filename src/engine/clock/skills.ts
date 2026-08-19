@@ -22,7 +22,7 @@ import {
 } from '@content/characters';
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter, pushScore, reviveFighterNow } from './damage';
 import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
-import { ailmentRollPenalty, ailmentTimeTax, consumeTimeTaxAilments, isSilenced } from './ailments';
+import { ailmentRollPenalty, ailmentTimeTax, cleanseAilments, consumeTimeTaxAilments, isSilenced } from './ailments';
 import type { Choice, Fighter, GameState } from './types';
 import type { RNG } from '../rng';
 
@@ -130,6 +130,21 @@ function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpos
  *  path (resolveFighterPending, for everyone else) so both run through the exact same math. */
 function dealAttackFor(state: GameState, fighter: Fighter, skillId: SkillId, rawBase: number, ignoresArmor: boolean, manaSpent = 0) {
   const battle = state.battle!;
+  // v0.4.0 — the game's only cleanse, and it rides an attack on purpose.
+  //
+  // It lived on Heal first. That was thematically obvious and measurably wrong: a party that spends
+  // Luna's turns cleansing stops killing the boss and loses to the clock instead (hard win rate
+  // 54.1% -> 47.8% once bots were taught to cleanse). It is the same lesson §8.0 already records
+  // from Guard v1 — in this ruleset a support action that produces no damage cannot pay its own ⏱.
+  //
+  // Aura Smite is the light-element attack (see the element table in docs/EXPANSION_DESIGN.md §1.4:
+  // light pierces armor and washes off status), so the answer to a status now comes attached to
+  // damage rather than instead of it, and Luna does not have to choose between healing and saving.
+  if (skillId === 'AuraSmite') {
+    for (const f of battle.fighters) {
+      if (f.alive) cleanseAilments(state, f);
+    }
+  }
   // v0.4.0 — Smoke Bomb's payoff rides the *first* attack out of hiding, so it is added before the
   // usual buff pipeline and consumed whether or not the hit ends up mattering.
   const stealthBonus = fighter.stealthUntilSlot != null ? fighter.stealthStrikeBonus : 0;
