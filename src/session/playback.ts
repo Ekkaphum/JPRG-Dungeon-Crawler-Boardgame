@@ -32,9 +32,36 @@ export type ActionFlashBody =
   | { source: 'roll'; die: number; target: number | null; success: boolean | null; moveKey?: 'A' | 'B' | 'C'; tone: FlashTone };
 export type ActionFlash = ActionFlashBody & { id: number };
 
-export const POPUP_MS = 1100;
-/** Long enough to read a boss move's one-line description, not just its name. */
-export const FLASH_MS = 1400;
+/** Overlap tail: an effect outlives the pause after its own log line by this much, so the handoff
+ *  to the next effect never leaves a blank frame. Small and fixed — the *pacing* comes from
+ *  effectDurationFor below, this only smooths the seam. */
+export const EFFECT_TAIL_MS = 200;
+
+/** Floor so that at instant speed (animDelay 0, where every gap is 0) something is still drawn
+ *  rather than appearing and vanishing in the same frame. */
+export const MIN_EFFECT_MS = 220;
+
+/**
+ * How long an event's on-screen effect — the centre-screen name flash and the floating damage
+ * number — should stay up.
+ *
+ * **This has to be derived from the very same delay the drain loop sleeps before revealing the next
+ * event.** It used to be two fixed constants (FLASH_MS 1400, POPUP_MS 1100) while the gap between
+ * log lines was `eventDelay(ev, animSpeedMs)` — variable by event type *and* by the player's speed
+ * setting. The two therefore agreed at no setting at all:
+ *
+ *   - at 500ms/event a flash outlived its own log line by ~2.8 further lines, so the picture ran
+ *     visibly **behind** the text;
+ *   - at 2000ms/event it died 600ms before the next line arrived, so the picture ran **ahead** and
+ *     the board sat blank while the log still showed the move;
+ *   - and marker ticks (0.22x) skewed it differently again mid-battle.
+ *
+ * That is exactly the "sometimes early, sometimes late" the drift reads as. Tying the lifetime to
+ * the pause makes them one clock by construction, at every speed, for every event type.
+ */
+export function effectDurationFor(ev: ClockLogEvent, base: number): number {
+  return Math.max(MIN_EFFECT_MS, eventDelay(ev, base) + EFFECT_TAIL_MS);
+}
 
 /** Which events deserve a name flash. Attacks and heals flash when they *resolve*; buffs flash on
  *  DECLARE instead, because in this ruleset a buff's effect starts the instant it is declared and

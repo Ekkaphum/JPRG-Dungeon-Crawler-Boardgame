@@ -4,6 +4,16 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-19
 
+- **v0.4.3 — on-screen effects and the battle log now advance on one clock** — reported as "the effect and the log don't line up; sometimes the log is ahead, sometimes behind". It was structural rather than flaky, and the "sometimes/sometimes" was the tell.
+  - The log line and its effect were always *pushed* together, in the same notify — that part was never wrong. What differed was how long each stayed up: **effects had two fixed lifetimes (`FLASH_MS` 1400, `POPUP_MS` 1100) while the gap to the next log line was `eventDelay(ev, animSpeedMs)`**, which varies both by event type and by the player's speed setting. The two therefore agreed at **no setting at all**:
+    - at 500 ms/event a flash outlived its own line by roughly **2.8 further lines** — the picture visibly trailed the text;
+    - at 2000 ms/event it died **600 ms before** the next line arrived — the board sat blank while the log still showed the move;
+    - marker ticks (0.22×) skewed it differently again mid-battle, which is why it read as drifting rather than as a constant offset.
+  - **Fix: an effect's lifetime is now derived from the same delay the drain loop sleeps before revealing the next event** (`effectDurationFor`), plus a small fixed 200 ms tail so the handoff between consecutive effects never leaves a blank frame. They are one clock by construction now, at every speed and for every event type, rather than two constants that happened to be close at one setting.
+  - **Verified live, not just in principle**: instrumented a running battle at both speed extremes and measured how many log lines each flash spans. Now ≤1 at both 500 ms and 2000 ms (avg 0.25–0.30). `tests/effectSync.test.ts` pins both failure directions — an effect may never die before its line stops being the newest, and may never outlive it by more than the tail — across every entry in `ANIM_DELAY_OPTIONS`.
+  - 245 tests passing, typecheck and build clean. No engine or balance change: this is playback pacing only.
+
+
 - **v0.4.2 — first balance run on the v0.4.0 ruleset, and the bug it found** — `npm run balance` now takes a ruleset flag (`v0.3` | `v0.4`) and reports per-ailment application, tick and damage counts. Flags are matched by value rather than position: they were positional at first, and `balance 5000 v0.4` silently ran v0.3 with a bot tier named "v0.4" while printing a v0.3 header. A mislabelled balance number is worse than none, so unrecognised flags now throw.
   - **What it measures.** Bots can only draft the base four, so a v0.4 run is *not* a measurement of Chrono/Kage/Morvane. It measures one thing cleanly — what boss ailments do to a party otherwise identical to the v0.3 baseline, with the roster held constant across both runs.
   - **Ailments cost the party ~10pp**: hard 62.3% → 51.7%, medium 76.1% → 69.0% (5,000 games each). Daze is the loudest at 10.3 applications per game and is pure tempo tax with no damage attached, so it is invisible in every damage-based readout.

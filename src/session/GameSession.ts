@@ -26,8 +26,7 @@ import {
   initialDisplayBattle,
   popupFor,
   scoreEventCount,
-  FLASH_MS,
-  POPUP_MS,
+  effectDurationFor,
   type ActionFlash,
   type ActionFlashBody,
   type DamagePopup,
@@ -158,13 +157,16 @@ export class GameSession {
     return total;
   }
 
-  private pushPopup(p: Omit<DamagePopup, 'id'>) {
+  /** `ms` is the lifetime derived from this event's own pacing delay — see effectDurationFor. It is
+   *  passed in rather than read from a constant so the number on screen and the log line that
+   *  explains it are governed by one clock. */
+  private pushPopup(p: Omit<DamagePopup, 'id'>, ms: number) {
     const popup: DamagePopup = { ...p, id: this.popupSeq++ };
     this.popups = [...this.popups, popup];
     setTimeout(() => {
       this.popups = this.popups.filter((x) => x.id !== popup.id);
       this.notify();
-    }, POPUP_MS);
+    }, ms);
   }
 
   /** Called by the result popup's continue button. The engine is parked inside revealNewEvents()
@@ -190,15 +192,17 @@ export class GameSession {
     });
   }
 
-  private pushFlash(f: ActionFlashBody) {
+  private pushFlash(f: ActionFlashBody, ms: number) {
     const flash: ActionFlash = { ...f, id: this.flashSeq++ };
     this.actionFlash = flash;
     setTimeout(() => {
+      // Guarded on id: a later flash may already have replaced this one, and clearing then would
+      // blank the board while its log line is still the newest.
       if (this.actionFlash?.id === flash.id) {
         this.actionFlash = null;
         this.notify();
       }
-    }, FLASH_MS);
+    }, ms);
   }
 
   /** Advances `displayBattle` through every event the engine has produced since the last call,
@@ -245,9 +249,12 @@ export class GameSession {
       const flash = actionFlashFor(this.state, ev);
       applyEventToDisplay(this.displayBattle!, ev);
       if (ev.t === 'SCORE') this.visibleScoreCount++;
-      if (flash) this.pushFlash(flash);
+      // One lifetime for both the flash and the popup, derived from the same delay slept below, so
+      // the visuals and the log line advance together at every speed setting.
+      const effectMs = effectDurationFor(ev, this.animSpeedMs);
+      if (flash) this.pushFlash(flash, effectMs);
       const p = popupFor(ev);
-      if (p) this.pushPopup(p);
+      if (p) this.pushPopup(p, effectMs);
       if (ev.t !== 'MARKER_TICK') this.currentEvent = ev;
       this.onEvent?.(ev);
       this.visibleLogCount++;
