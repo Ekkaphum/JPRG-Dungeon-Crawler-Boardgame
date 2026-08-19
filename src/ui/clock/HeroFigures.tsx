@@ -10,8 +10,26 @@ import { latestDamagePopupId } from './spriteHit';
 
 const EDGE_FADE = 'radial-gradient(ellipse 60% 62% at 50% 45%, #000 55%, transparent 98%)';
 
+// A flex item's default min-height:auto does not propagate down through nested flex containers —
+// without explicit min-heights at every level below, the outer 50% cap on the group would shrink
+// each wrap past what .hero-sprite's own min-height allows, and the sprite would overflow its
+// wrap and overlap the next hero instead of the group simply exceeding the cap.
+/** .hero-hp-plate's own rendered height. */
+const HERO_PLATE_H = 20;
+/** One hero slot's natural bounds: .hero-sprite's own min/max-height (80/112) plus the plate. */
+const HERO_SLOT_MIN = 80 + HERO_PLATE_H;
+const HERO_SLOT_MAX = 112 + HERO_PLATE_H;
+/** The floor the whole 4-hero column needs (gap-0.5 = 2px between the 4 slots) — exported so
+ *  GameScreen can size .battle-stage tall enough that this never gets clipped by its
+ *  overflow-hidden. */
+export const HERO_GROUP_MIN = HERO_SLOT_MIN * 4 + 2 * 3;
+
 /** Party front line: four heroes stand in equal top-to-bottom slots with an HP plate locked below
- *  each sprite. The whole figure remains a button that opens the hero detail panel. */
+ *  each sprite. The group is capped at half the available column height (`max-h-[50%]` below) —
+ *  on a tall/portrait viewport that keeps the four heroes clustered in the middle with margin
+ *  above and below, shrinking them (down to .hero-sprite's own min-height floor) rather than
+ *  spreading them across the whole column. The whole figure remains a button that opens the hero
+ *  detail panel. */
 export function HeroFigures({
   state,
   battle,
@@ -26,7 +44,10 @@ export function HeroFigures({
   onSelect?: (playerId: number) => void;
 }) {
   return (
-    <div className="hero-figures flex flex-col items-end justify-center h-full w-full gap-0.5">
+    <div
+      className="hero-figures flex flex-col items-end justify-center w-full flex-1 max-h-[50%] gap-0.5"
+      style={{ minHeight: HERO_GROUP_MIN }}
+    >
       {state.players.map((p) => {
         const f = battle.fighters.find((x) => x.playerId === p.id)!;
         const mine = popups.filter((pop) => pop.target === p.id);
@@ -38,18 +59,19 @@ export function HeroFigures({
             key={p.id}
             onClick={() => onSelect?.(p.id)}
             title={p.name}
-            className="hero-figure relative flex-1 min-h-0 w-full flex flex-col items-center justify-end group cursor-pointer"
+            className="hero-figure relative flex-1 w-full flex flex-col items-center justify-end group cursor-pointer"
+            style={{ minHeight: HERO_SLOT_MIN, maxHeight: HERO_SLOT_MAX }}
           >
             {!hasSpriteSheet(p.charId) ? (
               <img
                 src={charImageUrl(p.charId)}
                 alt={p.charId}
                 draggable={false}
-                className="hero-art flex-1 min-h-0 w-auto max-w-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)] group-hover:brightness-125 transition"
+                className="hero-art flex-1 min-h-[80px] max-h-[112px] w-auto max-w-full drop-shadow-[0_8px_12px_rgba(0,0,0,0.8)] group-hover:brightness-125 transition"
                 style={{ WebkitMaskImage: EDGE_FADE, maskImage: EDGE_FADE, opacity: f.alive ? 1 : 0.3, filter: f.alive ? undefined : 'grayscale(0.8)' }}
               />
             ) : (
-              <div className="hero-sprite-wrap flex-1 min-h-0 w-full flex items-end justify-center">
+              <div className="hero-sprite-wrap flex-1 min-h-[80px] max-h-[112px] w-full flex items-end justify-center">
                 <HeroSprite
                   charId={p.charId}
                   skillId={activeFlash?.skillId ?? f.pending?.skillId ?? null}

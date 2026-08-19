@@ -31,8 +31,16 @@ export function BossFigure({
   const hitId = latestDamagePopupId(popups);
 
   return (
-    <button onClick={onSelect} className="boss-figure relative w-full h-full flex flex-col items-center justify-end group cursor-pointer" title={def.name[lang]}>
-      <div className="boss-sprite-wrap flex-1 min-h-0 w-full flex items-end justify-center">
+    <button onClick={onSelect} className="boss-figure relative w-full h-full flex flex-col items-center justify-center group cursor-pointer" title={def.name[lang]}>
+      {/* flex-1 lets .boss-sprite's height:100% clamp between its min/max against real available
+          space. min-h/max-h (matching .boss-sprite's own 175/245px) bound this wrap to what the
+          sprite actually needs — a bare min-h-0 would let the wrap shrink past the sprite's own
+          min-height on a very short stage, overflowing into the HP plate below, and max-content
+          isn't used for the ceiling because a percentage height inside a max-content computation
+          resolves as if it were auto, which collapsed the sprite to its min-height instead of
+          growing it. Real pixels keep leftover column space splitting evenly above/below via
+          justify-center instead of the boss being pinned to one edge or stuck at its floor size. */}
+      <div className="boss-sprite-wrap flex-1 min-h-[175px] max-h-[245px] w-full flex items-end justify-center">
         <BossSprite bossId={battle.bossId} moveKey={activeFlash?.moveKey ?? null} actionId={activeFlash?.id} hitId={hitId} />
       </div>
       <div className="boss-hp-plate w-[92%] max-w-[260px] gold-frame rounded px-2 py-1 bg-black/75 flex-shrink-0">
