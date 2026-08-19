@@ -46,6 +46,248 @@ html, body, #root {
 
 .gold-text { color: var(--gold); }
 
+/* Painted character-card draft. The image is the decision surface, while the live labels below it
+   remain localised/accessible instead of being baked into the artwork. */
+.character-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 0.65rem;
+  width: min(92vw, 900px);
+}
+
+.character-card-choice {
+  min-width: 0;
+  padding: 0;
+  transition: transform 170ms ease, filter 170ms ease, border-color 170ms ease;
+}
+
+.character-card-choice:hover,
+.character-card-choice:focus-visible {
+  z-index: 1;
+  transform: translateY(-4px) scale(1.015);
+  border-color: var(--gold-bright);
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.held-item-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Camp sanctuary — one coherent environment for shopping, upgrading, and converting gems. */
+.camp-stage {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 690px;
+  overflow: hidden;
+  border: 1px solid rgba(138, 111, 47, 0.72);
+  border-radius: 0.75rem;
+  background: #070a10 url('/assets/board/camp-sanctuary.webp') center / cover no-repeat;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.5), 0 16px 42px rgba(0, 0, 0, 0.48);
+}
+
+.camp-stage__shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(2, 5, 10, 0.52), rgba(4, 7, 12, 0.08) 32%, rgba(3, 5, 9, 0.5)),
+    radial-gradient(ellipse at 50% 52%, rgba(5, 8, 13, 0.08), rgba(2, 3, 6, 0.68) 92%);
+}
+
+.camp-stage__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem clamp(0.5rem, 2vw, 1.5rem) 1.5rem;
+  overflow-y: auto;
+}
+
+.camp-title-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.25rem 1.1rem;
+  text-shadow: 0 2px 8px #000, 0 0 18px rgba(212, 169, 74, 0.34);
+}
+
+.camp-title-rune { color: var(--gold-dim); font-size: 0.7rem; }
+
+.camp-phase-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  width: min(94vw, 660px);
+  padding: 0.48rem 0.75rem;
+  border: 1px solid rgba(138, 111, 47, 0.62);
+  border-radius: 999px;
+  color: #807964;
+  background: rgba(5, 8, 13, 0.78);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.54), 0 5px 18px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(5px);
+}
+
+.camp-phase-track span {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  transition: color 180ms ease, text-shadow 180ms ease;
+}
+
+.camp-phase-track span b {
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-family: Georgia, serif;
+  font-size: 0.62rem;
+}
+
+.camp-phase-track span.is-active {
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(240, 210, 122, 0.6);
+}
+
+.camp-phase-track i {
+  width: clamp(0.6rem, 4vw, 3.5rem);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
+}
+
+.camp-stage .decision-board {
+  width: min(96vw, 790px);
+  padding: clamp(0.75rem, 2vw, 1.1rem);
+  border-color: rgba(212, 169, 74, 0.62);
+  background: linear-gradient(180deg, rgba(11, 16, 25, 0.91), rgba(16, 21, 30, 0.95));
+  box-shadow: 0 0 0 1px rgba(19, 12, 7, 0.92), 0 16px 42px rgba(0, 0, 0, 0.66), inset 0 0 30px rgba(212, 169, 74, 0.025);
+}
+
+.camp-waiting { padding: 1rem 1.25rem; }
+
+.camp-player-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.4rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid rgba(138, 111, 47, 0.38);
+}
+
+.camp-player-portrait {
+  width: 2.65rem;
+  height: 2.65rem;
+  flex: 0 0 auto;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--gold-dim);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(212, 169, 74, 0.18);
+}
+
+.camp-player-job { margin-top: 0.1rem; color: #8d8879; font-size: 0.62rem; letter-spacing: 0.13em; text-transform: uppercase; }
+
+.camp-gem-purse {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(154, 91, 202, 0.58);
+  border-radius: 999px;
+  color: #e9d6f7;
+  background: rgba(52, 22, 73, 0.72);
+  box-shadow: inset 0 0 12px rgba(166, 83, 217, 0.14);
+  font-size: 0.72rem;
+}
+
+.camp-gem-purse span { color: #c47bf0; text-shadow: 0 0 7px #7d35a8; }
+
+.item-card-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
+.item-card-grid--future { justify-content: flex-start; }
+
+.item-card {
+  position: relative;
+  width: 170px;
+  flex: 0 0 170px;
+  overflow: hidden;
+  padding: 0;
+  border-width: 1px;
+  background: linear-gradient(180deg, rgba(20, 26, 38, 0.98), rgba(8, 11, 17, 0.99));
+  transition: transform 170ms ease, border-color 170ms ease, box-shadow 170ms ease, filter 170ms ease;
+}
+
+.item-card:not(:disabled):hover,
+.item-card:not(:disabled):focus-visible {
+  z-index: 2;
+  transform: translateY(-5px);
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 0 1px rgba(240, 210, 122, 0.4), 0 12px 25px rgba(0, 0, 0, 0.72), 0 0 22px rgba(212, 169, 74, 0.16);
+  outline: none;
+}
+
+.item-card__art-wrap {
+  position: relative;
+  aspect-ratio: 1.38 / 1;
+  overflow: hidden;
+  border-bottom: 1px solid rgba(138, 111, 47, 0.55);
+  background: #080b10;
+}
+
+.item-card__art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 260ms ease, filter 260ms ease;
+}
+
+.item-card:not(:disabled):hover .item-card__art { transform: scale(1.055); filter: saturate(1.08) brightness(1.06); }
+
+.item-card__cost,
+.item-card__permanent {
+  position: absolute;
+  top: 0.38rem;
+  display: grid;
+  place-items: center;
+  min-width: 1.85rem;
+  min-height: 1.5rem;
+  border: 1px solid rgba(240, 210, 122, 0.72);
+  border-radius: 999px;
+  color: #fff0bb;
+  background: rgba(8, 10, 15, 0.86);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.68);
+  font-size: 0.66rem;
+}
+
+.item-card__cost { right: 0.38rem; padding: 0 0.42rem; color: #e6b4ff; border-color: rgba(194, 112, 238, 0.72); }
+.item-card__permanent { left: 0.38rem; color: var(--gold-bright); font-size: 0.9rem; }
+
+.item-card__body { min-height: 6.3rem; padding: 0.58rem 0.62rem 0.68rem; }
+.item-card__name { color: #eee5d0; font-family: Georgia, "Noto Serif Thai", serif; font-size: 0.78rem; line-height: 1.15; }
+.item-card__text { margin-top: 0.35rem; color: #a8a18f; font-size: 0.61rem; line-height: 1.38; }
+.item-card__tag { margin-top: 0.35rem; color: var(--gold); font-size: 0.56rem; letter-spacing: 0.08em; }
+
+.item-card--5 { border-color: rgba(94, 139, 195, 0.74); }
+.item-card--8 { border-color: rgba(168, 92, 206, 0.84); box-shadow: 0 0 0 1px rgba(168, 92, 206, 0.12), 0 0 18px rgba(122, 52, 158, 0.12); }
+
 .menu-hero {
   position: relative;
   isolation: isolate;
@@ -462,6 +704,21 @@ html, body, #root {
 .visual-tabletop .skill-card .text-gold-dim,
 .visual-tabletop .decision-board button.gold-frame .text-gold-dim { color: #624a27; }
 
+/* Item cards keep their dark illustrated treatment in tabletop mode; the general rule above turns
+   ordinary command buttons into parchment, which would wash out the painted market artwork. */
+.visual-tabletop .camp-stage .item-card {
+  border-width: 2px;
+  color: var(--ink);
+  background: linear-gradient(180deg, rgba(20, 26, 38, 0.98), rgba(8, 11, 17, 0.99));
+  text-shadow: none;
+}
+.visual-tabletop .camp-stage .item-card--5 { border-color: rgba(94, 139, 195, 0.82); }
+.visual-tabletop .camp-stage .item-card--8 { border-color: rgba(168, 92, 206, 0.9); }
+.visual-tabletop .camp-stage .item-card:not(:disabled):hover {
+  transform: translateY(-5px);
+  background: linear-gradient(180deg, rgba(26, 33, 47, 0.99), rgba(10, 13, 20, 0.99));
+}
+
 .visual-tabletop .party-player-board {
   padding: 8px 12px;
   background:
@@ -486,6 +743,10 @@ html, body, #root {
   .visual-tabletop .boss-art { box-shadow: 3px 5px rgba(0,0,0,.34); }
   .visual-tabletop .hero-figure { padding: 2px !important; }
   .visual-tabletop .battle-console { gap: 10px; }
+  .camp-stage { min-height: 760px; }
+  .camp-stage__content { padding-left: 0.4rem; padding-right: 0.4rem; }
+  .camp-stage .decision-board { width: 100%; }
+  .item-card { width: calc(50% - 0.3rem); flex-basis: calc(50% - 0.3rem); }
 }
 
 @media (max-width: 430px) {
@@ -495,6 +756,14 @@ html, body, #root {
   .visual-tabletop .timeline-dock,
   .visual-tabletop .banner-dock,
   .visual-tabletop .battle-console { margin-left: 0; margin-right: 0; }
+  .character-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 88vw; }
+  .camp-phase-track { gap: 0.3rem; padding-left: 0.45rem; padding-right: 0.45rem; }
+  .camp-phase-track span { gap: 0.2rem; font-size: 0.59rem; }
+  .camp-phase-track span b { width: 1.2rem; height: 1.2rem; font-size: 0.54rem; }
+  .camp-player-header { gap: 0.45rem; }
+  .camp-player-portrait { width: 2.35rem; height: 2.35rem; }
+  .camp-gem-purse { padding-left: 0.42rem; padding-right: 0.42rem; font-size: 0.64rem; }
+  .item-card__body { min-height: 6.75rem; padding-left: 0.5rem; padding-right: 0.5rem; }
 }
 
 @media (max-height: 690px) {

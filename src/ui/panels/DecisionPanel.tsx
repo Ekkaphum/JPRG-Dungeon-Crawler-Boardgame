@@ -18,6 +18,7 @@ import { ITEMS, type ItemId } from '@content/items';
 import { useT } from '@content/i18n/useT';
 import { useAppStore } from '@session/store';
 import type { GameSession } from '@session/GameSession';
+import { charImageUrl, itemImageUrl } from '@ui/common/assets';
 
 export function DecisionPanel({ state, decision, session }: { state: GameState; decision: PendingDecision; session: GameSession }) {
   if (decision.kind === 'CHOOSE_CHARACTER') return <ChooseCharacterPanel decision={decision} session={session} />;
@@ -37,15 +38,18 @@ function ChooseCharacterPanel({ decision, session }: { decision: Extract<Pending
       <div className="font-display gold-text mb-2">
         {t('draft.title')} — {player.name}
       </div>
-      <div className="flex gap-2 flex-wrap">
+      <div className="character-card-grid">
         {decision.available.map((charId) => (
           <button
             key={charId}
             onClick={() => session.submitHumanChoice(decision.playerId, { kind: 'CHOOSE_CHARACTER', charId })}
-            className="gold-frame rounded-lg px-4 py-2 hover:bg-gold/10"
+            className="character-card-choice gold-frame rounded-lg overflow-hidden hover:bg-gold/10"
           >
-            <div className="font-display gold-text">{charId}</div>
-            <div className="text-[10px] text-gold-dim">{CHARACTERS[charId].job[lang]}</div>
+            <img src={charImageUrl(charId)} alt="" className="w-full aspect-[2/3] object-cover" draggable={false} />
+            <div className="px-2 py-2 bg-black/65">
+              <div className="font-display gold-text">{charId}</div>
+              <div className="text-[10px] text-gold-dim">{CHARACTERS[charId].job[lang]}</div>
+            </div>
           </button>
         ))}
       </div>
@@ -149,8 +153,9 @@ function DeclareActionPanel({
                   setUseItems((cur) => (on ? cur.filter((_, j) => j !== cur.lastIndexOf(id)) : [...cur, id]))
                 }
                 title={ITEMS[id].text[lang]}
-                className={`gold-frame rounded px-2 py-1 ${on ? 'bg-gold/25' : 'hover:bg-gold/10'}`}
+                className={`held-item-button gold-frame rounded p-1 pr-2 ${on ? 'bg-gold/25' : 'hover:bg-gold/10'}`}
               >
+                <img src={itemImageUrl(id)} alt="" className="w-7 h-7 rounded object-cover" draggable={false} />
                 {ITEMS[id].name[lang]}
                 {on ? ' ✓' : ''}
               </button>

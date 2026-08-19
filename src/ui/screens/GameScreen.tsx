@@ -83,19 +83,28 @@ export function GameScreen() {
         // The camp gets its own full-width view rather than sitting under the battle stage: the
         // battle it follows is over, and leaving the corpse of the last fight on screen while people
         // shop reads as if the clock were still running.
-        <div className="flex flex-col items-center gap-3 mt-4">
-          <h2 className="text-2xl font-display gold-text">{t('camp.title')}</h2>
-          <div className="flex gap-3 text-xs text-gold-dim">
-            <span className={pending?.kind === 'CAMP_BUY' ? 'gold-text' : ''}>{t('camp.phaseBuy')}</span>
-            <span className={pending?.kind === 'CAMP_UPGRADE' ? 'gold-text' : ''}>{t('camp.phaseUpgrade')}</span>
-            <span className={pending?.kind === 'CAMP_VP' ? 'gold-text' : ''}>{t('camp.phaseVp')}</span>
-          </div>
-          {pending && !isHumanTurn && (
-            <div className="text-sm text-gold-dim">
-              {t('draft.waitingFor', { name: state.players.find((p) => p.id === pending.playerId)?.name ?? '' })}
+        <div className="camp-stage">
+          <div className="camp-stage__shade" />
+          <div className="camp-stage__content">
+            <div className="camp-title-lockup">
+              <span className="camp-title-rune">✦</span>
+              <h2 className="text-2xl font-display gold-text">{t('camp.title')}</h2>
+              <span className="camp-title-rune">✦</span>
             </div>
-          )}
-          {pending && isHumanTurn && <DecisionPanel state={state} decision={pending} session={session} />}
+            <div className="camp-phase-track">
+              <span className={pending?.kind === 'CAMP_BUY' ? 'is-active' : ''}><b>Ⅰ</b>{t('camp.phaseBuy')}</span>
+              <i />
+              <span className={pending?.kind === 'CAMP_UPGRADE' ? 'is-active' : ''}><b>Ⅱ</b>{t('camp.phaseUpgrade')}</span>
+              <i />
+              <span className={pending?.kind === 'CAMP_VP' ? 'is-active' : ''}><b>Ⅲ</b>{t('camp.phaseVp')}</span>
+            </div>
+            {pending && !isHumanTurn && (
+              <div className="camp-waiting gold-frame rounded-lg text-sm text-gold-dim">
+                {t('draft.waitingFor', { name: state.players.find((p) => p.id === pending.playerId)?.name ?? '' })}
+              </div>
+            )}
+            {pending && isHumanTurn && <DecisionPanel state={state} decision={pending} session={session} />}
+          </div>
         </div>
       )}
 

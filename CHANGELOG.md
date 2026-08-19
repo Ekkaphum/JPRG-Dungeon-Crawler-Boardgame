@@ -4,6 +4,10 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-20
 
+- **Painted camp and expanded-roster card art** — added a complete illustrated set for all 17 camp items, full character cards for Chrono/Kage/Morvane, and a moonlit camp-sanctuary environment. The draft now presents every hero as a real card; the shop uses responsive illustrated item cards with rarity/permanent treatments; held items keep their thumbnail when used in battle; and all three camp phases share one full-screen visual scene with an active phase track and player/gem header.
+  - Assets are WebP-sized for the live app: 512px item art, 480×720 character cards, and a 1600×900 camp background.
+  - Verified through the real browser flow from draft → boss 1 → result → shop → upgrade → points at 1280×720, plus the shop at 390×844. No console errors; 270/270 tests, typecheck, and production build all pass.
+
 - **v0.4.1 — the camp is now part of v0.4, and it has a UI** — the camp shipped a day earlier as its own `v0.5` ruleset; that split existed only while it was being built. Folded into v0.4.0 and the third picker option removed: v0.4 was already the experimental track, and asking players to choose between two experimental rulesets was a distinction that helped nobody.
   - **Three panels, one per sub-phase** (`CampPanels.tsx`), each answering exactly one decision the way every other panel does. The shop shows the 4-card row with prices and a dimmed *next lot* card, greys out anything unaffordable, and marks permanents with ◆; buying slides the future card in and reveals a new one, verified live. The upgrade panel is multi-select, capped at what the gems allow. The points panel states the rate and that leftovers are destroyed.
   - **Items are now usable by humans.** A free-action row sits above the skill buttons in the declare panel — toggle any held consumables, and they ride along with whatever card is played, no ⏱ and no extra turn step. Without it the shop sold things nobody could spend.
