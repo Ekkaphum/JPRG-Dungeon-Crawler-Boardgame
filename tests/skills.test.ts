@@ -527,7 +527,7 @@ describe('Multi Shot (Kit, v0.4.0) — one hit at resolve + two scheduled early 
     const kit = findFighter(state, 'Kit');
     state.battle!.marker = 20;
     state.battle!.partyBuff = { atk: 3, dmgReduction: 2, ownerId: 3, expiresAtSlot: 0 };
-    state.battle!.weakPoint = { ownerId: 1, expiresAtSlot: 0 };
+    state.battle!.weakPoint = { ownerId: 1, expiresAtSlot: 0, hitsPaid: 0 };
     const bossHp = state.battle!.bossHp;
     declareSkill(state, kit, { kind: 'DECLARE_ACTION', skillId: 'MultiShot' }, createRNG(1));
     state.battle!.marker = 18;

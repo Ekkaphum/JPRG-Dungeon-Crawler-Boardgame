@@ -78,7 +78,7 @@ export function useItem(state: GameState, user: Fighter, itemId: ItemId, targetP
       // Must use the same lifetime as the skill path. The first version set expiresAtSlot: 0, which
       // is not "no expiry set" but "expires at slot 0" — i.e. a party-wide +4 that stayed up for the
       // entire rest of the battle for one card.
-      battle.weakPoint = { ownerId: user.playerId, expiresAtSlot: battle.marker - WEAK_POINT_SLOTS };
+      battle.weakPoint = { ownerId: user.playerId, expiresAtSlot: battle.marker - WEAK_POINT_SLOTS, hitsPaid: 0 };
       break;
     case 'queueJump':
       // Lowest stackSeq resolves first, so claiming the bottom of the stack is what "go first"

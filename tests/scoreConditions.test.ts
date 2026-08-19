@@ -213,7 +213,7 @@ describe('per-occurrence conditions — kit1/kit2/luna1 (v0.3.16)', () => {
     prepareBattle(state);
     const kit = findFighter(state, 'Kit');
     const liora = findFighter(state, 'Liora');
-    state.battle!.weakPoint = { ownerId: kit.playerId, expiresAtSlot: 0 };
+    state.battle!.weakPoint = { ownerId: kit.playerId, expiresAtSlot: 0, hitsPaid: 0 };
 
     onPlayerDealtDamage(state, liora.playerId, 'Fireball', 9);
     let entries = state.scoreLog.filter((e) => e.conditionId === 'kit1');
@@ -235,7 +235,7 @@ describe('per-occurrence conditions — kit1/kit2/luna1 (v0.3.16)', () => {
     onPlayerDealtDamage(state, liora.playerId, 'Fireball', 9);
     expect(state.scoreLog.some((e) => e.conditionId === 'kit1')).toBe(false);
 
-    state.battle!.weakPoint = { ownerId: liora.playerId, expiresAtSlot: 0 };
+    state.battle!.weakPoint = { ownerId: liora.playerId, expiresAtSlot: 0, hitsPaid: 0 };
     onPlayerDealtDamage(state, kit.playerId, 'MultiShot', 6);
     expect(state.scoreLog.some((e) => e.conditionId === 'kit1')).toBe(false);
   });

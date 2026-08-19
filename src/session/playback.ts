@@ -339,7 +339,7 @@ export function applyEventToDisplay(b: BattleState, ev: ClockLogEvent) {
       // boss move, so the badge could not appear. Now that the window is timed and owned it has to
       // be reconstructed here, mirroring resolveAttackRoll in @engine/clock/skills.ts.
       if (ev.playerId !== 'boss' && ev.purpose.endsWith('weak point') && ev.success) {
-        b.weakPoint = { ownerId: ev.playerId, expiresAtSlot: b.marker - WEAK_POINT_SLOTS };
+        b.weakPoint = { ownerId: ev.playerId, expiresAtSlot: b.marker - WEAK_POINT_SLOTS, hitsPaid: 0 };
       }
       break;
 

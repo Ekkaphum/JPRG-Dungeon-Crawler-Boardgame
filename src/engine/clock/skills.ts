@@ -215,7 +215,7 @@ function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId,
   const battle = state.battle!;
   dealAttackFor(state, fighter, skillId, stats.primary!, false);
   if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng)) {
-    battle.weakPoint = { ownerId: fighter.playerId, expiresAtSlot: battle.marker - WEAK_POINT_SLOTS };
+    battle.weakPoint = { ownerId: fighter.playerId, expiresAtSlot: battle.marker - WEAK_POINT_SLOTS, hitsPaid: 0 };
     onWeakPointOpened(state, fighter.playerId);
   }
 }

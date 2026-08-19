@@ -290,3 +290,27 @@ describe('v0.5 — a whole game runs end to end', () => {
     for (const p of final.players) expect(final.progress[p.id].gems).toBe(0);
   });
 });
+
+describe('kit1 window cap (BACKLOG §3b)', () => {
+  it('pays at most KIT1_WINDOW_HIT_CAP ally hits per window, then stops', async () => {
+    const { onPlayerDealtDamage } = await import('@engine/clock/scoring');
+    const { KIT1_WINDOW_HIT_CAP } = await import('@engine/clock/scoring');
+    const state = campState();
+    const kitId = state.players.find((p) => p.charId === 'Kit')!.id;
+    state.battle!.weakPoint = { ownerId: kitId, expiresAtSlot: 0, hitsPaid: 0 };
+    for (let i = 0; i < 10; i++) onPlayerDealtDamage(state, 0, 'Slash', 5);
+    const paid = state.scoreLog.filter((e) => e.conditionId === 'kit1').length;
+    expect(paid).toBe(KIT1_WINDOW_HIT_CAP);
+  });
+
+  it('a fresh window pays again', async () => {
+    const { onPlayerDealtDamage, KIT1_WINDOW_HIT_CAP } = await import('@engine/clock/scoring');
+    const state = campState();
+    const kitId = state.players.find((p) => p.charId === 'Kit')!.id;
+    state.battle!.weakPoint = { ownerId: kitId, expiresAtSlot: 0, hitsPaid: 0 };
+    for (let i = 0; i < 5; i++) onPlayerDealtDamage(state, 0, 'Slash', 5);
+    state.battle!.weakPoint = { ownerId: kitId, expiresAtSlot: 0, hitsPaid: 0 };
+    for (let i = 0; i < 5; i++) onPlayerDealtDamage(state, 0, 'Slash', 5);
+    expect(state.scoreLog.filter((e) => e.conditionId === 'kit1').length).toBe(KIT1_WINDOW_HIT_CAP * 2);
+  });
+});

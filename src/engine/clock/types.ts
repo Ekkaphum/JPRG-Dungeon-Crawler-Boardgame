@@ -275,7 +275,10 @@ export interface BattleState {
    *  role went with it (Sharp Shooting fell to 0.75 declares/game at hard, kit1 to 0.39 fires/win).
    *  Now it runs a fixed WEAK_POINT_SLOTS like Blessing does, and carries its owner so `kit2` can
    *  pay Kit when an ally cashes the window in. */
-  weakPoint: { ownerId: PlayerId; expiresAtSlot: number } | null;
+  /** `hitsPaid` counts how many ally-hit points kit1 has already paid out for THIS window — see
+   *  KIT1_WINDOW_HIT_CAP in scoring.ts. Lives on the window rather than on Kit because it has to
+   *  reset every time a new one opens, and the window is the thing that opens. */
+  weakPoint: { ownerId: PlayerId; expiresAtSlot: number; hitsPaid: number } | null;
   /** v0.4.0: which move the boss is resolving right now, so the ailment attached to it can be
    *  looked up at each hit site. null outside a boss action. */
   currentMoveKey: 'A' | 'B' | 'C' | null;

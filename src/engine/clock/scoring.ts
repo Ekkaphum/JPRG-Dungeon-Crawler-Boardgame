@@ -62,9 +62,10 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   // it. The Sharp Shooting hit that *opens* the window is unaffected: dealAttackFor for that hit
   // resolves before battle.weakPoint is set (see resolveAttackRoll in skills.ts), so it can never
   // credit itself here — only hits that land *after* the window is already open do.
-  if (battle.weakPoint && effectiveDmg > 0) {
+  if (battle.weakPoint && effectiveDmg > 0 && battle.weakPoint.hitsPaid < KIT1_WINDOW_HIT_CAP) {
     const opener = state.players.find((p) => p.id === battle.weakPoint!.ownerId);
     if (opener?.charId === 'Kit') {
+      battle.weakPoint.hitsPaid += 1;
       pushScore(state, { playerId: battle.weakPoint.ownerId, conditionId: 'kit1', points: scorePoints('kit1') });
     }
   }
@@ -76,6 +77,19 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
     pushScore(state, { playerId, conditionId: 'kage2', points: scorePoints('kage2') });
   }
 }
+
+/** Most points kit1 will pay for hits landing inside a single weak-point window. The opening point
+ *  itself is not counted here and stays uncapped — one per window is self-limiting.
+ *
+ *  ⚠️ This is the fix for BACKLOG §3b. Uncapped, kit1 paid for every damaging hit by anybody for the
+ *  window's whole 4 slots, so its value scaled with the entire party's output rather than with
+ *  anything Kit did. Measured over 600 games per variant: whenever Kit's Lv2 went on Sharp Shooting
+ *  the share of party hits landing inside his window went 14% -> 30%, worth ~7.5 points a game, and
+ *  his win share went ~26% -> ~60% — in v0.3/v0.4 with no camp involved at all. The cap bounds that
+ *  tail without touching the identity: opening a window for the party still pays, it just stops
+ *  paying arbitrarily. */
+export const KIT1_WINDOW_HIT_CAP = 2;
+
 
 /** Which character's weak-point-opener condition this is. Looked up by character rather than
  *  assumed: `attackRoll` is a generic path and a future character could own one without owning
