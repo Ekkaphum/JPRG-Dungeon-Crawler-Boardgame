@@ -896,3 +896,92 @@ pts/win needs no bot help at all. Those two are design problems, not measurement
 2. **Haste `primary` 2 → 4** (at ⏱3, so it finally buys more clock than it spends), or drop it to ⏱2.
 3. Give Chrono real damage on one card, or accept him as a pure support and expect the party — not
    him — to convert the time he buys.
+
+---
+
+## 2026-08-19 — Kage and Morvane under the same substitution test
+
+Same method as the Chrono run: bots taught the kit first (`buffStealth` and `raise` were both
+falling through `estimateChoiceValue`'s `default: 0`, so a bot holding either character simply never
+played Smoke Bomb or Raise Dead), then `--roster` swaps one character with the other three held
+constant and seat order shuffled per game.
+
+### ตาราง%ชนะ — 3,000 games per cell, v0.4 ruleset
+
+| | | medium | hard | win share (hard) | pts/win (hard) |
+|---|---|---|---|---|---|
+| **baseline** | 4 ตัวเดิม | 69.6% | 51.8% | — | — |
+| **Chrono** | replaces Eric | 52.3% | 32.2% | 70.6% | 21.7 |
+| | replaces Kit | 10.4% | 1.2% | 47.2% | 19.3 |
+| | replaces Liora | 24.5% | 21.2% | 73.6% | 23.7 |
+| | replaces Luna | 38.0% | 23.4% | 68.0% | 22.1 |
+| **Kage** | replaces Eric | 80.2% | 71.9% | 23.5% | 13.2 |
+| | replaces Kit | 85.0% | 74.4% | 31.6% | 13.1 |
+| | replaces Liora | 85.6% | **83.7%** | 39.0% | 16.3 |
+| | replaces Luna | 75.4% | 64.8% | 14.8% | 12.5 |
+| **Morvane** | replaces Eric | 69.4% | 49.6% | 8.7% | 10.3 |
+| | replaces Kit | 52.0% | 22.5% | 3.3% | 8.3 |
+| | replaces Liora | 61.8% | 59.1% | 3.0% | 9.0 |
+| | replaces Luna | 53.5% | 37.8% | 8.2% | 11.1 |
+
+**Three characters, three different failures — and none of them is "slightly off".**
+
+| | effect on the party | effect on their own score |
+|---|---|---|
+| **Chrono** | 🔴 sinks it (−20 to −50pp) | 🔴 hogs it (47-74% share, 19-24 pts) |
+| **Kage** | 🔴 inflates it (+13 to +32pp) | 🟢 modest (15-39% share, 12.5-16.3 pts) |
+| **Morvane** | 🟡 drags it (−2 to −29pp) | 🔴 starved (3-9% share, 8.3-11.1 pts) |
+
+### Kage — Twin Fang is roughly twice the game's damage rate
+
+| card | declares | damage | per declare |
+|---|---|---|---|
+| **Twin Fang** | 21,959 | 313,907 | **14.30** |
+| Assassinate | 3,371 | 29,662 | 8.80 |
+| Shuriken | 125 | 1,024 | 8.19 |
+| Smoke Bomb | 4,504 | 0 | 0.00 |
+
+Twin Fang is **⏱2 for 14.3 damage — about 7.2 damage per ⏱**, where the rest of the game runs at
+2-4. Two separate hits each take the weak point's +4 and Blessing's +3 in full, so under party buffs
+it is `(4+7) × 2 = 22` damage for two slots. It also makes his own basic attack dead content: 125
+Shuriken declares against 21,959 Twin Fangs, because they cost the same ⏱2 and one is strictly worse.
+
+Note his scoring is *fine* — kage3 ("never hit all battle") at 1.68/win is his biggest earner and
+reads exactly as intended, since stealth genuinely keeps him untouched. **The problem is the damage
+number on one card, not his conditions.**
+
+### Morvane — dies before his signature ever lands
+
+| card | declares | damage | per declare |
+|---|---|---|---|
+| Soul Siphon | 25,761 | 196,012 | 7.61 |
+| Drain | 2,647 | 15,657 | 5.91 |
+| **Death Coil** | **671** | **2,620** | **3.90** |
+| Raise Dead | 2,893 | 0 | 0.00 |
+
+Death Coil's `primary` is 14, so at 3.90 per declare **roughly three-quarters of the ones he declares
+never resolve at all**. It is ⏱5 and resolve-delayed, on a 9 HP character that `healFighter` refuses
+to touch — he is usually dead before the hit lands. His whole soul economy compounds the same
+problem: morvane1 fires 0.32/win because he rarely lives long enough to bank three souls.
+
+morvane2 (Raise Dead, 3 points) is 34% of his score and works as designed — it is the one part of him
+that does its job.
+
+### Suggested fixes
+
+**Kage** — the cheapest single lever is Twin Fang's `primary` 4 → 3 (`(3+7)×2 = 20` under buffs
+instead of 22, and 6 raw instead of 8), or give it ⏱3 so it stops competing with Shuriken at the same
+cost. Worth also asking whether *any* multi-hit card should take full buffs on every hit — Kit's
+Multi Shot has the same shape and the same latent problem.
+
+**Morvane** — he needs to survive to use his kit. In rough order of how much they change: raise his
+HP from 9 (he is the only character who cannot be healed *and* has the lowest HP in the game), or
+make Death Coil `immediate` like his other attacks so the turn is not wasted when he dies, or lower
+its ⏱ from 5.
+
+**Chrono** — unchanged from the previous entry: `chrono1` 2 → 1, and Haste `primary` 2 → 4 so it
+stops being negative-sum.
+
+> ⚠️ All of the above still measures bots. Kage's 7.2 dmg/⏱ and Death Coil's 28% landing rate are
+> arithmetic and hold regardless; the win-rate deltas assume bots play these kits sensibly, which is
+> exactly the assumption that cannot be checked without human play.

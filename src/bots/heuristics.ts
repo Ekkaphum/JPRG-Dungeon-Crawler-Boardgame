@@ -1,4 +1,14 @@
-import { SAND_PER_REWIND, SKILLS, VERA_CHARGED_CAST_MANA, skillStats, type CharId } from '@content/characters';
+import {
+  ASSASSINATE_EXECUTE_THRESHOLD,
+  MORVANE_LOW_HP_BAR,
+  SAND_PER_REWIND,
+  SKILLS,
+  VERA_CHARGED_CAST_MANA,
+  skillStats,
+  type CharId,
+} from '@content/characters';
+
+import { applySomnivarTax, type Choice, type GameState } from '@engine/index';
 
 /** Boss HP the party converts per slot of clock, averaged across a battle. Used to price the two
  *  v0.4.0 cards that buy time instead of dealing damage. Derived from GAME_DESIGN §10's own figures:
@@ -6,7 +16,11 @@ import { SAND_PER_REWIND, SKILLS, VERA_CHARGED_CAST_MANA, skillStats, type CharI
  *  are valued on the same scale as each other. */
 const PARTY_DAMAGE_PER_SLOT = 4.5;
 const PARTY_SIZE = 4;
-import { applySomnivarTax, type Choice, type GameState } from '@engine/index';
+/** Flat worth of being untargetable for a few slots. Same shape as attackRoll's +2.5 weak-point
+ *  premium: a real effect the per-⏱ damage model has no way to express. */
+const STEALTH_SAFETY_PREMIUM = 4;
+/** Slots a downed fighter waits before reviving on their own (damage.ts). */
+const REVIVE_SLOTS = 6;
 
 /** Rough per-⏱ value estimate for a candidate DECLARE_ACTION choice. Fully deterministic where
  *  the doc's numbers are deterministic (this ruleset hides nothing — GAME_DESIGN_v0_3_0.md §4.4)
@@ -128,6 +142,26 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       value = gained * PARTY_DAMAGE_PER_SLOT;
       break;
     }
+    case 'buffStealth': {
+      // Smoke Bomb's measurable half is the strike bonus it hands every fighter sharing the slot —
+      // that is real damage, just deferred to their next attack. The defensive half (the boss cannot
+      // single out a hidden fighter) is priced as a flat premium rather than modelled, the same way
+      // attackRoll prices its weak-point chance.
+      const covered = battle.fighters.filter((f) => f.alive && f.slot === fighter.slot).length;
+      value = covered * (stats.primary ?? 0) + STEALTH_SAFETY_PREMIUM;
+      break;
+    }
+    case 'raise': {
+      const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+      if (!target || target.alive) return -Infinity;
+      // A downed ally is worth the visits they are about to miss. Without the raise they sit out
+      // until their revive slot, so the card buys back exactly that stretch of clock — which is the
+      // single largest swing available to anyone, and why it is priced well above a big attack.
+      const slotsLost = Math.max(0, (target.reviveAtSlot ?? battle.marker - REVIVE_SLOTS) - 0);
+      const missed = Math.min(REVIVE_SLOTS, Math.max(1, battle.marker - slotsLost));
+      value = missed * PARTY_DAMAGE_PER_SLOT;
+      break;
+    }
     case 'rewind': {
       if (fighter.sand < SAND_PER_REWIND) return -Infinity;
       // Rewind hands its slots to all four seats at once, which is what makes a card that deals no
@@ -234,6 +268,25 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   }
   if (player.charId === 'Luna') {
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;
+  }
+  if (player.charId === 'Kage') {
+    // kage1 pays 4 for finishing with Assassinate specifically — the largest single-condition payout
+    // any character has, so it is worth reaching for once the boss is inside its execute window.
+    if (choice.skillId === 'Assassinate' && battle.bossHp <= battle.bossHpMax * ASSASSINATE_EXECUTE_THRESHOLD) bonus += 2;
+    // kage2 wants the strike that breaks stealth to connect, so attacking *while hidden* is the
+    // scoring play rather than attacking in general.
+    if (fighter.stealthUntilSlot != null && SKILLS[choice.skillId].kind === 'attack') bonus += 1;
+    // kage3 ("never hit all battle") is still live only while it is still true; once broken there is
+    // nothing left to protect and Smoke Bomb goes back to being priced on its damage alone.
+    if (choice.skillId === 'SmokeBomb' && !fighter.everHitByBossThisBattle) bonus += 1;
+  }
+  if (player.charId === 'Morvane') {
+    // morvane2 is 3 points per raise, the biggest per-occurrence payout in the game, and it is also
+    // the play that keeps a character who profits from death on the party's side.
+    if (SKILLS[choice.skillId].kind === 'raise') bonus += 2;
+    // morvane3 wants him alive but under 4 HP at the end. Death Coil's HP surcharge walks him toward
+    // that on purpose — but never when paying it would actually kill him.
+    if (choice.skillId === 'DeathCoil' && choice.payHp && fighter.hp > MORVANE_LOW_HP_BAR) bonus += 1;
   }
   if (player.charId === 'Chrono') {
     // chrono2 pays when the ally he hastened spends the visit he bought them on damage, so the
