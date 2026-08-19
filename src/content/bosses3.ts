@@ -33,6 +33,11 @@ export type Element = 'fire' | 'ice' | 'lightning' | 'light' | 'dark' | 'poison'
 
 export interface BossDef {
   id: BossId;
+  /** v0.5 "camp" ruleset: gems every player receives for defeating this boss, on top of the
+   *  leftover-time bonus. Printed on the boss sheet and announced before the fight starts, so the
+   *  party can plan its shopping around which boss is next rather than discovering the payout
+   *  afterwards. Rises across the queue so each camp feels larger than the last. */
+  gemReward: number;
   name: { th: string; en: string };
   sin: { th: string; en: string };
   hp: number;
@@ -60,6 +65,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     // per battle, and Skyward Gore's dice can catch the entire party. Measured hard clear 83.5% ->
     // 50.9% before this cut, 81.7% after — the *character* of the fight changed, its power did not.
     hp: 76,
+    gemReward: 6,
     startSlot: 23,
     armor: 0,
     // v0.4.0. Demon: the flavour half of "pays HP for power" — Rage already is that mechanic, so
@@ -120,6 +126,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     // one 11 to two 7s, so he acts about a third more often for more damage each time. Uncompensated
     // he was the wall the run died on — hard clear 93.8% -> 34.0% conditional. Now 92.8%.
     hp: 48,
+    gemReward: 8,
     startSlot: 23,
     armor: 0,
     // v0.4.0. Dreamspawn: he *is* the sleep, so nothing mental lands on him — the family he deals
@@ -175,6 +182,7 @@ export const BOSSES: Record<BossId, BossDef> = {
     // also cut his own numbers hard (Procession 12->9, Judgment 7/14->4/9); he gained frequency and
     // lost per-hit weight, which nets out closer to even than the other two.
     hp: 88,
+    gemReward: 10,
     startSlot: 23,
     armor: 2,
     // v0.4.0. Golem: no flesh to poison or bleed, and no mind to blind — the most ailment-proof

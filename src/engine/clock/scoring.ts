@@ -208,7 +208,10 @@ export interface FinalScores {
 /** §1 winner rule: highest points → most Last Shots landed → highest HP at game end. */
 export function determineWinner(state: GameState): FinalScores {
   const totals: Record<PlayerId, number> = {};
-  for (const p of state.players) totals[p.id] = currentTotalScore(state, p.id);
+  // v0.5: points bought with leftover gems count exactly like earned ones. They live outside
+  // scoreLog because they are not tied to any in-battle event, so they have to be added here — the
+  // one place that decides who actually won.
+  for (const p of state.players) totals[p.id] = currentTotalScore(state, p.id) + state.progress[p.id].boughtVp;
 
   // §1: "จำนวนครั้งที่ตี Last Shot" — every character's kill counts, not just Eric's and
   // Liora's-via-Meteor's own point conditions (eric2/liora2), which only fire for a subset of Last

@@ -34,7 +34,7 @@ const makeBot = (i: number, rand: () => number) => (BOT_LEVEL === 'hard' ? creat
 // measurement of Chrono/Kage/Morvane. It measures exactly one thing: what the boss ailments do to a
 // party that is otherwise identical to the v0.3 baseline. That is a clean, honest comparison
 // precisely *because* the roster is held constant across the two runs.
-const RULESET = (ARGS.find((a) => a === 'v0.3' || a === 'v0.4') ?? 'v0.3') as RulesetVersion;
+const RULESET = (ARGS.find((a) => a === 'v0.3' || a === 'v0.4' || a === 'v0.5') ?? 'v0.3') as RulesetVersion;
 
 // `--roster=Chrono,Kit,Liora,Luna` pins every seat and skips the draft, so a single character can
 // be swapped with the other three held constant. Without it a win-rate delta cannot be attributed
@@ -44,8 +44,8 @@ const FIXED_ROSTER = ROSTER_ARG ? (ROSTER_ARG.slice('--roster='.length).split(',
 
 for (const a of ARGS) {
   if (a.startsWith('--roster=')) continue;
-  if (!['medium', 'hard', 'v0.3', 'v0.4'].includes(a)) {
-    throw new Error(`unknown balance flag "${a}" — expected: medium, hard, v0.3, v0.4, --roster=A,B,C,D`);
+  if (!['medium', 'hard', 'v0.3', 'v0.4', 'v0.5'].includes(a)) {
+    throw new Error(`unknown balance flag "${a}" — expected: medium, hard, v0.3, v0.4, v0.5, --roster=A,B,C,D`);
   }
 }
 if (FIXED_ROSTER) {

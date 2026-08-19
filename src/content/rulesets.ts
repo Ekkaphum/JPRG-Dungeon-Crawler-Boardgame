@@ -10,7 +10,7 @@
 // The flag lives on GameState rather than being read from settings at the point of use, so a saved
 // game keeps the ruleset it was started under even if the menu selection changes afterwards.
 
-export type RulesetVersion = 'v0.3' | 'v0.4';
+export type RulesetVersion = 'v0.3' | 'v0.4' | 'v0.5';
 
 /** The one the game plays by default and the only one considered finished. */
 export const STABLE_RULESET: RulesetVersion = 'v0.3';
@@ -57,6 +57,22 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
       { th: '⚠️ ตัวเลขทั้งหมดเป็นการเดา ยังไม่ผ่าน sim', en: '⚠️ Every number is a first guess — no sim has run on it' },
     ],
   },
+  'v0.5': {
+    id: 'v0.5',
+    label: 'v0.5.0',
+    experimental: true,
+    name: { th: 'ค่ายพัก', en: 'Camp' },
+    desc: {
+      th: 'ทุกอย่างของ v0.4.0 บวกช่วงพักระหว่างบอส — ได้เจม ซื้อไอเทม อัปสกิล หรือแลกเป็นแต้ม',
+      en: 'Everything in v0.4.0 plus a camp between bosses — earn gems, buy items, upgrade skills, or convert to points.',
+    },
+    highlights: [
+      { th: 'เจมจากการปราบบอส 8/10/12 + เวลาที่เหลือหาร 2', en: 'Gems per boss 8/10/12, plus leftover slots ÷ 2' },
+      { th: 'ตลาดไอเทม 4 ใบ + future market 1 ใบ', en: 'A 4-card market with a 1-card future row' },
+      { th: 'ไอเทมใช้เป็น free action ในตาตัวเอง ไม่เสีย ⏱', en: 'Items are a free action on your own visit — no ⏱ cost' },
+      { th: '⚠️ เจมไม่ทบข้ามค่าย — ใช้ให้หมดในค่ายนั้น', en: '⚠️ Gems do not carry between camps — spend them or lose them' },
+    ],
+  },
 };
 
 export function rulesetDef(v: RulesetVersion): RulesetDef {
@@ -66,5 +82,11 @@ export function rulesetDef(v: RulesetVersion): RulesetDef {
 /** Whether this ruleset runs the v0.4.0 additions. A single predicate rather than scattered
  *  `=== 'v0.4'` checks, so adding a later ruleset that keeps them is a one-line change. */
 export function hasV040Content(v: RulesetVersion): boolean {
-  return v === 'v0.4';
+  return v === 'v0.4' || v === 'v0.5';
+}
+
+/** Whether this ruleset runs the camp between battles. v0.5 layers on top of v0.4.0 rather than
+ *  replacing it, so a camp game also gets the ailments and the expanded roster. */
+export function hasCamp(v: RulesetVersion): boolean {
+  return v === 'v0.5';
 }

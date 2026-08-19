@@ -55,6 +55,9 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
     deathCounts: {},
     lastShotCounts: {},
     pending: null,
+    itemDeck: [],
+    market: [],
+    futureCard: null,
     gameOver: null,
   };
 }
@@ -125,6 +128,11 @@ function assignCharacter(state: GameState, playerId: PlayerId, charId: CharId) {
     expOnCard: {},
     bankedExp: 0,
     rollPenalty: {},
+    // v0.5 camp — zeroed for every ruleset; only campPhase ever writes to them.
+    gems: 0,
+    items: [],
+    permanents: [],
+    boughtVp: 0,
   };
 }
 
@@ -189,6 +197,13 @@ export function prepareBattle(state: GameState) {
         predictedBossMove: null,
         hastedByPlayerId: null,
         ailments: [],
+        // v0.5 — inert unless the camp ruleset is on and an item is actually bought.
+        itemAtkBonus: 0,
+        itemPierce: false,
+        itemAbsorb: 0,
+        itemWard: 0,
+        itemHaste: 0,
+        itemPermanents: [...(state.progress[p.id]?.permanents ?? [])],
       };
     }),
   };

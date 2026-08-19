@@ -23,6 +23,7 @@ import {
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter, pushScore, reviveFighterNow } from './damage';
 import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
 import { ailmentRollPenalty, ailmentTimeTax, cleanseAilments, consumeTimeTaxAilments, isSilenced } from './ailments';
+import { spendItems } from './items';
 import type { Choice, Fighter, GameState } from './types';
 import type { RNG } from '../rng';
 
@@ -65,7 +66,10 @@ export function applySomnivarTax(state: GameState, baseTime: number): number {
  *  fighter's own ❄️/💫 ailments on top. Kept separate from applySomnivarTax because the bots call
  *  that one directly to price candidate skills and must keep seeing the boss-level tax alone. */
 export function effectiveDeclareTime(state: GameState, fighter: Fighter, baseTime: number): number {
-  return applySomnivarTax(state, baseTime) + ailmentTimeTax(fighter);
+  // v0.5 haste items subtract last and floor at 1: a free action must never buy a 0-⏱ turn, which
+  // would let a pawn sit on the marker and be re-visited forever.
+  const taxed = applySomnivarTax(state, baseTime) + ailmentTimeTax(fighter);
+  return Math.max(1, taxed - fighter.itemHaste);
 }
 
 /** Slots Trap! may legally be armed on: strictly inside the skill's own ⏱ window (so the trap is
@@ -221,6 +225,9 @@ function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId,
  *  Shooting) — its weak-point roll happens right here instead of at resolve. */
 export function declareSkill(state: GameState, fighter: Fighter, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>, rng: RNG) {
   const battle = state.battle!;
+  // v0.5: items are a free action taken *before* the skill is declared, so they resolve first and
+  // anything they set (haste, +damage, pierce) is already live when the skill below is priced.
+  spendItems(state, fighter, choice.useItems);
   const skillId = choice.skillId;
   const def = SKILLS[skillId];
 
@@ -285,6 +292,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
 
   const stats = skillStats(skillId, isLv2(state, fighter, skillId));
   const time = effectiveDeclareTime(state, fighter, stats.time);
+  fighter.itemHaste = 0; // banked discount is spent by this declare whether or not it changed the total
   const landedAtSlot = battle.marker - time;
   // Where the caster is standing as they declare, captured before the pawn walks below. Smoke Bomb
   // needs it: reading fighter.slot after the move would cover whoever happens to be at the

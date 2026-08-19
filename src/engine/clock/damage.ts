@@ -21,6 +21,11 @@ export function computeOutgoingPlayerDamage(battle: BattleState, base: number, a
   if (attackerId != null) {
     const attacker = battle.fighters.find((f) => f.playerId === attackerId);
     if (attacker?.charId === 'Eric' && attacker.alive && attacker.hp < BERSERK_HP_THRESHOLD) dmg += 4;
+    // v0.5 Power Elixir: one flat bump, spent by the hit it lands on.
+    if (attacker && attacker.itemAtkBonus > 0) {
+      dmg += attacker.itemAtkBonus;
+      attacker.itemAtkBonus = 0;
+    }
   }
   return dmg;
 }
@@ -39,13 +44,20 @@ export function applyDamageToBoss(
   opts: { ignoresArmor: boolean; skillId: SkillId; countsAsAttack?: boolean }
 ): BossDamageResult {
   const battle = state.battle!;
-  const effective = Math.max(0, opts.ignoresArmor ? dmg : dmg - battle.armor);
+  // v0.5 Armor Spike: a one-shot pierce, consumed here so it cannot leak onto a later swing.
+  const attackerF = battle.fighters.find((f) => f.playerId === attackerId);
+  let ignores = opts.ignoresArmor;
+  if (!ignores && attackerF?.itemPierce) {
+    ignores = true;
+    attackerF.itemPierce = false;
+  }
+  const effective = Math.max(0, ignores ? dmg : dmg - battle.armor);
   battle.bossHp = Math.max(0, battle.bossHp - effective);
 
   if (battle.bossId === 'Ragorath') battle.rage += 1;
 
   let armorBroke = false;
-  if (battle.bossId === 'Aurelius' && !opts.ignoresArmor && effective > 12 && battle.armor > 0) {
+  if (battle.bossId === 'Aurelius' && !ignores && effective > 12 && battle.armor > 0) {
     battle.armor -= 1;
     armorBroke = true;
   }
@@ -104,6 +116,13 @@ export function applyDamageToFighter(
   if (fighter.shield?.kind === 'counter') {
     dmg = Math.floor(dmg * (1 - fighter.shield.reduction / 100));
     fighter.shield.hitDuringWindow = true;
+  }
+  // v0.5 items. Ward is a standing reduction until the next visit; absorb is a one-shot cap that is
+  // spent by the first hit it meets, in that order so a big hit eats the cheap ward first.
+  if (fighter.itemWard > 0) dmg -= fighter.itemWard;
+  if (fighter.itemAbsorb > 0) {
+    dmg -= fighter.itemAbsorb;
+    fighter.itemAbsorb = 0;
   }
   dmg = Math.max(0, dmg);
   fighter.hp = Math.max(0, fighter.hp - dmg);
@@ -172,7 +191,10 @@ export function killFighter(state: GameState, fighter: Fighter) {
   // filter it out on every hit. (A dead *ward* leaves the link standing on purpose: it costs
   // nothing while they're down, and it's still up if they revive inside Guard's window.)
   if (battle.guard?.guardianId === fighter.playerId) battle.guard = null;
-  const reviveAt = battle.marker - 6;
+  // v0.5 Revival Charm shortens the wait; the floor keeps it from landing on a slot the marker has
+  // already walked past.
+  const reviveDelay = fighter.itemPermanents.includes('RevivalCharm') ? 3 : 6;
+  const reviveAt = battle.marker - reviveDelay;
   fighter.reviveAtSlot = reviveAt >= 0 ? reviveAt : null;
   // The pawn is physically moved to where it will come back (GAME_DESIGN_v0_3_0.md §5.4). Leaving
   // it on its old slot — which the marker has already walked past — meant a revived fighter could

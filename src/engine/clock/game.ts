@@ -3,6 +3,8 @@ import type { RNG } from '../rng';
 import { runDraft, prepareBattle } from './setup';
 import { runClockBattle } from './walk';
 import { grantEndOfBattleRewards, determineWinner } from './scoring';
+import { runCamp } from './camp';
+import { hasCamp } from '@content/rulesets';
 import type { Choice, GameState, PendingDecision } from './types';
 
 function* runExpPlacement(state: GameState): Generator<PendingDecision, void, Choice> {
@@ -59,7 +61,13 @@ export function* playGame(state: GameState, rng: RNG): Generator<PendingDecision
 
     grantEndOfBattleRewards(state);
     const isLastBoss = state.bossIndex === state.bossQueue.length - 1;
-    if (!isLastBoss) yield* runExpPlacement(state);
+    // v0.5 replaces the EXP-placement interlude with the full camp. The two are alternatives, not
+    // layers: the camp's upgrade step does the same job (flipping a card to Lv2) with gems, so
+    // running both would hand out the progression twice.
+    if (!isLastBoss) {
+      if (hasCamp(state.ruleset)) yield* runCamp(state, rng);
+      else yield* runExpPlacement(state);
+    }
     state.bossIndex += 1;
   }
 

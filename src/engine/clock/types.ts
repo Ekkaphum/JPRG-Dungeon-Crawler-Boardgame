@@ -11,6 +11,7 @@ import type { CharId, SkillId } from '@content/characters';
 import type { BossId } from '@content/bosses3';
 import type { Difficulty } from '@content/difficulty';
 import type { RulesetVersion } from '@content/rulesets';
+import type { ItemId } from '@content/items';
 import type { ActiveAilment, AilmentId } from '@content/ailments';
 
 export type PlayerId = number; // 0..3, index into GameState.players / progress
@@ -35,9 +36,24 @@ export interface PlayerProgress {
   /** Kit's Skill Improvement passive: each failed roll permanently improves only that skill.
    *  Sharp Shooting and Trap! have separate counters; both persist across boss battles. */
   rollPenalty: Partial<Record<'SharpShooting' | 'Trap', number>>;
+
+  // ─────────────── v0.5 "camp" ruleset ───────────────
+  /** Gems in hand. Granted at the end of each boss battle and spent in that same camp — they do
+   *  NOT carry across camps (campPhase zeroes the pile at the end). That single rule is what keeps
+   *  the camp from becoming a cross-battle optimisation problem, which is the thing that turns a
+   *  55-minute game into a two-hour one (docs/DESIGN_VARIABLES.md §6.2). */
+  gems: number;
+  /** Consumable items held, spent as a free action during a visit. */
+  items: ItemId[];
+  /** Permanents bought; never removed. Kept separate from `items` so the free-action spend path
+   *  can never accidentally consume one. */
+  permanents: ItemId[];
+  /** Victory points bought with leftover gems in the camp's third phase. Added to the score total
+   *  at the end, tracked apart from scoreLog because it is not tied to any in-battle event. */
+  boughtVp: number;
 }
 
-export type Phase = 'SETUP' | 'DRAFT' | 'BATTLE_INTRO' | 'CLOCK_RUN' | 'BATTLE_END' | 'SCORING' | 'ALL_LOSE';
+export type Phase = 'SETUP' | 'DRAFT' | 'BATTLE_INTRO' | 'CLOCK_RUN' | 'BATTLE_END' | 'CAMP' | 'SCORING' | 'ALL_LOSE';
 
 export interface PendingAction {
   skillId: SkillId;
@@ -141,6 +157,27 @@ export interface Fighter {
   /** Set on the ally Haste moved this visit, so chrono2 can tell "dealt damage on the visit
    *  Chrono bought them" from ordinary damage. Cleared when that ally is next visited. */
   hastedByPlayerId: PlayerId | null;
+
+  // ─────────────── v0.5 "camp" ruleset — live item effects ───────────────
+  // All inert outside v0.5: nothing writes to them unless an item is spent. Kept on Fighter rather
+  // than in a side table for the same reason as the v0.4.0 block above — no read site should have
+  // to branch on ruleset.
+
+  /** Flat bonus added to this fighter's next attack, then cleared (Power Elixir). */
+  itemAtkBonus: number;
+  /** Next attack ignores boss armor, then cleared (Armor Spike). */
+  itemPierce: boolean;
+  /** Cancels up to this much from the next hit that lands, then cleared (Bulwark Charm, Smoke
+   *  Bomb). Distinct from `shield`, which skills own — an item must never overwrite a skill's. */
+  itemAbsorb: number;
+  /** Flat reduction on every hit until this fighter's next visit (Iron Tonic). */
+  itemWard: number;
+  /** ⏱ discount banked by a haste item this visit, applied to the very next declare then cleared.
+   *  Lives on the fighter because the item is spent before the skill is chosen. */
+  itemHaste: number;
+  /** Permanents in play, copied from PlayerProgress at battle setup so the damage/revival paths can
+   *  read them without reaching back into progress. */
+  itemPermanents: ItemId[];
 }
 
 export interface TrapToken {
@@ -285,6 +322,16 @@ export interface GameState {
    *  (prepareBattle), so it has to be tallied here the instant each battle ends. */
   lastShotCounts: Partial<Record<PlayerId, number>>;
   pending: PendingDecision | null;
+
+  // ─────────────── v0.5 "camp" ruleset ───────────────
+  /** Face-down draw pile for the camp market. Empty outside v0.5. */
+  itemDeck: ItemId[];
+  /** The cards currently for sale, face up. Refilled from `futureCard` the instant one is bought. */
+  market: ItemId[];
+  /** The one card everybody can see but nobody may buy yet — it slides into the market only when a
+   *  purchase opens a slot. It exists so a buyer's decision is also a decision about what they are
+   *  handing the next seat, which is the cheapest way to make a shared market interactive. */
+  futureCard: ItemId | null;
   gameOver:
     | { outcome: 'win'; totals: Record<PlayerId, number>; winnerId: PlayerId; tieBreak: 'points' | 'lastShots' | 'hp' | 'none' }
     | { outcome: 'allLose'; bossId: BossId }
@@ -305,11 +352,24 @@ export interface DeclareOptions {
 export type PendingDecision =
   | { kind: 'DECLARE_ACTION'; playerId: PlayerId; options: DeclareOptions }
   | { kind: 'CHOOSE_CHARACTER'; playerId: PlayerId; available: CharId[] }
-  | { kind: 'PLACE_EXP'; playerId: PlayerId; bankedExp: number; skills: SkillId[]; expOnCard: Partial<Record<SkillId, number>> };
+  | { kind: 'PLACE_EXP'; playerId: PlayerId; bankedExp: number; skills: SkillId[]; expOnCard: Partial<Record<SkillId, number>> }
+  // ─────────────── v0.5 camp ───────────────
+  /** Camp phase 1. Offered one seat at a time in shopping order (fewest points first, character
+   *  speed breaking ties), and re-offered to the same seat after every purchase so a player may buy
+   *  as many cards as they can afford before the next seat starts. */
+  | { kind: 'CAMP_BUY'; playerId: PlayerId; gems: number; market: ItemId[]; futureCard: ItemId | null }
+  /** Camp phase 2, simultaneous: spend GEMS_PER_UPGRADE per skill card flipped to Lv2. */
+  | { kind: 'CAMP_UPGRADE'; playerId: PlayerId; gems: number; upgradable: SkillId[] }
+  /** Camp phase 3, simultaneous: convert whatever is left at GEMS_PER_VP:1. */
+  | { kind: 'CAMP_VP'; playerId: PlayerId; gems: number };
 
 export type Choice =
   | {
       kind: 'DECLARE_ACTION';
+      /** v0.5: consumables spent as a free action *before* the skill is declared — any number, no
+       *  ⏱ cost. Folded into this choice rather than given its own yield so the turn order, the
+       *  replay format and every bot keep working unchanged. */
+      useItems?: { itemId: ItemId; targetPlayerId?: PlayerId }[];
       skillId: SkillId;
       targetPlayerId?: PlayerId;
       manaSpent?: number;
@@ -321,4 +381,8 @@ export type Choice =
       predictedBossMove?: 'A' | 'B' | 'C';
     }
   | { kind: 'CHOOSE_CHARACTER'; charId: CharId }
-  | { kind: 'PLACE_EXP'; allocations: { skillId: SkillId; count: number }[] };
+  | { kind: 'PLACE_EXP'; allocations: { skillId: SkillId; count: number }[] }
+  /** `itemId: null` means "done buying" and passes the turn to the next seat. */
+  | { kind: 'CAMP_BUY'; itemId: ItemId | null }
+  | { kind: 'CAMP_UPGRADE'; skillIds: SkillId[] }
+  | { kind: 'CAMP_VP'; gemsSpent: number };

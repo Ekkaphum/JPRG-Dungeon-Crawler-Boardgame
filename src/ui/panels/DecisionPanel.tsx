@@ -20,6 +20,9 @@ import type { GameSession } from '@session/GameSession';
 export function DecisionPanel({ state, decision, session }: { state: GameState; decision: PendingDecision; session: GameSession }) {
   if (decision.kind === 'CHOOSE_CHARACTER') return <ChooseCharacterPanel decision={decision} session={session} />;
   if (decision.kind === 'PLACE_EXP') return <PlaceExpPanel state={state} decision={decision} session={session} />;
+  // v0.5 camp decisions have no panel yet — the ruleset is engine/sim-only for now, and the picker
+  // marks it experimental. Rendering nothing is correct rather than crashing the battle screen.
+  if (decision.kind === 'CAMP_BUY' || decision.kind === 'CAMP_UPGRADE' || decision.kind === 'CAMP_VP') return null;
   return <DeclareActionPanel state={state} decision={decision} session={session} />;
 }
 

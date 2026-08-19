@@ -221,6 +221,12 @@ export interface CharacterDef {
   hp: number;
   startSlot: number;
   reviveHp: number;
+  /** v0.5 "camp" ruleset only. Lower acts sooner. Used *solely* as the tie-break for camp shopping
+   *  order when two players are level on points — it is deliberately NOT a combat stat, because a
+   *  global speed modifier would rescale every ⏱ in the game and void BALANCE_NOTES wholesale.
+   *  Ordering follows each kit's existing ⏱ profile: Kage's is the lightest on the roster, Chrono's
+   *  signature is a ⏱6, and EXPANSION_DESIGN §3.2 already calls him "ช้า". */
+  speed: number;
   skills: SkillId[];
   score: [ScoreConditionDef, ScoreConditionDef, ScoreConditionDef];
 }
@@ -541,6 +547,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 16,
     startSlot: 23,
     reviveHp: 8,
+    speed: 5,
     // v0.4.0: common attack + 3 cards, plus the always-on Berserk passive (PASSIVES.Eric).
     skills: ['Slash', 'PowerStrike', 'Guard', 'CounterAttack'],
     score: [
@@ -600,6 +607,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 13,
     startSlot: 23,
     reviveHp: 7,
+    speed: 2,
     // ① Twin Shot ② Quick Shot (its weak point is what the rest of the party spends) ③ Set Trap.
     // v0.4.0: common attack + 3 cards, plus the always-on Skill Improvement passive (PASSIVES.Kit).
     skills: ['QuickShot', 'SharpShooting', 'Trap', 'MultiShot'],
@@ -662,6 +670,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 11,
     startSlot: 23,
     reviveHp: 6,
+    speed: 4,
     // ① Fireball ② ManaCharge ③ Meteor. Liora is the template's one sanctioned "supports only
     // herself" case (§8.0) — she is the payload the other three set up, not a setter-upper.
     // v0.4.0: common attack + 3 cards, plus the always-on ManaCharge passive (PASSIVES.Liora).
@@ -728,6 +737,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 13,
     startSlot: 23,
     reviveHp: 7,
+    speed: 3,
     // ① Smite ② Blessing ③ Heal — Heal is her identity card, not her team-support one.
     // v0.4.0: common attack + 3 cards, plus the always-on HolyWater passive (PASSIVES.Luna).
     skills: ['Hitting', 'AuraSmite', 'Blessing', 'Heal'],
@@ -793,6 +803,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 10,
     startSlot: 23,
     reviveHp: 5,
+    speed: 6,
     // ① Hourglass Shard ② Haste ③ Rewind. The only character who can move the clock itself.
     skills: ['Tick', 'HourglassShard', 'Haste', 'Rewind'],
     score: [
@@ -844,6 +855,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 11,
     startSlot: 23,
     reviveHp: 6,
+    speed: 1,
     // ① Twin Fang ② Smoke Bomb ③ Assassinate. Fastest kit in the game (⏱2/2/3/4).
     skills: ['Shuriken', 'TwinFang', 'SmokeBomb', 'Assassinate'],
     score: [
@@ -885,6 +897,7 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     hp: 9,
     startSlot: 23,
     reviveHp: 5,
+    speed: 4,
     // ① Soul Siphon ② Raise Dead ③ Death Coil. Undead: Heal cannot touch him.
     skills: ['Drain', 'SoulSiphon', 'RaiseDead', 'DeathCoil'],
     score: [
