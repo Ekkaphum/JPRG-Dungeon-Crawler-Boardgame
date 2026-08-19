@@ -13,6 +13,8 @@ import {
 import { landSlotDisplay } from '@content/eventText';
 import { BOSSES } from '@content/bosses3';
 import { declareRoute } from './declareRouting';
+import { CampBuyPanel, CampUpgradePanel, CampVpPanel } from './CampPanels';
+import { ITEMS, type ItemId } from '@content/items';
 import { useT } from '@content/i18n/useT';
 import { useAppStore } from '@session/store';
 import type { GameSession } from '@session/GameSession';
@@ -20,9 +22,9 @@ import type { GameSession } from '@session/GameSession';
 export function DecisionPanel({ state, decision, session }: { state: GameState; decision: PendingDecision; session: GameSession }) {
   if (decision.kind === 'CHOOSE_CHARACTER') return <ChooseCharacterPanel decision={decision} session={session} />;
   if (decision.kind === 'PLACE_EXP') return <PlaceExpPanel state={state} decision={decision} session={session} />;
-  // v0.5 camp decisions have no panel yet — the ruleset is engine/sim-only for now, and the picker
-  // marks it experimental. Rendering nothing is correct rather than crashing the battle screen.
-  if (decision.kind === 'CAMP_BUY' || decision.kind === 'CAMP_UPGRADE' || decision.kind === 'CAMP_VP') return null;
+  if (decision.kind === 'CAMP_BUY') return <CampBuyPanel state={state} decision={decision} session={session} />;
+  if (decision.kind === 'CAMP_UPGRADE') return <CampUpgradePanel state={state} decision={decision} session={session} />;
+  if (decision.kind === 'CAMP_VP') return <CampVpPanel state={state} decision={decision} session={session} />;
   return <DeclareActionPanel state={state} decision={decision} session={session} />;
 }
 
@@ -104,6 +106,9 @@ function DeclareActionPanel({
   // chrono1's call on the boss's next move. Orthogonal to which card is played, so it is held here
   // and merged into whatever gets submitted rather than being a step inside one skill's flow.
   const [prediction, setPrediction] = useState<'A' | 'B' | 'C' | null>(null);
+  // Items are a free action taken before the declare, so they are collected here and merged into
+  // whatever card is finally played — one submission, no extra turn step.
+  const [useItems, setUseItems] = useState<ItemId[]>([]);
   const player = state.players.find((p) => p.id === decision.playerId)!;
   const def = CHARACTERS[decision.options.charId];
   const battle = state.battle!;
@@ -117,14 +122,42 @@ function DeclareActionPanel({
         ? { ...choice, predictedBossMove: prediction }
         : choice;
     setPrediction(null);
-    session.submitHumanChoice(decision.playerId, withPrediction);
+    const withItems: Choice =
+      useItems.length > 0 && withPrediction.kind === 'DECLARE_ACTION'
+        ? { ...withPrediction, useItems: useItems.map((itemId) => ({ itemId, targetPlayerId: decision.playerId })) }
+        : withPrediction;
+    setUseItems([]);
+    session.submitHumanChoice(decision.playerId, withItems);
   };
 
+  const held = state.progress[decision.playerId]?.items ?? [];
   const skillKind = skillId ? SKILLS[skillId].kind : null;
 
   return (
     <div className="decision-board gold-frame rounded-lg p-3">
       <div className="font-display gold-text mb-2">{t('decision.declareTitle', { name: player.name })}</div>
+
+      {held.length > 0 && (
+        <div className="flex gap-2 flex-wrap items-center mb-2 text-xs">
+          <span className="text-gold-dim">{t('camp.useItems')}</span>
+          {held.map((id, i) => {
+            const on = useItems.filter((x) => x === id).length > held.slice(0, i).filter((x) => x === id).length;
+            return (
+              <button
+                key={`${id}-${i}`}
+                onClick={() =>
+                  setUseItems((cur) => (on ? cur.filter((_, j) => j !== cur.lastIndexOf(id)) : [...cur, id]))
+                }
+                title={ITEMS[id].text[lang]}
+                className={`gold-frame rounded px-2 py-1 ${on ? 'bg-gold/25' : 'hover:bg-gold/10'}`}
+              >
+                {ITEMS[id].name[lang]}
+                {on ? ' ✓' : ''}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Chrono only. The boss's move is the one piece of hidden information on the board since
           v0.3.14, and he is the only character paid for reading it — so the call rides along with

@@ -221,7 +221,7 @@ export interface CharacterDef {
   hp: number;
   startSlot: number;
   reviveHp: number;
-  /** v0.5 "camp" ruleset only. Lower acts sooner. Used *solely* as the tie-break for camp shopping
+  /** v0.4 camp ruleset only. Lower acts sooner. Used *solely* as the tie-break for camp shopping
    *  order when two players are level on points — it is deliberately NOT a combat stat, because a
    *  global speed modifier would rescale every ⏱ in the game and void BALANCE_NOTES wholesale.
    *  Ordering follows each kit's existing ⏱ profile: Kage's is the lightest on the roster, Chrono's

@@ -33,7 +33,7 @@ export type Element = 'fire' | 'ice' | 'lightning' | 'light' | 'dark' | 'poison'
 
 export interface BossDef {
   id: BossId;
-  /** v0.5 "camp" ruleset: gems every player receives for defeating this boss, on top of the
+  /** v0.4 camp: gems every player receives for defeating this boss, on top of the
    *  leftover-time bonus. Printed on the boss sheet and announced before the fight starts, so the
    *  party can plan its shopping around which boss is next rather than discovering the payout
    *  afterwards. Rises across the queue so each camp feels larger than the last. */

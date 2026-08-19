@@ -65,7 +65,41 @@ export function GameScreen() {
         </div>
       )}
 
-      {shown && state.phase !== 'DRAFT' && (
+      {/* The battle-result popup has to survive the phase flip to CAMP — the engine sets that phase
+          as soon as it yields the camp's first decision, but the session blocks on this modal being
+          acknowledged before it hands that decision to anyone, so hiding it on phase deadlocks the
+          game on a blank camp screen. It then has to get out of the way again: `battleResult` is not
+          cleared until the *next* battle starts, so without the acknowledged check it would sit on
+          top of the camp for the whole phase. */}
+      {shown && session.battleResult && (state.phase !== 'CAMP' || !session.battleResult.acknowledged) && (
+        <BattleResultModal state={state} battle={shown} session={session}>
+          {session.battleResult.acknowledged && expInPopup && pending ? (
+            <DecisionPanel state={state} decision={pending} session={session} />
+          ) : null}
+        </BattleResultModal>
+      )}
+
+      {state.phase === 'CAMP' && (
+        // The camp gets its own full-width view rather than sitting under the battle stage: the
+        // battle it follows is over, and leaving the corpse of the last fight on screen while people
+        // shop reads as if the clock were still running.
+        <div className="flex flex-col items-center gap-3 mt-4">
+          <h2 className="text-2xl font-display gold-text">{t('camp.title')}</h2>
+          <div className="flex gap-3 text-xs text-gold-dim">
+            <span className={pending?.kind === 'CAMP_BUY' ? 'gold-text' : ''}>{t('camp.phaseBuy')}</span>
+            <span className={pending?.kind === 'CAMP_UPGRADE' ? 'gold-text' : ''}>{t('camp.phaseUpgrade')}</span>
+            <span className={pending?.kind === 'CAMP_VP' ? 'gold-text' : ''}>{t('camp.phaseVp')}</span>
+          </div>
+          {pending && !isHumanTurn && (
+            <div className="text-sm text-gold-dim">
+              {t('draft.waitingFor', { name: state.players.find((p) => p.id === pending.playerId)?.name ?? '' })}
+            </div>
+          )}
+          {pending && isHumanTurn && <DecisionPanel state={state} decision={pending} session={session} />}
+        </div>
+      )}
+
+      {shown && state.phase !== 'DRAFT' && state.phase !== 'CAMP' && (
         <>
           {/* Battle stage — the only row that flexes. */}
           <div
@@ -140,14 +174,6 @@ export function GameScreen() {
               <LogPanel log={session.visibleLog} />
             </div>
           </div>
-
-          {session.battleResult && (
-            <BattleResultModal state={state} battle={shown} session={session}>
-              {session.battleResult.acknowledged && expInPopup && pending ? (
-                <DecisionPanel state={state} decision={pending} session={session} />
-              ) : null}
-            </BattleResultModal>
-          )}
 
           {detail?.kind === 'boss' && <BossDetailModal battle={shown} onClose={() => setDetail(null)} />}
           {detail?.kind === 'hero' && (

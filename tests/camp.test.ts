@@ -11,7 +11,7 @@ import { fixedDraftState } from './testUtils';
 
 function campState(): GameState {
   const state = fixedDraftState(99);
-  state.ruleset = 'v0.5';
+  state.ruleset = 'v0.4';
   prepareBattle(state);
   return state;
 }
@@ -30,7 +30,7 @@ function runCampWith(
   }
 }
 
-describe('v0.5 camp — gems', () => {
+describe('camp — gems', () => {
   it('pays the boss reward plus the leftover clock over GEMS_TIME_DIVISOR', () => {
     const state = campState();
     state.battle!.marker = 12;
@@ -64,7 +64,7 @@ describe('v0.5 camp — gems', () => {
   });
 });
 
-describe('v0.5 camp — shopping order', () => {
+describe('camp — shopping order', () => {
   it('puts the lowest score first and breaks ties on character speed', () => {
     const state = campState();
     // All four on zero points: pure speed order — Kit(2) < Luna(3) < Liora(4) < Eric(5).
@@ -79,7 +79,7 @@ describe('v0.5 camp — shopping order', () => {
   });
 });
 
-describe('v0.5 camp — market', () => {
+describe('camp — market', () => {
   it('opens with MARKET_SIZE cards face up and one future card', () => {
     const state = campState();
     state.battle!.marker = 12;
@@ -125,7 +125,7 @@ describe('v0.5 camp — market', () => {
   });
 });
 
-describe('v0.5 camp — upgrade and points', () => {
+describe('camp — upgrade and points', () => {
   it('charges GEMS_PER_UPGRADE and flips the card to Lv2', () => {
     const state = campState();
     state.battle!.marker = 12;
@@ -166,7 +166,7 @@ describe('v0.5 camp — upgrade and points', () => {
   });
 });
 
-describe('v0.5 items — free action effects', () => {
+describe('camp items — free action effects', () => {
   it('haste cuts the declared action ⏱ but never below 1', () => {
     const state = campState();
     const f = state.battle!.fighters[0];
@@ -257,7 +257,7 @@ describe('v0.5 items — free action effects', () => {
   });
 });
 
-describe('v0.5 — a whole game runs end to end', () => {
+describe('camp — a whole game runs end to end', () => {
   it('plays three bosses with two camps and produces a winner', async () => {
     const { newGame, playGame } = await import('@engine/index');
     const { createMediumBot } = await import('@bots/medium');
@@ -270,7 +270,7 @@ describe('v0.5 — a whole game runs end to end', () => {
           { name: 'D', kind: 'bot', botLevel: 'medium' },
         ],
         difficulty: 'standard',
-        ruleset: 'v0.5',
+        ruleset: 'v0.4',
       },
       4242
     );

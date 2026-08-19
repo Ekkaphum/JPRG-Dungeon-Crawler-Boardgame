@@ -1,3 +1,5 @@
+import { hasCamp } from '@content/rulesets';
+import { gemsForBattle } from '@engine/clock/camp';
 import type { ReactNode } from 'react';
 import type { BattleState, GameState } from '@engine/index';
 import { BOSSES } from '@content/bosses3';
@@ -54,7 +56,11 @@ export function BattleResultModal({
               )}
               <div className="text-xs text-gold-dim mt-1">{t('result.timeLeft', { n: result.markerLeft })}</div>
               <div className="text-xs text-gold-bright mt-1">
-                {result.isLastBoss ? t('game.battleEnd.pointsGranted', { n: reward }) : t('game.battleEnd.expGranted', { n: reward })}
+                {result.isLastBoss
+                  ? t('game.battleEnd.pointsGranted', { n: reward })
+                  : hasCamp(state.ruleset)
+                    ? t('game.battleEnd.gemsGranted', { n: gemsForBattle(state) })
+                    : t('game.battleEnd.expGranted', { n: reward })}
               </div>
             </>
           ) : (

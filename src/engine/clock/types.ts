@@ -327,7 +327,7 @@ export interface GameState {
   pending: PendingDecision | null;
 
   // ─────────────── v0.5 "camp" ruleset ───────────────
-  /** Face-down draw pile for the camp market. Empty outside v0.5. */
+  /** Face-down draw pile for the camp market. Empty unless the camp ruleset is on. */
   itemDeck: ItemId[];
   /** The cards currently for sale, face up. Refilled from `futureCard` the instant one is bought. */
   market: ItemId[];
@@ -369,7 +369,7 @@ export type PendingDecision =
 export type Choice =
   | {
       kind: 'DECLARE_ACTION';
-      /** v0.5: consumables spent as a free action *before* the skill is declared — any number, no
+      /** Camp ruleset: consumables spent as a free action *before* the skill is declared — any number, no
        *  ⏱ cost. Folded into this choice rather than given its own yield so the turn order, the
        *  replay format and every bot keep working unchanged. */
       useItems?: { itemId: ItemId; targetPlayerId?: PlayerId }[];
