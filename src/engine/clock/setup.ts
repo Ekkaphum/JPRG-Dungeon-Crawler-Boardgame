@@ -14,6 +14,16 @@ export interface NewGameSetup {
   /** Defaults to the stable ruleset when omitted, so every existing caller (tests, the sim tool,
    *  old saves) keeps its current behaviour without being touched. */
   ruleset?: RulesetVersion;
+  /** **Measurement only.** Assigns characters to seats directly and skips the draft entirely,
+   *  including the human-only gate on the v0.4.0 roster.
+   *
+   *  This exists so the balance sim can hold three characters constant and swap exactly one — the
+   *  only way to attribute a change in win rate to that character rather than to who got drafted.
+   *  The *set* is pinned; seat order is still rolled per game, because seat order is worth ~20pp on
+   *  its own (see runDraft) and would otherwise swamp the comparison. It is never set by the app:
+   *  `startNewGame` does not pass it, so no real game can reach it, and a bot can still never
+   *  *choose* an experimental character. Length must equal the player count. */
+  fixedRoster?: CharId[];
 }
 
 /** Builds the initial GameState with no character assigned yet — draft happens via runDraft(). */
@@ -34,6 +44,7 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
     rngState: seed,
     difficulty: setup.difficulty,
     ruleset: setup.ruleset ?? STABLE_RULESET,
+    fixedRoster: setup.fixedRoster ?? null,
     draftOrder: setup.draftOrder ?? null,
     players,
     progress: {},
@@ -54,6 +65,19 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
  * player to pick gets whichever character is left, no decision needed.
  */
 export function* runDraft(state: GameState, rng: RNG): Generator<PendingDecision, void, Choice> {
+  // Measurement path: the character *set* is pinned, but which seat gets which is still rolled.
+  //
+  // Assigning them by index looked simpler and was wrong: seat order decides stackSeq, which decides
+  // who resolves first when pawns share a slot, and that alone is worth ~20 percentage points of win
+  // rate. Measured with the identical four characters — Eric/Kit/Liora/Luna by seat scored 39.3%
+  // while Luna/Liora/Kit/Eric scored 59.3%. Pinning the order would therefore have folded a seat
+  // effect twice the size of the thing being measured into every comparison.
+  if (state.fixedRoster) {
+    const shuffled = rng.shuffle([...state.fixedRoster]);
+    for (const p of state.players) assignCharacter(state, p.id, shuffled[p.id]);
+    state.phase = 'BATTLE_INTRO';
+    return;
+  }
   // A chosen order is honoured as-is; otherwise the table rolls for it.
   const order = state.draftOrder ?? rng.shuffle(state.players.map((p) => p.id));
   let taken: CharId[] = [];

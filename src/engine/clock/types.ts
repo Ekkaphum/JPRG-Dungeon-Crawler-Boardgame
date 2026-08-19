@@ -265,6 +265,8 @@ export interface GameState {
    *  settings at each use site, so a save keeps the rules it was started with even if the menu
    *  selection changes later. */
   ruleset: RulesetVersion;
+  /** Measurement-only roster override — see NewGameSetup.fixedRoster. null in every real game. */
+  fixedRoster: CharId[] | null;
   /** Fixed draft pick order chosen before the game; null means it was rolled randomly. */
   draftOrder: PlayerId[] | null;
   players: PlayerMeta[];

@@ -10,7 +10,7 @@ import { createRNG, newGame, playGame, type NewGameSetup, type BossId, type Char
 import { createMediumBot } from '../src/bots/medium';
 import { createHardBot } from '../src/bots/hard';
 import type { Agent } from '../src/bots/Agent';
-import { CHARACTERS } from '../src/content/characters';
+import { ALL_CHAR_IDS, CHARACTERS, V040_CHAR_IDS } from '../src/content/characters';
 import { AILMENTS, type AilmentId } from '../src/content/ailments';
 import type { RulesetVersion } from '../src/content/rulesets';
 
@@ -36,9 +36,26 @@ const makeBot = (i: number, rand: () => number) => (BOT_LEVEL === 'hard' ? creat
 // precisely *because* the roster is held constant across the two runs.
 const RULESET = (ARGS.find((a) => a === 'v0.3' || a === 'v0.4') ?? 'v0.3') as RulesetVersion;
 
+// `--roster=Chrono,Kit,Liora,Luna` pins every seat and skips the draft, so a single character can
+// be swapped with the other three held constant. Without it a win-rate delta cannot be attributed
+// to the character rather than to who happened to get drafted alongside them.
+const ROSTER_ARG = ARGS.find((a) => a.startsWith('--roster='));
+const FIXED_ROSTER = ROSTER_ARG ? (ROSTER_ARG.slice('--roster='.length).split(',') as CharId[]) : undefined;
+
 for (const a of ARGS) {
+  if (a.startsWith('--roster=')) continue;
   if (!['medium', 'hard', 'v0.3', 'v0.4'].includes(a)) {
-    throw new Error(`unknown balance flag "${a}" — expected one of: medium, hard, v0.3, v0.4`);
+    throw new Error(`unknown balance flag "${a}" — expected: medium, hard, v0.3, v0.4, --roster=A,B,C,D`);
+  }
+}
+if (FIXED_ROSTER) {
+  if (FIXED_ROSTER.length !== 4) throw new Error(`--roster needs exactly 4 characters, got ${FIXED_ROSTER.length}`);
+  for (const c of FIXED_ROSTER) {
+    if (!ALL_CHAR_IDS.includes(c)) throw new Error(`--roster: "${c}" is not a character`);
+  }
+  if (new Set(FIXED_ROSTER).size !== 4) throw new Error('--roster: characters must be distinct');
+  if (FIXED_ROSTER.some((c) => V040_CHAR_IDS.includes(c)) && RULESET !== 'v0.4') {
+    throw new Error('--roster includes a v0.4.0 character — pass v0.4 as well, or they have no rules to play under');
   }
 }
 
@@ -47,6 +64,7 @@ function setup(): NewGameSetup {
     players: Array.from({ length: 4 }, (_, i) => ({ name: `P${i}`, kind: 'bot' as const, botLevel: BOT_LEVEL })),
     difficulty: 'standard',
     ruleset: RULESET,
+    fixedRoster: FIXED_ROSTER,
   };
 }
 
@@ -218,7 +236,7 @@ async function main() {
   const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   const pct = (a: number, b: number) => (b ? ((a / b) * 100).toFixed(1) : '0.0');
 
-  console.log(`\n=== balance sim — ${games} games, 4 ${BOT_LEVEL} bots, ruleset ${RULESET} ===`);
+  console.log(`\n=== balance sim — ${games} games, 4 ${BOT_LEVEL} bots, ruleset ${RULESET}${FIXED_ROSTER ? `, roster ${FIXED_ROSTER.join('/')}` : ''} ===`);
   console.log(`win rate: ${pct(wins, games)}%`);
   console.log('per-boss clear rate:');
   for (const boss of Object.keys(bossAttempts) as BossId[]) {

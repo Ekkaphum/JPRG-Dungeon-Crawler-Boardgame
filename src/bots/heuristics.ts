@@ -1,4 +1,11 @@
-import { SKILLS, VERA_CHARGED_CAST_MANA, skillStats, type CharId } from '@content/characters';
+import { SAND_PER_REWIND, SKILLS, VERA_CHARGED_CAST_MANA, skillStats, type CharId } from '@content/characters';
+
+/** Boss HP the party converts per slot of clock, averaged across a battle. Used to price the two
+ *  v0.4.0 cards that buy time instead of dealing damage. Derived from GAME_DESIGN §10's own figures:
+ *  ~105-110 damage across a 24-slot clock. Deliberately a single shared constant so Haste and Rewind
+ *  are valued on the same scale as each other. */
+const PARTY_DAMAGE_PER_SLOT = 4.5;
+const PARTY_SIZE = 4;
 import { applySomnivarTax, type Choice, type GameState } from '@engine/index';
 
 /** Rough per-⏱ value estimate for a candidate DECLARE_ACTION choice. Fully deterministic where
@@ -106,6 +113,28 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       value = stats.primary! + 5;
       break;
     }
+    // ── v0.4.0 (Chrono) ──
+    // Both of these buy *clock* rather than damage, which estimateChoiceValue has no vocabulary for
+    // — they fell through to `default: 0` and a bot holding Chrono simply never played them. The
+    // conversion used here is the same one §10 uses to reason about the whole game: the party turns
+    // roughly PARTY_DAMAGE_PER_SLOT of boss HP into a dead boss for every slot of clock it has.
+    case 'buffHaste': {
+      const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+      if (!target || !target.alive || target.playerId === playerId) return -Infinity;
+      // Only the movement that actually happens is worth anything: an ally already up against the
+      // marker cannot be pulled further, and the engine clamps it to a no-op.
+      const gained = Math.min(battle.marker - 1, target.slot + (stats.primary ?? 0)) - target.slot;
+      if (gained <= 0) return -Infinity;
+      value = gained * PARTY_DAMAGE_PER_SLOT;
+      break;
+    }
+    case 'rewind': {
+      if (fighter.sand < SAND_PER_REWIND) return -Infinity;
+      // Rewind hands its slots to all four seats at once, which is what makes a card that deals no
+      // damage worth ⏱6. Valued as the party-wide clock it buys, not as Chrono's own turn.
+      value = (stats.primary ?? 0) * PARTY_DAMAGE_PER_SLOT * PARTY_SIZE;
+      break;
+    }
     default:
       value = 0;
   }
@@ -205,6 +234,20 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   }
   if (player.charId === 'Luna') {
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;
+  }
+  if (player.charId === 'Chrono') {
+    // chrono2 pays when the ally he hastened spends the visit he bought them on damage, so the
+    // nudge goes to hastening whoever is most likely to actually attack next — approximated as the
+    // ally who has dealt the most so far. Sized like Liora's charge nudge.
+    if (choice.skillId === 'Haste') {
+      const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+      const best = Math.max(...battle.fighters.filter((f) => f.alive && f.playerId !== playerId).map((f) => f.damageDealtThisBattle));
+      if (target && target.damageDealtThisBattle >= best) bonus += 1;
+    }
+    // chrono3 wants the battle over with clock to spare, which is the same thing Rewind buys — but
+    // only while there is still a battle to spend it on. Late, with the boss nearly dead, the slots
+    // are worth less than the ⏱6 spent getting them.
+    if (choice.skillId === 'Rewind' && battle.bossHp > battle.bossHpMax * 0.3) bonus += 1;
   }
   return bonus;
 }

@@ -809,3 +809,90 @@ choose between healing and saving. Doom deaths 2,221 → 1,030 without surrender
   than merely punishing is a playtest question, not a sim question.
 - Luna sits lowest in win share under v0.4 at both tiers (15-19%) despite the ailment system finally
   giving her passive and her ① card real work. Worth watching once humans play it.
+
+---
+
+## 2026-08-19 — Chrono under the sim, and the confound that nearly ruined the measurement
+
+### Setup
+
+`--roster=A,B,C,D` pins the character *set* and skips the draft, so exactly one character can be
+swapped with the other three held constant. Bots were first taught Chrono's kit — without that the
+run would have measured a bot that never plays half his cards: `buffHaste` and `rewind` fell through
+`estimateChoiceValue`'s `default: value = 0`, and `chrono1` was unreachable because nothing ever set
+`predictedBossMove`.
+
+### ⚠️ Seat order is worth ~20pp and nearly got folded into every number
+
+The first implementation assigned the pinned roster by seat index. Measured with the **identical four
+characters**, only the order changed:
+
+| roster as written | hard win rate |
+|---|---|
+| Eric, Kit, Liora, Luna | **39.3%** |
+| Luna, Liora, Kit, Eric | **59.3%** |
+
+Seat index seeds `stackSeq`, which decides who resolves first when pawns share a slot. That is a
+20-point swing from turn order alone — **twice the size of the effect being measured**, and it would
+have been silently attributed to whichever character sat in the vacated seat. `runDraft` now shuffles
+the pinned set per game, exactly as the real draft does; the same set then scores 51.8% / 51.0%
+whichever way it is written, matching the drafted baseline.
+
+> Worth keeping in mind well beyond this experiment: **who sits where matters more than which of the
+> four you swap out.** Nothing in the game surfaces that to players.
+
+### ตาราง%ชนะ — Chrono, 3,000 games per cell
+
+| roster | medium | hard | Chrono win share (hard) | Chrono pts/win |
+|---|---|---|---|---|
+| baseline (no Chrono) | **69.6%** | **51.8%** | — | — |
+| Chrono replaces Eric | 52.3% | 32.2% | 70.6% | 21.7 |
+| Chrono replaces Kit | 10.4% | **1.2%** | 47.2% | 19.3 |
+| Chrono replaces Liora | 24.5% | 21.2% | 73.6% | 23.7 |
+| Chrono replaces Luna | 38.0% | 23.4% | 68.0% | 22.1 |
+
+**Chrono wins the game and loses the fight.** He takes 47-88% of the wins in every configuration
+while the party's win rate falls by 17-50 points. Replacing Kit at hard is a 1.2% clear rate — the run
+is essentially unwinnable.
+
+### Two independent causes
+
+**1. `chrono1` is free money.** 5.28 fires/win × 2 points = **10.56 pts/win, 45% of his entire
+score**, and it costs nothing: the call rides along with whatever he was already declaring. The boss
+rolls 1-3→A, so naming "A" every single time is strictly correct and hits 50%. There is no read to
+make, no resource to spend, and no way to be punished for a wrong guess. He ends on 19-24 pts/win
+against a party scoring 13-19.
+
+**2. Almost half his turns produce no damage at all.** From one 3,000-game run:
+
+| card | declares | total damage |
+|---|---|---|
+| Hourglass Shard | 7,218 | 48,657 |
+| Tick | 2,781 | 20,386 |
+| **Haste** | **16,494** | **0** |
+| **Rewind** | **5,197** | **0** |
+
+**Haste cannot break even by construction**: it costs ⏱3 and moves an ally up 2 slots, so the party
+is one slot of clock *worse off* every time it is played. Rewind is net positive on paper (⏱6 to hand
+3 slots to four seats) but only pays if the extra clock becomes damage — and Chrono himself converts
+almost none.
+
+> **This is §8.0's rule for the third time this session**, after Guard v1 and the Heal-cleanse
+> experiment: *a card that produces no damage cannot pay its own ⏱ in this ruleset.* Chrono has two
+> of them and they are 45% of his declares.
+
+### What this does and does not prove
+
+The heuristic values Haste and Rewind at `PARTY_DAMAGE_PER_SLOT × slots`, i.e. it assumes clock
+converts to damage at the party average. The run shows that assumption is wrong when the character
+buying the clock is also the one not using it — so some of the collapse is the bot over-playing two
+cards. But **Haste's arithmetic is negative regardless of who plays it**, and `chrono1`'s 10.56
+pts/win needs no bot help at all. Those two are design problems, not measurement artefacts.
+
+### Suggested fixes, cheapest first
+
+1. **`chrono1` 2 → 1 point**, and/or make a wrong call cost something. It is currently the largest
+   single payout in the game for the least effort.
+2. **Haste `primary` 2 → 4** (at ⏱3, so it finally buys more clock than it spends), or drop it to ⏱2.
+3. Give Chrono real damage on one card, or accept him as a pure support and expect the party — not
+   him — to convert the time he buys.
