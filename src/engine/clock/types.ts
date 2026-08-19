@@ -105,11 +105,11 @@ export interface Fighter {
   damageDealtThisBattle: number;
 
   // ─────────────── v0.4.0 ───────────────
-  // These are inert for the v0.3.x roster: only Chronos/Kage/Morvane ever write to them, and only
+  // These are inert for the v0.3.x roster: only Chrono/Kage/Morvane ever write to them, and only
   // the v0.4.0 ruleset can draft those three. They live on every Fighter rather than in a side map
   // so nothing has to branch on ruleset just to read a fighter.
 
-  /** Chronos's sand (0..SAND_MAX). Gained on every ⏱4+ declare via his Time Spiral passive, spent
+  /** Chrono's sand (0..SAND_MAX). Gained on every ⏱4+ declare via his Time Spiral passive, spent
    *  by Rewind. */
   sand: number;
   /** Kage's shadow (0..SHADOW_MAX). Gained on a visit where the boss did not touch him since his
@@ -132,14 +132,14 @@ export interface Fighter {
   /** kage3: whether the boss has landed anything on this fighter at all this battle. Latched, never
    *  cleared — same "history not final frame" reasoning as everDroppedBelowHalfThisBattle. */
   everHitByBossThisBattle: boolean;
-  /** Chronos's live call on the boss's next move (chronos1), declared alongside an action and
+  /** Chrono's live call on the boss's next move (chrono1), declared alongside an action and
    *  cleared the next time the boss acts — whether or not it was right. */
   predictedBossMove: 'A' | 'B' | 'C' | null;
   /** v0.4.0 status ailments currently on this fighter. Always an array, even in the v0.3 ruleset
    *  where nothing ever writes to it, so no read site has to null-check. */
   ailments: ActiveAilment[];
-  /** Set on the ally Haste moved this visit, so chronos2 can tell "dealt damage on the visit
-   *  Chronos bought them" from ordinary damage. Cleared when that ally is next visited. */
+  /** Set on the ally Haste moved this visit, so chrono2 can tell "dealt damage on the visit
+   *  Chrono bought them" from ordinary damage. Cleared when that ally is next visited. */
   hastedByPlayerId: PlayerId | null;
 }
 
@@ -206,11 +206,11 @@ export type ClockLogEvent =
   | { t: 'AILMENT_CLEANSED'; playerId: PlayerId }
   /** Luna's Holy Water cancelled a single-target debuff aimed at her. */
   | { t: 'AILMENT_WARDED'; playerId: PlayerId; ailment: AilmentId }
-  /** Chronos rewound the marker back up the clock. */
+  /** Chrono rewound the marker back up the clock. */
   | { t: 'MARKER_REWOUND'; playerId: PlayerId; slots: number; marker: number }
-  /** Chronos called the boss's move correctly (chronos1). */
+  /** Chrono called the boss's move correctly (chrono1). */
   | { t: 'PREDICTION_HIT'; playerId: PlayerId; moveKey: 'A' | 'B' | 'C' }
-  /** Chronos dragged an ally's pawn up the clock. */
+  /** Chrono dragged an ally's pawn up the clock. */
   | { t: 'HASTED'; playerId: PlayerId; targetId: PlayerId; slot: number }
   /** A fighter entered Kage's smoke. Logged per fighter, since it covers everyone sharing his slot. */
   | { t: 'STEALTH_ENTERED'; playerId: PlayerId; expiresAtSlot: number }
@@ -315,7 +315,7 @@ export type Choice =
       // ── v0.4.0 ──
       /** Morvane only: pay Death Coil's HP surcharge for its bigger damage tier. */
       payHp?: boolean;
-      /** Chronos only: his call on the boss's next move, scored by chronos1 when the boss acts. */
+      /** Chrono only: his call on the boss's next move, scored by chrono1 when the boss acts. */
       predictedBossMove?: 'A' | 'B' | 'C';
     }
   | { kind: 'CHOOSE_CHARACTER'; charId: CharId }

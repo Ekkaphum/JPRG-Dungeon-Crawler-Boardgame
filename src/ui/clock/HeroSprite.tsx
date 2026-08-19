@@ -6,7 +6,7 @@ const ACTION_ROW: Record<CharId, Partial<Record<SkillId, number>>> = {
   Kit: { QuickShot: 1, SharpShooting: 2, Trap: 3, MultiShot: 4 },
   Liora: { AirPush: 1, Fireball: 2, AuraCharge: 3, Meteor: 4 },
   Luna: { Hitting: 1, AuraSmite: 2, Blessing: 3, Heal: 4 },
-  Chronos: { Tick: 1, HourglassShard: 2, Haste: 3, Rewind: 4 },
+  Chrono: { Tick: 1, HourglassShard: 2, Haste: 3, Rewind: 4 },
   Kage: { Shuriken: 1, TwinFang: 2, SmokeBomb: 3, Assassinate: 4 },
   Morvane: { Drain: 1, SoulSiphon: 2, RaiseDead: 3, DeathCoil: 4 },
 };
@@ -19,7 +19,7 @@ export function hasSpriteSheet(charId: CharId): boolean {
 /** The original hit rows are WebP; the generated v0.4 rows stay PNG to preserve clean alpha in
  *  every browser decoder. */
 function hitSpriteUrl(charId: CharId): string {
-  const extension = charId === 'Chronos' || charId === 'Kage' || charId === 'Morvane' ? 'png' : 'webp';
+  const extension = charId === 'Chrono' || charId === 'Kage' || charId === 'Morvane' ? 'png' : 'webp';
   return `/assets/sprites/hit/${charId}.${extension}`;
 }
 

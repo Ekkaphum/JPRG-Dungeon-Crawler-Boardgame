@@ -31,7 +31,7 @@ export function resolveOrderCompare(a: { stackSeq: number; isBoss?: boolean }, b
  *  queue and the post-boss-move sweep below (§4.1 fix, item 7) share the exact same visit logic. */
 function* resolvePlayerVisit(state: GameState, f: Fighter, rng: RNG): Generator<PendingDecision, void, Choice> {
   const battle = state.battle!;
-  // v0.4.0 — chronos2 asks whether the ally Chronos hastened actually spent the visit he bought
+  // v0.4.0 — chrono2 asks whether the ally Chrono hastened actually spent the visit he bought
   // them. Read here, before the pending resolves, and cleared either way so the credit only ever
   // applies to that one visit.
   const hastedBy = f.hastedByPlayerId;
@@ -53,7 +53,7 @@ function* resolvePlayerVisit(state: GameState, f: Fighter, rng: RNG): Generator<
   declareSkill(state, f, choice, rng);
 
   if (hastedBy !== null && f.damageDealtThisBattle > damageBeforeVisit) {
-    pushScore(state, { playerId: hastedBy, conditionId: 'chronos2', points: scorePoints('chronos2') });
+    pushScore(state, { playerId: hastedBy, conditionId: 'chrono2', points: scorePoints('chrono2') });
   }
 }
 

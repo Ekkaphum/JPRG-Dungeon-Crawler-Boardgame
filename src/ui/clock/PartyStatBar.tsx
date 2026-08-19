@@ -16,7 +16,7 @@ function resourcePip(charId: CharId, f: Fighter): string {
   switch (charId) {
     case 'Liora':
       return `💧${f.mana}`;
-    case 'Chronos':
+    case 'Chrono':
       return `⏳${f.sand}`;
     case 'Kage':
       return `🌑${f.shadow}`;

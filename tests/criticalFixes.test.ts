@@ -343,7 +343,7 @@ describe('9. Roster split — bot-facing pool vs the v0.4.0 human-only additions
 
   it('ALL_CHAR_IDS covers both, so every score condition resolves', () => {
     expect(ALL_CHAR_IDS).toHaveLength(7);
-    for (const id of ['chronos1', 'kage1', 'morvane1']) {
+    for (const id of ['chrono1', 'kage1', 'morvane1']) {
       expect(() => scorePoints(id)).not.toThrow();
     }
   });

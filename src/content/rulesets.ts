@@ -52,7 +52,7 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
       en: 'Adds 3 new characters (human seats only) and boss-inflicted ailments. Not balance-tested.',
     },
     highlights: [
-      { th: 'Chronos · Kage · Morvane — บอทเลือกไม่ได้', en: 'Chronos · Kage · Morvane — bots cannot draft them' },
+      { th: 'Chrono · Kage · Morvane — บอทเลือกไม่ได้', en: 'Chrono · Kage · Morvane — bots cannot draft them' },
       { th: 'ท่าบอสติดสถานะผิดปกติ · บอสมีเผ่า/ธาตุ/ขนาด', en: 'Boss moves inflict ailments; bosses gain race, element, size' },
       { th: '⚠️ ตัวเลขทั้งหมดเป็นการเดา ยังไม่ผ่าน sim', en: '⚠️ Every number is a first guess — no sim has run on it' },
     ],

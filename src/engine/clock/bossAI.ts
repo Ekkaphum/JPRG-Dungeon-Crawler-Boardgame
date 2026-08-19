@@ -91,7 +91,7 @@ export function applyBossMove(state: GameState, moveKey: 'A' | 'B' | 'C', rng: R
   // Recorded so inflictMoveAilment can look up the move's ailment without every hit site having to
   // thread it through. Cleared at the end of the move.
   battle.currentMoveKey = moveKey;
-  // chronos1 (v0.4.0): settle everyone's outstanding call on this move before it resolves, so the
+  // chrono1 (v0.4.0): settle everyone's outstanding call on this move before it resolves, so the
   // prediction is scored against what was actually rolled and cleared either way.
   settleBossMovePredictions(state, moveKey);
   // Poison is the ailment that runs on the boss's clock rather than the party's, so it ticks here —
@@ -175,16 +175,16 @@ function inflictMoveAilment(state: GameState, target: Fighter, opts: { singleTar
   applyAilment(state, target, move.inflicts, opts);
 }
 
-/** chronos1: resolve every outstanding call on the boss's move. Cleared whether right or wrong, so
+/** chrono1: resolve every outstanding call on the boss's move. Cleared whether right or wrong, so
  *  a prediction is a commitment for exactly one boss action rather than a standing bet. */
 function settleBossMovePredictions(state: GameState, moveKey: 'A' | 'B' | 'C') {
   for (const f of state.battle!.fighters) {
     if (f.predictedBossMove === null) continue;
     const wasRight = f.predictedBossMove === moveKey;
     f.predictedBossMove = null;
-    if (wasRight && f.charId === 'Chronos') {
+    if (wasRight && f.charId === 'Chrono') {
       state.battle!.log.push({ t: 'PREDICTION_HIT', playerId: f.playerId, moveKey });
-      pushScore(state, { playerId: f.playerId, conditionId: 'chronos1', points: scorePoints('chronos1') });
+      pushScore(state, { playerId: f.playerId, conditionId: 'chrono1', points: scorePoints('chrono1') });
     }
   }
 }

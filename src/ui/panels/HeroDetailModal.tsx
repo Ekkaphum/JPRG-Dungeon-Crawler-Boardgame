@@ -47,7 +47,7 @@ export function HeroDetailModal({
           <div className="text-xs text-gold-dim mt-1">
             {t('game.hp')} {f.hp}/{f.maxHp}
             {p.charId === 'Liora' && <span className="ml-2">💧 {t('game.mana')} {f.mana}/3</span>}
-            {p.charId === 'Chronos' && <span className="ml-2">⏳ {t('game.sand')} {f.sand}/{SAND_MAX}</span>}
+            {p.charId === 'Chrono' && <span className="ml-2">⏳ {t('game.sand')} {f.sand}/{SAND_MAX}</span>}
             {p.charId === 'Kage' && <span className="ml-2">🌑 {t('game.shadow')} {f.shadow}/{SHADOW_MAX}</span>}
             {p.charId === 'Morvane' && <span className="ml-2">💀 {t('game.souls')} {f.souls}</span>}
           </div>

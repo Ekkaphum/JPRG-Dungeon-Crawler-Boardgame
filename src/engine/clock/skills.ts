@@ -300,9 +300,9 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   });
 
   // ── v0.4.0 passives that fire on the declare itself ──
-  // Chronos's Time Spiral: sand accrues from *committing* to a slow action, so the resource is
+  // Chrono's Time Spiral: sand accrues from *committing* to a slow action, so the resource is
   // earned by the same patience Rewind then spends.
-  if (fighter.charId === 'Chronos' && stats.time >= SAND_PER_SLOW_DECLARE) {
+  if (fighter.charId === 'Chrono' && stats.time >= SAND_PER_SLOW_DECLARE) {
     fighter.sand = Math.min(SAND_MAX, fighter.sand + 1);
   }
   // Costs are paid on declare, not on resolve: the commitment is the turn, and a boss that kills
@@ -312,8 +312,8 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     fighter.souls -= SOULS_PER_DEATH_COIL;
     if (choice.payHp) applyDamageToFighter(state, fighter, DEATH_COIL_HP_COST, { selfInflicted: true });
   }
-  // Chronos's call on the boss's next move (chronos1), carried until the boss actually acts.
-  if (fighter.charId === 'Chronos' && choice.predictedBossMove) {
+  // Chrono's call on the boss's next move (chrono1), carried until the boss actually acts.
+  if (fighter.charId === 'Chrono' && choice.predictedBossMove) {
     fighter.predictedBossMove = choice.predictedBossMove;
   }
   // ❄️/💫 are spent by the declare they taxed, not by the clock — so the penalty lands exactly once.
@@ -336,7 +336,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       fighter.shield = { kind: 'mana', reduction: stats.secondary! };
       break;
     case 'buffHaste': {
-      // Chronos's Haste. Drags an ally's pawn back *up* the clock toward the marker so they are
+      // Chrono's Haste. Drags an ally's pawn back *up* the clock toward the marker so they are
       // visited sooner — the mirror image of every boss effect that pushes pawns down. Capped at
       // marker-1 so it can never place a pawn on or above the marker, which would either skip the
       // ally's visit entirely or re-trigger one the marker has already passed.
@@ -348,7 +348,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       if (moved > target.slot) {
         target.slot = moved;
         target.stackSeq = battle.nextStackSeq++;
-        // chronos2 reads this on the ally's next visit, then clears it.
+        // chrono2 reads this on the ally's next visit, then clears it.
         target.hastedByPlayerId = fighter.playerId;
         battle.log.push({ t: 'HASTED', playerId: fighter.playerId, targetId: target.playerId, slot: moved });
       }
@@ -383,7 +383,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       break;
     }
     case 'rewind': {
-      // Chronos's Rewind — the only card in the game that touches the clock marker.
+      // Chrono's Rewind — the only card in the game that touches the clock marker.
       //
       // Safe by construction: every pawn is always at or below the marker, so walking the marker
       // *up* cannot step over one and re-trigger it. Nothing is re-run; the runway simply gets

@@ -1,7 +1,7 @@
 import { CLASS_COLOR } from '@content/charColors';
 import type { CharId } from '@engine/index';
 
-// The v0.4.0 roster (Chronos/Kage/Morvane) doesn't have painted portraits like the original four —
+// The v0.4.0 roster (Chrono/Kage/Morvane) doesn't have painted portraits like the original four —
 // there was no way to source matching artwork. Rather than a broken <img> or a placeholder that
 // would read as an unfinished attempt at matching the painted style, they get a hand-drawn SVG
 // "sigil card": a gradient panel in the class color with a simple geometric emblem, at the exact
@@ -43,7 +43,7 @@ function daggersGlyph(color: string): string {
   return blade(-42) + blade(42);
 }
 
-/** An hourglass — Chronos the Time Mage. */
+/** An hourglass — Chrono the Time Mage. */
 function hourglassGlyph(color: string): string {
   return `
     <g>
@@ -68,8 +68,8 @@ function skullGlyph(color: string): string {
 
 const SIGILS: Partial<Record<CharId, (color: string) => string>> = {
   // v0.4.0 roster — no painted portraits, so they render as a sigil the way Dax/Mira did before
-  // they were removed. Kage reuses the crossed blades; Chronos and Morvane get their own below.
-  Chronos: hourglassGlyph,
+  // they were removed. Kage reuses the crossed blades; Chrono and Morvane get their own below.
+  Chrono: hourglassGlyph,
   Kage: daggersGlyph,
   Morvane: skullGlyph,
 };

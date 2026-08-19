@@ -3,7 +3,7 @@
 // instant they happen; the "slot 3" end-of-battle conditions are checked once here after a boss
 // dies.
 
-import { CHRONOS_TIME_LEFT_BAR, KIT3_HITS_PER_POINT, LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, MORVANE_LOW_HP_BAR, SOULS_PER_POINT, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
+import { CHRONO_TIME_LEFT_BAR, KIT3_HITS_PER_POINT, LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, MORVANE_LOW_HP_BAR, SOULS_PER_POINT, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
 import { pushScore, currentTotalScore } from './damage';
 import type { GameState, PlayerId } from './types';
 
@@ -147,10 +147,10 @@ export function onBattleEndScoring(state: GameState) {
       pushScore(state, { playerId: p.id, conditionId: 'liora3', points: scorePoints('liora3') });
     }
     // ── v0.4.0 slot-③ conditions ──
-    // chronos3: his whole kit spends his own ⏱ to buy the table time; the leftover clock is the
+    // chrono3: his whole kit spends his own ⏱ to buy the table time; the leftover clock is the
     // honest scoreboard for whether that trade paid.
-    if (p.charId === 'Chronos' && battle.marker >= CHRONOS_TIME_LEFT_BAR) {
-      pushScore(state, { playerId: p.id, conditionId: 'chronos3', points: scorePoints('chronos3') });
+    if (p.charId === 'Chrono' && battle.marker >= CHRONO_TIME_LEFT_BAR) {
+      pushScore(state, { playerId: p.id, conditionId: 'chrono3', points: scorePoints('chrono3') });
     }
     // kage1 reads finishedBySkill, which the engine has recorded since v0.3.0 with nothing ever
     // reading it. kage3 asks for a completely untouched battle — the hardest bar on the roster.

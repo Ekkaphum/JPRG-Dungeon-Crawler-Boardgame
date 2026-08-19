@@ -28,7 +28,7 @@ import { fixedDraftState, setPlayerCharacter } from './testUtils';
 // v0.4.0 is opt-in and human-only, so almost every test here has to build its state with the v0.4
 // ruleset explicitly — the default is still v0.3 and behaves exactly as it always did.
 
-function v040State(assign: Partial<Record<number, 'Chronos' | 'Kage' | 'Morvane'>> = {}) {
+function v040State(assign: Partial<Record<number, 'Chrono' | 'Kage' | 'Morvane'>> = {}) {
   const state = fixedDraftState();
   state.ruleset = 'v0.4';
   for (const [idx, charId] of Object.entries(assign)) {
@@ -76,10 +76,10 @@ describe('v0.4.0 draft gating — human seats only, and only under the v0.4 rule
   });
 });
 
-describe('Chronos', () => {
+describe('Chrono', () => {
   it('Time Spiral banks sand on slow declares only, and Rewind cannot part-fund itself', () => {
-    const state = v040State({ 0: 'Chronos' });
-    const c = findFighter(state, 'Chronos');
+    const state = v040State({ 0: 'Chrono' });
+    const c = findFighter(state, 'Chrono');
     expect(c.sand).toBe(0);
 
     declareSkill(state, c, { kind: 'DECLARE_ACTION', skillId: 'Tick' }, createRNG(1)); // ⏱2 — too fast
@@ -95,9 +95,9 @@ describe('Chronos', () => {
   });
 
   it('Rewind walks the marker back up and cannot re-trigger anything, because every pawn is below it', () => {
-    const state = v040State({ 0: 'Chronos' });
+    const state = v040State({ 0: 'Chrono' });
     const battle = state.battle!;
-    const c = findFighter(state, 'Chronos');
+    const c = findFighter(state, 'Chrono');
     c.sand = SAND_PER_REWIND;
     battle.marker = 12;
     // Every pawn always sits at or below the marker in a real game; mirror that here, because it is
@@ -110,7 +110,7 @@ describe('Chronos', () => {
 
     expect(battle.marker).toBe(15); // 12 + primary 3
     expect(c.sand).toBe(1); // spent 3, then banked 1 for the ⏱6 declare itself
-    // Chronos's own pawn moved because he declared; nobody else's did, and none of them ended up
+    // Chrono's own pawn moved because he declared; nobody else's did, and none of them ended up
     // at or above the new marker — which is what makes the rewind safe.
     for (const f of battle.fighters) {
       if (f.playerId !== c.playerId) expect(f.slot).toBe(pawnsBefore.get(f.playerId));
@@ -119,16 +119,16 @@ describe('Chronos', () => {
   });
 
   it('Rewind is refused without enough sand', () => {
-    const state = v040State({ 0: 'Chronos' });
-    const c = findFighter(state, 'Chronos');
+    const state = v040State({ 0: 'Chrono' });
+    const c = findFighter(state, 'Chrono');
     c.sand = SAND_PER_REWIND - 1;
     expect(() => declareSkill(state, c, { kind: 'DECLARE_ACTION', skillId: 'Rewind' }, createRNG(1))).toThrow(/sand/);
   });
 
   it('never lets the marker exceed the clock it started with', () => {
-    const state = v040State({ 0: 'Chronos' });
+    const state = v040State({ 0: 'Chrono' });
     const battle = state.battle!;
-    const c = findFighter(state, 'Chronos');
+    const c = findFighter(state, 'Chrono');
     c.sand = SAND_PER_REWIND;
     battle.marker = 23;
     declareSkill(state, c, { kind: 'DECLARE_ACTION', skillId: 'Rewind' }, createRNG(1));
@@ -136,9 +136,9 @@ describe('Chronos', () => {
   });
 
   it('Haste drags an ally up the clock but never onto or past the marker', () => {
-    const state = v040State({ 0: 'Chronos' });
+    const state = v040State({ 0: 'Chrono' });
     const battle = state.battle!;
-    const c = findFighter(state, 'Chronos');
+    const c = findFighter(state, 'Chrono');
     const ally = battle.fighters.find((f) => f.playerId !== c.playerId)!;
     battle.marker = 20;
     c.slot = 20;
@@ -150,10 +150,28 @@ describe('Chronos', () => {
     expect(ally.hastedByPlayerId).toBe(c.playerId);
   });
 
-  it('Haste can never place an ally on or past the marker', () => {
-    const state = v040State({ 0: 'Chronos' });
+  it('Haste on an ally already at the marker is a no-op, and leaves no false credit behind', () => {
+    // The UI must disable this case (it reads as a dead button otherwise), but the engine has to be
+    // honest about it too: no move, and crucially no hastedByPlayerId — chrono2 must not pay out
+    // for a visit Chrono did not actually buy.
+    const state = v040State({ 0: 'Chrono' });
     const battle = state.battle!;
-    const c = findFighter(state, 'Chronos');
+    const c = findFighter(state, 'Chrono');
+    const ally = battle.fighters.find((f) => f.playerId !== c.playerId)!;
+    battle.marker = 23;
+    c.slot = 23;
+    ally.slot = 23;
+
+    declareSkill(state, c, { kind: 'DECLARE_ACTION', skillId: 'Haste', targetPlayerId: ally.playerId }, createRNG(1));
+
+    expect(ally.slot).toBe(23);
+    expect(ally.hastedByPlayerId).toBeNull();
+  });
+
+  it('Haste can never place an ally on or past the marker', () => {
+    const state = v040State({ 0: 'Chrono' });
+    const battle = state.battle!;
+    const c = findFighter(state, 'Chrono');
     const ally = battle.fighters.find((f) => f.playerId !== c.playerId)!;
     battle.marker = 20;
     c.slot = 20;
@@ -165,34 +183,34 @@ describe('Chronos', () => {
     expect(ally.slot).toBeLessThan(battle.marker);
   });
 
-  it('chronos1 scores only when the call matches the move the boss actually rolled', () => {
-    const state = v040State({ 0: 'Chronos' });
-    const c = findFighter(state, 'Chronos');
+  it('chrono1 scores only when the call matches the move the boss actually rolled', () => {
+    const state = v040State({ 0: 'Chrono' });
+    const c = findFighter(state, 'Chrono');
 
     c.predictedBossMove = 'B';
     applyBossMove(state, 'B', createRNG(1));
-    expect(state.scoreLog.filter((e) => e.conditionId === 'chronos1')).toHaveLength(1);
+    expect(state.scoreLog.filter((e) => e.conditionId === 'chrono1')).toHaveLength(1);
     // Cleared either way — a prediction is a commitment for exactly one boss action.
     expect(c.predictedBossMove).toBeNull();
 
     c.predictedBossMove = 'A';
     applyBossMove(state, 'C', createRNG(1));
-    expect(state.scoreLog.filter((e) => e.conditionId === 'chronos1')).toHaveLength(1);
+    expect(state.scoreLog.filter((e) => e.conditionId === 'chrono1')).toHaveLength(1);
     expect(c.predictedBossMove).toBeNull();
   });
 
-  it('chronos3 pays only when the battle ends with the clock still healthy', () => {
-    const state = v040State({ 0: 'Chronos' });
+  it('chrono3 pays only when the battle ends with the clock still healthy', () => {
+    const state = v040State({ 0: 'Chrono' });
     state.battle!.outcome = 'boss_defeated';
     state.battle!.marker = 8;
     onBattleEndScoring(state);
-    expect(state.scoreLog.some((e) => e.conditionId === 'chronos3')).toBe(true);
+    expect(state.scoreLog.some((e) => e.conditionId === 'chrono3')).toBe(true);
 
-    const lean = v040State({ 0: 'Chronos' });
+    const lean = v040State({ 0: 'Chrono' });
     lean.battle!.outcome = 'boss_defeated';
     lean.battle!.marker = 7;
     onBattleEndScoring(lean);
-    expect(lean.scoreLog.some((e) => e.conditionId === 'chronos3')).toBe(false);
+    expect(lean.scoreLog.some((e) => e.conditionId === 'chrono3')).toBe(false);
   });
 });
 
@@ -392,10 +410,10 @@ describe('v0.4.0 end-to-end through the real clock walk', () => {
   // playGame's generator so the new mechanics are exercised by the same loop the app runs —
   // which is where a marker rewind could plausibly break something (re-triggering pawns, an
   // infinite walk, a desynced queue) in a way that isolated calls never would.
-  it('runs a full battle with Chronos rewinding the clock, and still terminates', async () => {
+  it('runs a full battle with Chrono rewinding the clock, and still terminates', async () => {
     const setup: NewGameSetup = {
       players: [
-        { name: 'Chronos', kind: 'human' },
+        { name: 'Chrono', kind: 'human' },
         { name: 'Bot 1', kind: 'bot', botLevel: 'easy' },
         { name: 'Bot 2', kind: 'bot', botLevel: 'easy' },
         { name: 'Bot 3', kind: 'bot', botLevel: 'easy' },
@@ -419,7 +437,7 @@ describe('v0.4.0 end-to-end through the real clock walk', () => {
       const decision: PendingDecision = res.value;
       let choice: Choice;
       if (decision.playerId === 0 && decision.kind === 'CHOOSE_CHARACTER') {
-        choice = { kind: 'CHOOSE_CHARACTER', charId: 'Chronos' };
+        choice = { kind: 'CHOOSE_CHARACTER', charId: 'Chrono' };
       } else if (decision.playerId === 0 && decision.kind === 'DECLARE_ACTION') {
         const f = state.battle!.fighters.find((x) => x.playerId === 0)!;
         // Rewind the moment it is affordable; otherwise bank sand on the ⏱3 card.

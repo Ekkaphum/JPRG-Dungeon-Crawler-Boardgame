@@ -9,7 +9,7 @@
 // pts/win against everyone else's 5-8. Keeping two half-alive characters in every Record<CharId,…>
 // and every test fixture cost more than they were worth, and v0.4.0's three new characters occupy
 // the design space they were holding.
-export type CharId = 'Eric' | 'Kit' | 'Liora' | 'Luna' | 'Chronos' | 'Kage' | 'Morvane';
+export type CharId = 'Eric' | 'Kit' | 'Liora' | 'Luna' | 'Chrono' | 'Kage' | 'Morvane';
 
 /** The v0.3.x roster — the only characters bots ever play, and the whole pool in the stable
  *  ruleset. v0.4.0's three additions are human-only; see V040_CHAR_IDS. */
@@ -19,7 +19,7 @@ export const CHAR_IDS: CharId[] = ['Eric', 'Kit', 'Liora', 'Luna'];
  *  `estimateChoiceValue` prices skills by damage-per-⏱ and cannot see sand, shadow, souls, or a
  *  marker rewind at all — so letting a bot draft one would measure the bot's blind spot rather
  *  than the character. Gated behind the v0.4.0 ruleset AND behind being a human seat. */
-export const V040_CHAR_IDS: CharId[] = ['Chronos', 'Kage', 'Morvane'];
+export const V040_CHAR_IDS: CharId[] = ['Chrono', 'Kage', 'Morvane'];
 
 /** Every CharId that exists — for Record<CharId,…> exhaustiveness and tests. Never the draft
  *  pool; use charPool() for that. */
@@ -46,7 +46,7 @@ export type SkillId =
   | 'AuraSmite'
   | 'Blessing'
   | 'Heal'
-  // Chronos (v0.4.0)
+  // Chrono (v0.4.0)
   | 'Tick'
   | 'HourglassShard'
   | 'Haste'
@@ -77,10 +77,10 @@ export type SkillKind =
   | 'trap' // Trap! — immediate token placement
   // ── v0.4.0 ── one new kind per new character's slot ②, per §8.0's rule that no two characters'
   // support cards may share a SkillKind.
-  | 'buffHaste' // Haste (Chronos) — immediate: drags an ally's pawn back up the clock so they act sooner
+  | 'buffHaste' // Haste (Chrono) — immediate: drags an ally's pawn back up the clock so they act sooner
   | 'buffStealth' // Smoke Bomb (Kage) — immediate: hides everyone sharing the caster's slot
   | 'raise' // Raise Dead (Morvane) — immediate: revives a downed ally now instead of on their revive slot
-  | 'rewind'; // Rewind (Chronos ③) — immediate: walks the *clock marker itself* back up
+  | 'rewind'; // Rewind (Chrono ③) — immediate: walks the *clock marker itself* back up
 
 export interface SkillLevelStats {
   time: number;
@@ -177,13 +177,13 @@ export const PASSIVES: Partial<Record<CharId, PassiveDef>> = {
       en: "Always active: when the boss hits Luna with a single-target move, any debuff status it would apply to her is cancelled. v0.4.0 finally gives this something to do — the bosses now inflict real statuses.",
     },
   },
-  Chronos: {
+  Chrono: {
     id: 'TimeSpiral',
-    charId: 'Chronos',
+    charId: 'Chrono',
     name: { th: 'เกลียวเวลา', en: 'Time Spiral' },
     desc: {
       th: 'ทำงานเองตลอดเวลา: ทุกครั้งที่ประกาศสกิลที่ใช้เวลา ⏱3 ขึ้นไป ได้เม็ดทราย +1 (สูงสุด 4) — ทรายคือค่าใช้จ่ายของ Rewind',
-      en: 'Always active: every time Chronos declares a skill costing ⏱3 or more, he gains 1 sand (max 4). Sand is what Rewind spends.',
+      en: 'Always active: every time Chrono declares a skill costing ⏱3 or more, he gains 1 sand (max 4). Sand is what Rewind spends.',
     },
   },
   Kage: {
@@ -394,12 +394,12 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     lv2: { time: 3, primary: 9 },
   },
 
-  // ══ v0.4.0 — Chronos, the Time Mage ══
+  // ══ v0.4.0 — Chrono, the Time Mage ══
   // His ⏱ numbers are deliberately ordinary; his speed axis is "ช้า" (slow) expressed as a ⏱6
   // signature rather than a global modifier, so nothing in the engine needs a speed multiplier.
   Tick: {
     id: 'Tick',
-    charId: 'Chronos',
+    charId: 'Chrono',
     kind: 'attack',
     immediate: true,
     name: { th: 'Tick', en: 'Tick' },
@@ -408,7 +408,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   HourglassShard: {
     id: 'HourglassShard',
-    charId: 'Chronos',
+    charId: 'Chrono',
     kind: 'attack',
     immediate: true,
     name: { th: 'Hourglass Shard', en: 'Hourglass Shard' },
@@ -419,7 +419,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   Haste: {
     id: 'Haste',
-    charId: 'Chronos',
+    charId: 'Chrono',
     kind: 'buffHaste',
     name: { th: 'Haste', en: 'Haste' },
     // primary = how many slots the target ally's pawn is dragged back *up* the clock (toward the
@@ -430,7 +430,7 @@ export const SKILLS: Record<SkillId, SkillDef> = {
   },
   Rewind: {
     id: 'Rewind',
-    charId: 'Chronos',
+    charId: 'Chrono',
     kind: 'rewind',
     name: { th: 'Rewind', en: 'Rewind' },
     // primary = slots the *marker* walks back up. The one card in the game that fights the actual
@@ -787,8 +787,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
 
   // ══════════════ v0.4.0 — human-only roster (see V040_CHAR_IDS) ══════════════
 
-  Chronos: {
-    id: 'Chronos',
+  Chrono: {
+    id: 'Chrono',
     job: { th: 'Time Mage', en: 'Time Mage' },
     hp: 10,
     startSlot: 23,
@@ -797,12 +797,12 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
     skills: ['Tick', 'HourglassShard', 'Haste', 'Rewind'],
     score: [
       {
-        id: 'chronos1',
-        charId: 'Chronos',
+        id: 'chrono1',
+        charId: 'Chrono',
         slot: 1,
         // The one condition in the game built on hidden information. v0.3.14 made the boss stop
         // announcing its move, so *which* move is coming is the only thing on the board nobody can
-        // read — Chronos is the only character who is paid for reading it anyway. Declared alongside
+        // read — Chrono is the only character who is paid for reading it anyway. Declared alongside
         // an action (`predictedBossMove` on the choice), checked the next time the boss acts.
         points: 2,
         perOccurrence: true,
@@ -812,8 +812,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         },
       },
       {
-        id: 'chronos2',
-        charId: 'Chronos',
+        id: 'chrono2',
+        charId: 'Chrono',
         slot: 2,
         points: 1,
         perOccurrence: true,
@@ -823,8 +823,8 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
         },
       },
       {
-        id: 'chronos3',
-        charId: 'Chronos',
+        id: 'chrono3',
+        charId: 'Chrono',
         slot: 3,
         // His whole kit spends his own ⏱ to buy the table time, so the end-of-battle clock is the
         // honest scoreboard for whether that trade paid off.
@@ -979,7 +979,7 @@ export function scorePoints(conditionId: string): number {
 // v0.4.0 characters are human-only precisely because the sim cannot price them (bots value skills
 // by damage-per-⏱ and cannot see sand, shadow, souls, stealth, or a marker rewind at all).
 
-/** Chronos: sand cap, the ⏱ bar a declare must meet to bank sand, and what Rewind costs.
+/** Chrono: sand cap, the ⏱ bar a declare must meet to bank sand, and what Rewind costs.
  *
  *  The bar is 3, not 4. At 4 the economy deadlocked outright: his only ⏱4+ card is Rewind itself,
  *  so the one action that could bank sand was the one that required it, and he could never cast it
@@ -1011,9 +1011,9 @@ export const SOUL_HP_LOSS_THRESHOLD = 3;
  *  Undead Pact passive, which is the single hardest rule exception on the roster. */
 export const LIFESTEAL: Partial<Record<SkillId, number>> = { Drain: 1, SoulSiphon: 2 };
 
-/** chronos3's clock bar, and how far Haste drags an ally up the clock (read off the skill's
+/** chrono3's clock bar, and how far Haste drags an ally up the clock (read off the skill's
  *  `primary`, this is only the ceiling used for validation). */
-export const CHRONOS_TIME_LEFT_BAR = 8;
+export const CHRONO_TIME_LEFT_BAR = 8;
 
 /** Which characters may only ever be taken by a human seat, and only in the v0.4.0 ruleset. */
 export function isHumanOnlyCharacter(charId: CharId): boolean {
