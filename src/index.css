@@ -546,6 +546,7 @@ html, body, #root {
 .hero-figure { overflow: visible; }
 .hero-sprite {
   height: 100%;
+  min-height: 80px;
   max-height: 112px;
   width: auto;
   aspect-ratio: 1;
@@ -565,14 +566,13 @@ html, body, #root {
 .hero-sprite--down { opacity: .32; filter: grayscale(.85) drop-shadow(0 7px 7px rgba(0,0,0,.82)); animation-play-state: paused; }
 .group:hover .hero-sprite { filter: brightness(1.18) drop-shadow(0 7px 7px rgba(0,0,0,.82)); }
 @keyframes hero-sprite-frames { from { background-position-x: 0%; } to { background-position-x: 100%; } }
-@keyframes hero-action-punch { 0% { transform: translateX(6px) scale(.96); } 38% { transform: translateX(-8px) scale(1.08); } 100% { transform: translateX(0) scale(1); } }
-@keyframes hero-hit-recoil { 0% { transform: translateX(0) scale(1); } 38% { transform: translateX(8px) scale(.96); } 72% { transform: translateX(3px) scale(.98); } 100% { transform: translateX(0) scale(1); } }
+@keyframes hero-action-punch { 0% { transform: translateX(6px); } 38% { transform: translateX(-8px) scale(1.06); } 100% { transform: translateX(0) scale(1); } }
+@keyframes hero-hit-recoil { 0% { transform: translateX(0) scale(1); } 38% { transform: translateX(8px); } 72% { transform: translateX(3px); } 100% { transform: translateX(0) scale(1); } }
 
 .boss-sprite-wrap { overflow: visible; }
 .boss-sprite {
-  position: relative;
-  top: clamp(8px, 2.5vh, 18px);
   height: 100%;
+  min-height: 175px;
   max-height: 245px;
   width: auto;
   aspect-ratio: var(--boss-frame-aspect, 350.5 / 374);
@@ -591,8 +591,8 @@ html, body, #root {
 .boss-sprite--hit { animation: boss-sprite-frames .78s steps(3) 1 forwards, boss-hit-recoil .78s ease-out 1; }
 .group:hover .boss-sprite { filter: brightness(1.16) drop-shadow(0 12px 10px rgba(0,0,0,.88)); }
 @keyframes boss-sprite-frames { from { background-position-x: 0%; } to { background-position-x: 100%; } }
-@keyframes boss-action-punch { 0% { transform: translateX(-5px) scale(.96); } 45% { transform: translateX(10px) scale(1.06); } 100% { transform: translateX(0) scale(1); } }
-@keyframes boss-hit-recoil { 0% { transform: translateX(0) scale(1); } 38% { transform: translateX(-10px) scale(.96); } 72% { transform: translateX(-4px) scale(.98); } 100% { transform: translateX(0) scale(1); } }
+@keyframes boss-action-punch { 0% { transform: translateX(-5px); } 45% { transform: translateX(10px) scale(1.04); } 100% { transform: translateX(0) scale(1); } }
+@keyframes boss-hit-recoil { 0% { transform: translateX(0) scale(1); } 38% { transform: translateX(-10px); } 72% { transform: translateX(-4px); } 100% { transform: translateX(0) scale(1); } }
 
 .action-effect {
   --effect-main: #ff795f;

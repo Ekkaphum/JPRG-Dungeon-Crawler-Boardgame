@@ -50,7 +50,13 @@ export function HeroFigures({
               />
             ) : (
               <div className="hero-sprite-wrap flex-1 min-h-0 w-full flex items-end justify-center">
-                <HeroSprite charId={p.charId} skillId={activeFlash?.skillId ?? null} actionId={activeFlash?.id} hitId={hitId} alive={f.alive} />
+                <HeroSprite
+                  charId={p.charId}
+                  skillId={activeFlash?.skillId ?? f.pending?.skillId ?? null}
+                  actionId={activeFlash?.id}
+                  hitId={hitId}
+                  alive={f.alive}
+                />
               </div>
             )}
             {/* HP tag under the figure, with status pills sitting to the left of the name. */}

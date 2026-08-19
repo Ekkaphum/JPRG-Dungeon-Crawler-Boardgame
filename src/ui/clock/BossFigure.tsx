@@ -32,7 +32,7 @@ export function BossFigure({
 
   return (
     <button onClick={onSelect} className="boss-figure relative w-full h-full flex flex-col items-center justify-end group cursor-pointer" title={def.name[lang]}>
-      <div className="boss-sprite-wrap flex-1 min-h-0 w-full flex items-center justify-center">
+      <div className="boss-sprite-wrap flex-1 min-h-0 w-full flex items-end justify-center">
         <BossSprite bossId={battle.bossId} moveKey={activeFlash?.moveKey ?? null} actionId={activeFlash?.id} hitId={hitId} />
       </div>
       <div className="boss-hp-plate w-[92%] max-w-[260px] gold-frame rounded px-2 py-1 bg-black/75 flex-shrink-0">

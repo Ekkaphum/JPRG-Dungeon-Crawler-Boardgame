@@ -41,7 +41,7 @@ export function GameScreen() {
   return (
     // Locked to the viewport on desktop so the action buttons are always reachable without
     // scrolling; the stage is the only flexible row and gives up height to the fixed panels.
-    <div className={`game-screen visual-${visualMode} md:h-screen md:overflow-hidden flex flex-col gap-2 p-2`}>
+    <div className={`game-screen visual-${visualMode} md:h-screen md:overflow-y-auto flex flex-col gap-2 p-2`}>
       <div className="game-topbar flex items-center justify-between flex-shrink-0">
         <div className="text-sm gold-text font-display">{t('game.bossOf', { i: state.bossIndex + 1 })}</div>
         <div className="flex gap-2">
@@ -69,7 +69,7 @@ export function GameScreen() {
         <>
           {/* Battle stage — the only row that flexes. */}
           <div
-            className="battle-stage relative w-full flex-1 min-h-[320px] sm:min-h-[260px] md:min-h-[190px] rounded-lg overflow-hidden gold-frame flex-shrink"
+            className="battle-stage relative w-full flex-1 min-h-[320px] sm:min-h-[340px] md:min-h-[380px] rounded-lg overflow-hidden gold-frame flex-shrink"
             // Sizing must be inline: `.gold-frame` uses the `background` shorthand, which resets
             // background-size/position and would otherwise beat the bg-cover/bg-center utilities,
             // leaving the backdrop pinned at natural size in the top-left corner.
