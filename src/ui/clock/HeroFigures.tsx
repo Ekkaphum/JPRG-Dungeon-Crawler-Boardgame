@@ -74,7 +74,7 @@ export function HeroFigures({
               <div className="hero-sprite-wrap flex-1 min-h-[80px] max-h-[112px] w-full flex items-end justify-center">
                 <HeroSprite
                   charId={p.charId}
-                  skillId={activeFlash?.skillId ?? f.pending?.skillId ?? null}
+                  skillId={activeFlash?.skillId ?? null}
                   actionId={activeFlash?.id}
                   hitId={hitId}
                   alive={f.alive}

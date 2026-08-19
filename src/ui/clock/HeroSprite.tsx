@@ -45,11 +45,6 @@ export function HeroSprite({
 
   const isHit = hitId !== undefined && alive;
   const row = isHit ? 0 : spriteActionRow(charId, skillId);
-  // A skill sits in a fighter's `pending` from the moment it's declared until it lands several
-  // slots later (see Fighter.pending in engine/clock/types.ts) — actionId is only set for the
-  // brief resolve-time flash, so a defined row with no actionId means "still charging," and gets
-  // the looping idle animation (holding that skill's pose) instead of the one-shot action punch.
-  const isCharging = !isHit && actionId === undefined && row > 0;
   const style = {
     '--sprite-sheet': `url(${isHit ? heroHitSpriteUrl(charId) : `/assets/sprites/${charId}.png`})`,
     '--sprite-size': isHit ? '400% 100%' : '400% 500%',
@@ -61,7 +56,7 @@ export function HeroSprite({
       key={isHit ? `hit-${hitId}` : `${actionId ?? 'idle'}-${row}`}
       role="img"
       aria-label={charId}
-      className={`hero-sprite ${isHit ? 'hero-sprite--hit' : isCharging || row === 0 ? 'hero-sprite--idle' : 'hero-sprite--action'} ${alive ? '' : 'hero-sprite--down'}`}
+      className={`hero-sprite ${isHit ? 'hero-sprite--hit' : row > 0 ? 'hero-sprite--action' : 'hero-sprite--idle'} ${alive ? '' : 'hero-sprite--down'}`}
       style={style}
     />
   );
