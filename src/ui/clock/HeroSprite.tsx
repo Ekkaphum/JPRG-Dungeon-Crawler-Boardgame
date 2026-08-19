@@ -16,10 +16,10 @@ export function hasSpriteSheet(charId: CharId): boolean {
   return Object.keys(ACTION_ROW[charId]).length > 0;
 }
 
-/** The original hit rows are WebP; the generated v0.4 rows stay PNG to preserve clean alpha in
- *  every browser decoder. */
-function hitSpriteUrl(charId: CharId): string {
-  const extension = charId === 'Chrono' || charId === 'Kage' || charId === 'Morvane' ? 'png' : 'webp';
+/** Generated rows and Kit's rebuilt clean hit row stay PNG to preserve clean alpha in every
+ *  browser decoder. */
+export function heroHitSpriteUrl(charId: CharId): string {
+  const extension = charId === 'Chrono' || charId === 'Kage' || charId === 'Morvane' || charId === 'Kit' ? 'png' : 'webp';
   return `/assets/sprites/hit/${charId}.${extension}`;
 }
 
@@ -46,7 +46,7 @@ export function HeroSprite({
   const isHit = hitId !== undefined && alive;
   const row = isHit ? 0 : spriteActionRow(charId, skillId);
   const style = {
-    '--sprite-sheet': `url(${isHit ? hitSpriteUrl(charId) : `/assets/sprites/${charId}.png`})`,
+    '--sprite-sheet': `url(${isHit ? heroHitSpriteUrl(charId) : `/assets/sprites/${charId}.png`})`,
     '--sprite-size': isHit ? '400% 100%' : '400% 500%',
     '--sprite-row': `${row * 25}%`,
   } as CSSProperties;

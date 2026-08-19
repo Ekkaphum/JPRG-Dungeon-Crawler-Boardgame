@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasSpriteSheet, spriteActionRow } from '@ui/clock/HeroSprite';
+import { hasSpriteSheet, heroHitSpriteUrl, spriteActionRow } from '@ui/clock/HeroSprite';
 
 describe('hero sprite animation rows', () => {
   it('ships sprite sheets for the full v0.4 roster', () => {
@@ -24,5 +24,13 @@ describe('hero sprite animation rows', () => {
     expect(spriteActionRow('Morvane', 'SoulSiphon')).toBe(2);
     expect(spriteActionRow('Morvane', 'RaiseDead')).toBe(3);
     expect(spriteActionRow('Morvane', 'DeathCoil')).toBe(4);
+  });
+
+  it('uses clean PNG hit rows for Kit and the generated heroes', () => {
+    expect(heroHitSpriteUrl('Kit')).toBe('/assets/sprites/hit/Kit.png');
+    expect(heroHitSpriteUrl('Chrono')).toBe('/assets/sprites/hit/Chrono.png');
+    expect(heroHitSpriteUrl('Kage')).toBe('/assets/sprites/hit/Kage.png');
+    expect(heroHitSpriteUrl('Morvane')).toBe('/assets/sprites/hit/Morvane.png');
+    expect(heroHitSpriteUrl('Eric')).toBe('/assets/sprites/hit/Eric.webp');
   });
 });
