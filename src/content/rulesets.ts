@@ -44,7 +44,11 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
   },
   'v0.4': {
     id: 'v0.4',
-    label: 'v0.4.1',
+    // v0.4.2, not v0.4.1: 9e199fd already shipped under "v0.4.1" (the unclickable-card fix), and
+    // 2a6ca31 reused the number for a far larger change — the whole camp. Two different rulesets
+    // answering to one label is unusable for anything that has to reference a version later, so the
+    // camp round takes the next number and the fix keeps the one it shipped with.
+    label: 'v0.4.2',
     experimental: true,
     name: { th: 'ทดลอง', en: 'Experimental' },
     desc: {
