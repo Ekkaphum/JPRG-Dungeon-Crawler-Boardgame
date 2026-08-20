@@ -4,6 +4,11 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-20
 
+- **docs: DESIGN_VARIABLES.md catches up to v0.4.1, additively** — the catalogue was written on 18 Aug against v0.3.14 with a four-character roster, and the game has since gone to v0.4.1 with seven characters, ailments and the camp. Rather than rewrite it, every original line stays exactly as written — its value is the record of what existed and what was being considered at that moment — and the current state is layered on top: a new §0.1 status table, plus ✅/🟡 markers on the individual entries that have since been built. Verified additive: 207 numbered rows before, 207 after, and each replaced line's original wording still present verbatim.
+  - **Seven things the document listed as missing now exist**: all eight ailments, the three per-character resources (sand/shadow/souls), the boss's ⏱ (which §2 called the single biggest gap — Chrono's whole kit plus the Grapnel), prediction (`chrono1`), the finishing-skill record it flagged as "reserved but never read" (`kage1`), money and the shop, and the camp itself, which §6 turned out to be a working draft of.
+  - **Also records that §5.4's recommended order was deliberately not followed** — the doc argued for score engines first, and the project went ailments → new characters → camp instead. Left as a visible disagreement rather than quietly edited to match, with the reasoning pointed at `EXPANSION_DESIGN.md` §0.2.
+
+
 - **Painted camp and expanded-roster card art** — added a complete illustrated set for all 17 camp items, full character cards for Chrono/Kage/Morvane, and a moonlit camp-sanctuary environment. The draft now presents every hero as a real card; the shop uses responsive illustrated item cards with rarity/permanent treatments; held items keep their thumbnail when used in battle; and all three camp phases share one full-screen visual scene with an active phase track and player/gem header.
   - Assets are WebP-sized for the live app: 512px item art, 480×720 character cards, and a 1600×900 camp background.
   - Verified through the real browser flow from draft → boss 1 → result → shop → upgrade → points at 1280×720, plus the shop at 390×844. No console errors; 270/270 tests, typecheck, and production build all pass.
