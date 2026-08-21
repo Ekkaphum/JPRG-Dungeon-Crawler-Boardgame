@@ -2,6 +2,10 @@
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
+## 2026-08-21
+
+- **Every player action now has its own four-frame pixel-art effect** — replaced the shared SVG sword/bow/fire/magic glyphs in the center-screen action flash with 28 transparent sprite strips, one for every skill across the seven-character roster. Guard, Counter Attack, Trap, Fireball, Meteor, Heal, Blessing, and Aura Charge also loop their authored character action row while pending, then yield to the one-shot resolve animation; other pending skills remain idle. Updated Chrono, Kage, and Morvane's character-card titles to their class names: **Time Mage, Ninja, and Necromancer**. Added asset-contract tests for exhaustive one-sprite-per-skill coverage, strip dimensions, PNG alpha format, and the exact eight-skill casting allowlist.
+
 ## 2026-08-20
 
 - **The camp round is renumbered v0.4.1 → v0.4.2** — `9e199fd` had already shipped as "v0.4.1" (the fix for four unclickable v0.4.0 cards, plus the Chronos → Chrono rename), and `2a6ca31` reused the number for something far larger: the whole camp system. Two unrelated rulesets answering to one label is unusable the moment anything needs to reference a version after the fact, so the camp takes the next number and the card fix keeps the one it actually shipped under. Changed in `rulesets.ts` (the label players see in the picker) and in `DESIGN_VARIABLES.md` where it describes the *current* state; the older changelog entry for `9e199fd` is left exactly as written, and the camp's own entry is annotated in place rather than rewritten.

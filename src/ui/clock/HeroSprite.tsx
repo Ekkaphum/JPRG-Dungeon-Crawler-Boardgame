@@ -11,6 +11,22 @@ const ACTION_ROW: Record<CharId, Partial<Record<SkillId, number>>> = {
   Morvane: { Drain: 1, SoulSiphon: 2, RaiseDead: 3, DeathCoil: 4 },
 };
 
+/** Skills whose declared action remains visibly charged while its clock cost is still pending. */
+export const CASTING_SKILLS = new Set<SkillId>([
+  'Guard',
+  'CounterAttack',
+  'Trap',
+  'Fireball',
+  'Meteor',
+  'Heal',
+  'Blessing',
+  'AuraCharge',
+]);
+
+export function isCastingSkill(skillId: SkillId | null): skillId is SkillId {
+  return skillId !== null && CASTING_SKILLS.has(skillId);
+}
+
 /** Which characters have a painted 4x5 sheet on disk. */
 export function hasSpriteSheet(charId: CharId): boolean {
   return Object.keys(ACTION_ROW[charId]).length > 0;
@@ -33,18 +49,27 @@ export function HeroSprite({
   skillId,
   actionId,
   hitId,
+  casting = false,
   alive,
 }: {
   charId: CharId;
   skillId: SkillId | null;
   actionId?: number;
   hitId?: number;
+  casting?: boolean;
   alive: boolean;
 }) {
   if (!hasSpriteSheet(charId)) return null;
 
   const isHit = hitId !== undefined && alive;
   const row = isHit ? 0 : spriteActionRow(charId, skillId);
+  const animationClass = isHit
+    ? 'hero-sprite--hit'
+    : row === 0
+      ? 'hero-sprite--idle'
+      : casting
+        ? 'hero-sprite--casting'
+        : 'hero-sprite--action';
   const style = {
     '--sprite-sheet': `url(${isHit ? heroHitSpriteUrl(charId) : `/assets/sprites/${charId}.png`})`,
     '--sprite-size': isHit ? '400% 100%' : '400% 500%',
@@ -53,10 +78,10 @@ export function HeroSprite({
 
   return (
     <div
-      key={isHit ? `hit-${hitId}` : `${actionId ?? 'idle'}-${row}`}
+      key={isHit ? `hit-${hitId}` : casting ? `casting-${skillId}` : `${actionId ?? 'idle'}-${row}`}
       role="img"
       aria-label={charId}
-      className={`hero-sprite ${isHit ? 'hero-sprite--hit' : row > 0 ? 'hero-sprite--action' : 'hero-sprite--idle'} ${alive ? '' : 'hero-sprite--down'}`}
+      className={`hero-sprite ${animationClass} ${alive ? '' : 'hero-sprite--down'}`}
       style={style}
     />
   );

@@ -5,7 +5,7 @@ import { StatusBadges } from '@ui/common/StatusBadges';
 import { heroStatuses } from '@content/statuses';
 import type { DamagePopup } from '@session/playback';
 import type { ActionFlash } from '@session/playback';
-import { HeroSprite, hasSpriteSheet } from './HeroSprite';
+import { HeroSprite, hasSpriteSheet, isCastingSkill } from './HeroSprite';
 import { latestDamagePopupId } from './spriteHit';
 
 const EDGE_FADE = 'radial-gradient(ellipse 60% 62% at 50% 45%, #000 55%, transparent 98%)';
@@ -54,6 +54,8 @@ export function HeroFigures({
         const hitId = latestDamagePopupId(mine);
         const hpPct = Math.max(0, Math.min(100, (f.hp / f.maxHp) * 100));
         const activeFlash = actionFlash?.source === 'skill' && actionFlash.playerId === p.id ? actionFlash : null;
+        const pendingSkillId = f.pending?.skillId ?? null;
+        const castingSkillId = !activeFlash && isCastingSkill(pendingSkillId) ? pendingSkillId : null;
         return (
           <button
             key={p.id}
@@ -74,9 +76,10 @@ export function HeroFigures({
               <div className="hero-sprite-wrap flex-1 min-h-[80px] max-h-[112px] w-full flex items-end justify-center">
                 <HeroSprite
                   charId={p.charId}
-                  skillId={activeFlash?.skillId ?? null}
+                  skillId={activeFlash?.skillId ?? castingSkillId}
                   actionId={activeFlash?.id}
                   hitId={hitId}
+                  casting={castingSkillId !== null}
                   alive={f.alive}
                 />
               </div>

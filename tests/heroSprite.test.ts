@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasSpriteSheet, heroHitSpriteUrl, spriteActionRow } from '@ui/clock/HeroSprite';
+import { CASTING_SKILLS, hasSpriteSheet, heroHitSpriteUrl, isCastingSkill, spriteActionRow } from '@ui/clock/HeroSprite';
 
 describe('hero sprite animation rows', () => {
   it('ships sprite sheets for the full v0.4 roster', () => {
@@ -32,5 +32,21 @@ describe('hero sprite animation rows', () => {
     expect(heroHitSpriteUrl('Kage')).toBe('/assets/sprites/hit/Kage.png');
     expect(heroHitSpriteUrl('Morvane')).toBe('/assets/sprites/hit/Morvane.png');
     expect(heroHitSpriteUrl('Eric')).toBe('/assets/sprites/hit/Eric.webp');
+  });
+
+  it('loops casting art only for the eight requested delayed skills', () => {
+    expect([...CASTING_SKILLS]).toEqual([
+      'Guard',
+      'CounterAttack',
+      'Trap',
+      'Fireball',
+      'Meteor',
+      'Heal',
+      'Blessing',
+      'AuraCharge',
+    ]);
+    expect(isCastingSkill('Fireball')).toBe(true);
+    expect(isCastingSkill('SharpShooting')).toBe(false);
+    expect(isCastingSkill(null)).toBe(false);
   });
 });
