@@ -4,6 +4,8 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-21
 
+- **Restored the protected battle-stage height and made the log a true right rail** — the v0.4.3 arena scaler preserved 16:9 by shrinking the entire stage into the width left beside the log; on shorter desktop windows that overrode the older character-height floor and could clip heroes out of the four-character line. The battle stage is height-driven again using `HERO_GROUP_MIN`, exactly as before v0.4.3, while the log now spans the complete right side beside the stage, clock, action message, commands, and party bar. The main column scrolls on genuinely short viewports instead of sacrificing character visibility. The v0.4.3 battle-transition pacing fix and mirrored attack direction remain intact.
+
 - **Every player action now has its own four-frame pixel-art effect** — replaced the shared SVG sword/bow/fire/magic glyphs in the center-screen action flash with 28 transparent sprite strips, one for every skill across the seven-character roster. The centered effects are mirrored to travel from the heroes on the right toward the boss on the left, matching the battle layout. Guard, Counter Attack, Trap, Fireball, Meteor, Heal, Blessing, and Aura Charge also loop their authored character action row while pending, then yield to the one-shot resolve animation; other pending skills remain idle. Updated Chrono, Kage, and Morvane's character-card titles to their class names: **Time Mage, Ninja, and Necromancer**. Added asset-contract tests for exhaustive one-sprite-per-skill coverage, strip dimensions, PNG alpha format, and the exact eight-skill casting allowlist.
 
 ## 2026-08-20

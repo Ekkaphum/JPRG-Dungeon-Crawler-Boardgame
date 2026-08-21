@@ -4,7 +4,7 @@ import { useSessionVersion } from '@session/useSession';
 import { useT } from '@content/i18n/useT';
 import { TimelineBar } from '@ui/clock/TimelineBar';
 import { BossFigure } from '@ui/clock/BossFigure';
-import { HeroFigures } from '@ui/clock/HeroFigures';
+import { HeroFigures, HERO_GROUP_MIN } from '@ui/clock/HeroFigures';
 import { PartyStatBar } from '@ui/clock/PartyStatBar';
 import { ActionBanner } from '@ui/panels/ActionBanner';
 import { ActionFlash } from '@ui/panels/ActionFlash';
@@ -113,18 +113,20 @@ export function GameScreen() {
 
       {shown && state.phase !== 'DRAFT' && (state.phase !== 'CAMP' || session.revealingBattle) && (
         <>
-          {/* Battle arena — the only row that flexes. The stage holds a fixed aspect ratio and
-              scales as a single unit (see .battle-stage-scaler / .battle-stage in index.css) so
-              boss/hero proportions never distort across window sizes; the log docks beside it
-              and always spans the arena's full height. */}
-          <div className="battle-arena relative w-full flex-1 min-h-[440px] sm:min-h-[380px] md:min-h-[190px] flex flex-col md:flex-row gap-2 flex-shrink">
-            <div className="battle-stage-scaler flex-1 min-w-0 min-h-0 flex items-center justify-center">
+          {/* Desktop is split into a protected battle column and a full-height log rail. The main
+              column deliberately keeps the pre-v0.4.3 stage sizing: it may make a short viewport
+              scroll, but it never scales the four-character line below the height it needs. */}
+          <div className="battle-layout relative w-full flex flex-col md:flex-row gap-2 flex-shrink-0">
+            <div className="battle-main min-w-0 flex-1 flex flex-col gap-2">
               <div
-                className="battle-stage relative rounded-lg overflow-hidden gold-frame"
-                // Sizing must be inline: `.gold-frame` uses the `background` shorthand, which resets
-                // background-size/position and would otherwise beat the bg-cover/bg-center utilities,
-                // leaving the backdrop pinned at natural size in the top-left corner.
-                style={{ backgroundImage: `url(${sceneImageUrl(shown.bossId)})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                className="battle-stage relative w-full flex-1 rounded-lg overflow-hidden gold-frame flex-shrink"
+                style={{
+                  backgroundImage: `url(${sceneImageUrl(shown.bossId)})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  // Pre-v0.4.3 floor: four 80px sprites, their HP plates, and the stage insets.
+                  minHeight: `max(${HERO_GROUP_MIN + 40}px, 46vh)`,
+                }}
               >
                 <div className="battle-stage-shade absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/35" />
 
@@ -137,48 +139,45 @@ export function GameScreen() {
                       onSelect={() => setDetail({ kind: 'boss' })}
                     />
                   </div>
-                  {/* Four equal vertical slots keep the party in a top-to-bottom front line without
-                      letting large sprite frames overlap on portrait phones. */}
-                  <div className="hero-line absolute right-2 top-2 bottom-2 w-[34%] sm:w-[28%]">
+                  {/* Keep the pre-v0.4.3 centered column as well as its protected minimum height. */}
+                  <div className="hero-line absolute right-2 top-2 bottom-2 w-[34%] sm:w-[28%] flex flex-col justify-center">
                     <HeroFigures state={state} battle={shown} popups={session.popups} actionFlash={session.actionFlash} onSelect={(playerId) => setDetail({ kind: 'hero', playerId })} />
                   </div>
                 </div>
 
                 <ActionFlash flash={session.actionFlash} bossId={shown.bossId} />
               </div>
+
+              <div className="timeline-dock flex-shrink-0">
+                <TimelineBar state={state} battle={shown} />
+              </div>
+
+              <div className="banner-dock flex-shrink-0">
+                <ActionBanner state={state} event={session.currentEvent} />
+              </div>
+
+              <div className="battle-console flex-shrink-0 flex flex-col md:flex-row gap-2 md:h-[170px]">
+                <div className="command-dock md:w-[42%] md:h-full md:overflow-y-auto">
+                  {pending && !expInPopup ? (
+                    isHumanTurn ? (
+                      <DecisionPanel state={state} decision={pending} session={session} />
+                    ) : (
+                      <div className="gold-frame rounded-lg h-full flex items-center justify-center text-xs text-gold-dim px-3 py-4">
+                        {t('game.thinking', { name: state.players.find((p) => p.id === pending.playerId)?.name ?? '' })}
+                      </div>
+                    )
+                  ) : (
+                    <div className="gold-frame rounded-lg h-full min-h-[60px]" />
+                  )}
+                </div>
+                <div className="party-dock flex-1 md:h-full">
+                  <PartyStatBar state={state} battle={shown} scoreOf={(id) => session.displayScoreFor(id)} onSelect={(id) => setDetail({ kind: 'hero', playerId: id })} />
+                </div>
+              </div>
             </div>
 
-            <div className="battle-log-dock flex-shrink-0 h-[120px] md:h-full w-full md:w-[200px] lg:w-[260px]">
+            <div className="battle-log-dock flex-shrink-0 min-h-[150px] md:min-h-0 md:self-stretch w-full md:w-[220px] lg:w-[280px]">
               <LogPanel log={session.visibleLog} />
-            </div>
-          </div>
-
-          <div className="timeline-dock flex-shrink-0">
-            <TimelineBar state={state} battle={shown} />
-          </div>
-
-          <div className="banner-dock flex-shrink-0">
-            <ActionBanner state={state} event={session.currentEvent} />
-          </div>
-
-          {/* Bottom battle bar: commands · party stats, side by side. The log now docks beside
-              the battle stage above instead of sharing this row. */}
-          <div className="battle-console flex-shrink-0 flex flex-col md:flex-row gap-2 md:h-[170px]">
-            <div className="command-dock md:w-[42%] md:h-full md:overflow-y-auto">
-              {pending && !expInPopup ? (
-                isHumanTurn ? (
-                  <DecisionPanel state={state} decision={pending} session={session} />
-                ) : (
-                  <div className="gold-frame rounded-lg h-full flex items-center justify-center text-xs text-gold-dim px-3 py-4">
-                    {t('game.thinking', { name: state.players.find((p) => p.id === pending.playerId)?.name ?? '' })}
-                  </div>
-                )
-              ) : (
-                <div className="gold-frame rounded-lg h-full min-h-[60px]" />
-              )}
-            </div>
-            <div className="party-dock flex-1 md:h-full">
-              <PartyStatBar state={state} battle={shown} scoreOf={(id) => session.displayScoreFor(id)} onSelect={(id) => setDetail({ kind: 'hero', playerId: id })} />
             </div>
           </div>
 
