@@ -809,6 +809,17 @@ html, body, #root {
 }
 .action-flash { animation: action-flash 1.4s ease-out forwards; }
 
+/* Battle arena: the stage keeps a constant aspect ratio and scales as a single unit — via CSS
+   container query units, so it fits whatever box the flex layout gives it on either axis
+   without stretching — instead of independently reflowing width and height. That's what kept
+   boss/hero proportions inconsistent across window sizes; now they're identical at any size. */
+.battle-stage-scaler { container-type: size; }
+.battle-stage {
+  aspect-ratio: 16 / 9;
+  width: min(100cqw, 100cqh * 16 / 9);
+  height: min(100cqh, 100cqw * 9 / 16);
+}
+
 .hero-sprite-wrap { overflow: visible; }
 .hero-line { z-index: 2; }
 .hero-figures { isolation: isolate; }
@@ -887,7 +898,14 @@ html, body, #root {
   animation: action-effect-sprite-frames .92s steps(3) 1 forwards, action-effect-sprite-pop .92s ease-out 1 forwards;
 }
 @keyframes action-effect-sprite-frames { from { background-position-x: 0%; } to { background-position-x: 100%; } }
-@keyframes action-effect-sprite-pop { 0% { opacity: 0; transform: scale(.72); } 15% { opacity: 1; } 72% { opacity: 1; transform: scale(1.08); } 100% { opacity: 0; transform: scale(1.16); } }
+/* Heroes stand on the right and attack toward the boss on the left. Keep the authored frame
+   sequence, but mirror the complete effect so slashes/projectiles travel right-to-left. */
+@keyframes action-effect-sprite-pop {
+  0% { opacity: 0; transform: scale(-.72, .72); }
+  15% { opacity: 1; }
+  72% { opacity: 1; transform: scale(-1.08, 1.08); }
+  100% { opacity: 0; transform: scale(-1.16, 1.16); }
+}
 
 @keyframes victory-glow-pulse {
   0%, 100% { opacity: 0.6; }

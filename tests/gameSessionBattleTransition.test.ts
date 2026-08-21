@@ -103,4 +103,64 @@ describe('GameSession battle-transition pacing', () => {
     // Now it should have switched cleanly over to the next battle.
     expect(session.displayBattle?.bossId).toBe('Somnivar');
   });
+
+  // Regression test for the camp screen cutting the boss-defeat log short: runCamp() (camp.ts) sets
+  // `state.phase = 'CAMP'` synchronously, in the same gen.next() call that finishes the battle — so
+  // by the time GameSession.run() gets back here, `state.phase` already reads 'CAMP' even though the
+  // battle's own log/result hasn't been paced onto the display yet. The UI has to gate on something
+  // other than `state.phase` to know the battle view should stay up; `revealingBattle` is that flag.
+  it('keeps revealingBattle up through BATTLE_END even after state.phase has already moved on', async () => {
+    const state: GameState = fixedDraftState();
+    state.phase = 'CLOCK_RUN';
+    state.bossQueue = ['Ragorath', 'Somnivar', 'Aurelius'];
+    state.bossIndex = 0;
+    state.players[0].kind = 'human';
+
+    const battle = emptyBattle('Ragorath');
+    state.battle = battle;
+
+    const session = new GameSession(
+      {
+        players: [
+          { name: 'A', kind: 'human' },
+          { name: 'B', kind: 'bot', botLevel: 'easy' },
+          { name: 'C', kind: 'bot', botLevel: 'easy' },
+          { name: 'D', kind: 'bot', botLevel: 'easy' },
+        ],
+        difficulty: 'standard',
+      },
+      1,
+      state,
+      0
+    );
+
+    await (session as unknown as { revealNewEvents(): Promise<void> }).revealNewEvents();
+    expect(session.revealingBattle).toBe(false);
+
+    // The killing blow lands and, in the same synchronous engine step, runCamp() flips the phase —
+    // exactly what game.ts does between grantEndOfBattleRewards() and the camp's first decision.
+    battle.log.push(
+      { t: 'RESOLVE_ATTACK', playerId: 0, skillId: 'Slash', targetId: 'boss', dmg: 5, wasted: false },
+      { t: 'BATTLE_END', outcome: 'boss_defeated', finishedBy: 0, expGranted: 0 }
+    );
+    session.state.phase = 'CAMP';
+
+    const revealPromise = (session as unknown as { revealNewEvents(): Promise<void> }).revealNewEvents();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // The battle's own log hasn't finished revealing (and the result popup isn't up yet either), so
+    // the UI must not treat this as "in camp" — the flag has to still be up.
+    expect(session.revealingBattle).toBe(true);
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(session.battleResult).not.toBeNull();
+    expect(session.revealingBattle).toBe(true);
+
+    session.acknowledgeBattleResult();
+    await revealPromise;
+
+    expect(session.revealingBattle).toBe(false);
+  });
 });

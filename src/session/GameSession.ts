@@ -52,6 +52,11 @@ export class GameSession {
   animSpeedMs: number;
   /** Battle as the player currently sees it — lags `state.battle` while a burst animates. */
   displayBattle: BattleState | null = null;
+  /** True while the last battle's log/result is still being paced onto the display. The engine can
+   *  race straight through BATTLE_END into the next phase (e.g. CAMP) within one synchronous
+   *  generator step — see revealNewEvents' doc comment — so `state.phase` alone isn't enough to know
+   *  whether the battle view should still be on screen; the UI gates on this instead. */
+  revealingBattle = false;
   /** The event whose result is on screen right now (drives the action banner). */
   currentEvent: ClockLogEvent | null = null;
   popups: DamagePopup[] = [];
@@ -244,36 +249,45 @@ export class GameSession {
    *  an outgoing battle drained late has already been superseded and must not stomp on the new
    *  battle's in-progress reveal. */
   private async drainBattle(battle: BattleState, isLastBoss: boolean) {
-    while (this.visibleLogCount < battle.log.length) {
-      const ev = battle.log[this.visibleLogCount];
-      const flash = actionFlashFor(this.state, ev);
-      applyEventToDisplay(this.displayBattle!, ev);
-      if (ev.t === 'SCORE') this.visibleScoreCount++;
-      // One lifetime for both the flash and the popup, derived from the same delay slept below, so
-      // the visuals and the log line advance together at every speed setting.
-      const effectMs = effectDurationFor(ev, this.animSpeedMs);
-      if (flash) this.pushFlash(flash, effectMs);
-      const p = popupFor(ev);
-      if (p) this.pushPopup(p, effectMs);
-      if (ev.t !== 'MARKER_TICK') this.currentEvent = ev;
-      this.onEvent?.(ev);
-      this.visibleLogCount++;
-      this.notify();
-      const d = eventDelay(ev, this.animSpeedMs);
-      if (d > 0) await sleep(d);
-
-      if (ev.t === 'BATTLE_END') {
-        this.battleResult = {
-          outcome: ev.outcome,
-          bossId: battle.bossId,
-          finishedBy: ev.finishedBy,
-          markerLeft: this.displayBattle!.marker,
-          isLastBoss,
-          acknowledged: false,
-        };
+    // Set for the whole reveal, not just the while loop below: the engine may already have moved
+    // `state.phase` past this battle (e.g. into CAMP) by the time we get here, and the flag has to
+    // stay up through the BATTLE_END event's own hold and the ack wait, not just the log catch-up,
+    // or the camp screen flashes in during that gap with no result popup up yet to cover it.
+    this.revealingBattle = true;
+    try {
+      while (this.visibleLogCount < battle.log.length) {
+        const ev = battle.log[this.visibleLogCount];
+        const flash = actionFlashFor(this.state, ev);
+        applyEventToDisplay(this.displayBattle!, ev);
+        if (ev.t === 'SCORE') this.visibleScoreCount++;
+        // One lifetime for both the flash and the popup, derived from the same delay slept below, so
+        // the visuals and the log line advance together at every speed setting.
+        const effectMs = effectDurationFor(ev, this.animSpeedMs);
+        if (flash) this.pushFlash(flash, effectMs);
+        const p = popupFor(ev);
+        if (p) this.pushPopup(p, effectMs);
+        if (ev.t !== 'MARKER_TICK') this.currentEvent = ev;
+        this.onEvent?.(ev);
+        this.visibleLogCount++;
         this.notify();
-        await this.waitForBattleAck();
+        const d = eventDelay(ev, this.animSpeedMs);
+        if (d > 0) await sleep(d);
+
+        if (ev.t === 'BATTLE_END') {
+          this.battleResult = {
+            outcome: ev.outcome,
+            bossId: battle.bossId,
+            finishedBy: ev.finishedBy,
+            markerLeft: this.displayBattle!.marker,
+            isLastBoss,
+            acknowledged: false,
+          };
+          this.notify();
+          await this.waitForBattleAck();
+        }
       }
+    } finally {
+      this.revealingBattle = false;
     }
 
     if (battle === this.state.battle) {

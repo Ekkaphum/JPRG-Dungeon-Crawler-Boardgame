@@ -4,7 +4,7 @@ import { useSessionVersion } from '@session/useSession';
 import { useT } from '@content/i18n/useT';
 import { TimelineBar } from '@ui/clock/TimelineBar';
 import { BossFigure } from '@ui/clock/BossFigure';
-import { HeroFigures, HERO_GROUP_MIN } from '@ui/clock/HeroFigures';
+import { HeroFigures } from '@ui/clock/HeroFigures';
 import { PartyStatBar } from '@ui/clock/PartyStatBar';
 import { ActionBanner } from '@ui/panels/ActionBanner';
 import { ActionFlash } from '@ui/panels/ActionFlash';
@@ -79,10 +79,13 @@ export function GameScreen() {
         </BattleResultModal>
       )}
 
-      {state.phase === 'CAMP' && (
+      {state.phase === 'CAMP' && !session.revealingBattle && (
         // The camp gets its own full-width view rather than sitting under the battle stage: the
         // battle it follows is over, and leaving the corpse of the last fight on screen while people
-        // shop reads as if the clock were still running.
+        // shop reads as if the clock were still running. Gated on revealingBattle too: the engine can
+        // flip to CAMP before the last battle's log/result has finished pacing onto screen (it races
+        // ahead — see GameSession.revealingBattle), so switching on phase alone would cut the log and
+        // the result popup off mid-animation.
         <div className="camp-stage">
           <div className="camp-stage__shade" />
           <div className="camp-stage__content">
@@ -108,48 +111,46 @@ export function GameScreen() {
         </div>
       )}
 
-      {shown && state.phase !== 'DRAFT' && state.phase !== 'CAMP' && (
+      {shown && state.phase !== 'DRAFT' && (state.phase !== 'CAMP' || session.revealingBattle) && (
         <>
-          {/* Battle stage — the only row that flexes. */}
-          <div
-            className="battle-stage relative w-full flex-1 rounded-lg overflow-hidden gold-frame flex-shrink"
-            style={{
-              // Sizing must be inline: `.gold-frame` uses the `background` shorthand, which resets
-              // background-size/position and would otherwise beat the bg-cover/bg-center utilities,
-              // leaving the backdrop pinned at natural size in the top-left corner.
-              backgroundImage: `url(${sceneImageUrl(shown.bossId)})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              // HERO_GROUP_MIN plus this box's own 32px of insets (the p-2 wrapper and hero-line's
-              // top-2/bottom-2), with a little slack, is the floor the party actually needs to
-              // avoid clipping against this box's own overflow-hidden. max() also adds a
-              // viewport-share floor so the stage (and the hero cluster inside it) grows with a
-              // tall aspect ratio too — plain px alone starves it there, since there's no
-              // md:h-screen lock on mobile giving flex-1 extra space to grow into.
-              minHeight: `max(${HERO_GROUP_MIN + 40}px, 46vh)`,
-            }}
-          >
-            <div className="battle-stage-shade absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/35" />
+          {/* Battle arena — the only row that flexes. The stage holds a fixed aspect ratio and
+              scales as a single unit (see .battle-stage-scaler / .battle-stage in index.css) so
+              boss/hero proportions never distort across window sizes; the log docks beside it
+              and always spans the arena's full height. */}
+          <div className="battle-arena relative w-full flex-1 min-h-[440px] sm:min-h-[380px] md:min-h-[190px] flex flex-col md:flex-row gap-2 flex-shrink">
+            <div className="battle-stage-scaler flex-1 min-w-0 min-h-0 flex items-center justify-center">
+              <div
+                className="battle-stage relative rounded-lg overflow-hidden gold-frame"
+                // Sizing must be inline: `.gold-frame` uses the `background` shorthand, which resets
+                // background-size/position and would otherwise beat the bg-cover/bg-center utilities,
+                // leaving the backdrop pinned at natural size in the top-left corner.
+                style={{ backgroundImage: `url(${sceneImageUrl(shown.bossId)})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+              >
+                <div className="battle-stage-shade absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-black/35" />
 
-            <div className="absolute inset-0 p-2">
-              <div className="w-[38%] sm:w-[34%] h-full">
-                <BossFigure
-                  battle={shown}
-                  popups={session.popups.filter((p) => p.target === 'boss')}
-                  actionFlash={session.actionFlash}
-                  onSelect={() => setDetail({ kind: 'boss' })}
-                />
-              </div>
-              {/* Four equal vertical slots keep the party in a top-to-bottom front line without
-                  letting large sprite frames overlap on portrait phones. HeroFigures caps its own
-                  growth at its natural size, so justify-center here turns any leftover height (a
-                  tall/portrait stage) into margin instead of stretching the party apart. */}
-              <div className="hero-line absolute right-2 top-2 bottom-2 w-[34%] sm:w-[28%] flex flex-col justify-center">
-                <HeroFigures state={state} battle={shown} popups={session.popups} actionFlash={session.actionFlash} onSelect={(playerId) => setDetail({ kind: 'hero', playerId })} />
+                <div className="absolute inset-0 p-2">
+                  <div className="w-[38%] sm:w-[34%] h-full">
+                    <BossFigure
+                      battle={shown}
+                      popups={session.popups.filter((p) => p.target === 'boss')}
+                      actionFlash={session.actionFlash}
+                      onSelect={() => setDetail({ kind: 'boss' })}
+                    />
+                  </div>
+                  {/* Four equal vertical slots keep the party in a top-to-bottom front line without
+                      letting large sprite frames overlap on portrait phones. */}
+                  <div className="hero-line absolute right-2 top-2 bottom-2 w-[34%] sm:w-[28%]">
+                    <HeroFigures state={state} battle={shown} popups={session.popups} actionFlash={session.actionFlash} onSelect={(playerId) => setDetail({ kind: 'hero', playerId })} />
+                  </div>
+                </div>
+
+                <ActionFlash flash={session.actionFlash} bossId={shown.bossId} />
               </div>
             </div>
 
-            <ActionFlash flash={session.actionFlash} bossId={shown.bossId} />
+            <div className="battle-log-dock flex-shrink-0 h-[120px] md:h-full w-full md:w-[200px] lg:w-[260px]">
+              <LogPanel log={session.visibleLog} />
+            </div>
           </div>
 
           <div className="timeline-dock flex-shrink-0">
@@ -160,10 +161,10 @@ export function GameScreen() {
             <ActionBanner state={state} event={session.currentEvent} />
           </div>
 
-          {/* Bottom battle bar: commands · party stats · log, all on one row so nothing needs
-              scrolling to reach. */}
+          {/* Bottom battle bar: commands · party stats, side by side. The log now docks beside
+              the battle stage above instead of sharing this row. */}
           <div className="battle-console flex-shrink-0 flex flex-col md:flex-row gap-2 md:h-[170px]">
-            <div className="command-dock md:w-[34%] md:h-full md:overflow-y-auto">
+            <div className="command-dock md:w-[42%] md:h-full md:overflow-y-auto">
               {pending && !expInPopup ? (
                 isHumanTurn ? (
                   <DecisionPanel state={state} decision={pending} session={session} />
@@ -176,11 +177,8 @@ export function GameScreen() {
                 <div className="gold-frame rounded-lg h-full min-h-[60px]" />
               )}
             </div>
-            <div className="party-dock md:w-[38%] md:h-full">
+            <div className="party-dock flex-1 md:h-full">
               <PartyStatBar state={state} battle={shown} scoreOf={(id) => session.displayScoreFor(id)} onSelect={(id) => setDetail({ kind: 'hero', playerId: id })} />
-            </div>
-            <div className="log-dock flex-1 h-[120px] md:h-full">
-              <LogPanel log={session.visibleLog} />
             </div>
           </div>
 
