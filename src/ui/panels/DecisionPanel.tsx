@@ -139,10 +139,10 @@ function DeclareActionPanel({
 
   return (
     <div className="decision-board gold-frame rounded-lg p-3">
-      <div className="font-display gold-text mb-2">{t('decision.declareTitle', { name: player.name })}</div>
+      <div className="decision-heading font-display gold-text">{t('decision.declareTitle', { name: player.name })}</div>
 
       {held.length > 0 && (
-        <div className="flex gap-2 flex-wrap items-center mb-2 text-xs">
+        <div className="decision-extras flex gap-2 flex-wrap items-center text-xs">
           <span className="text-gold-dim">{t('camp.useItems')}</span>
           {held.map((id, i) => {
             const on = useItems.filter((x) => x === id).length > held.slice(0, i).filter((x) => x === id).length;
@@ -168,7 +168,7 @@ function DeclareActionPanel({
           v0.3.14, and he is the only character paid for reading it — so the call rides along with
           whatever he declares this visit rather than costing him a card. */}
       {player.charId === 'Chrono' && (
-        <div className="flex gap-2 flex-wrap items-center mb-2 text-xs">
+        <div className="decision-extras flex gap-2 flex-wrap items-center text-xs">
           <span className="text-gold-dim">{t('decision.predictBossMove')}</span>
           {(['A', 'B', 'C'] as const).map((k) => {
             const move = BOSSES[battle.bossId].moves.find((m) => m.key === k)!;
@@ -187,7 +187,7 @@ function DeclareActionPanel({
       )}
 
       {!skillId && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="skill-grid">
           {def.skills.map((sid) => {
             // Trap! needs at least one free slot inside its own ⏱ window, and Guard needs a
             // living ally other than the caster — otherwise the picker would open with nothing

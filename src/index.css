@@ -76,6 +76,34 @@ html, body, #root {
   gap: 0.4rem;
 }
 
+/* Command dock — the action panel gets whatever height is left after the battle stage takes its
+   protected minimum, so it is built to fit that budget instead of scrolling inside it (it used to
+   be a fixed 170px box with `overflow-y: auto`, which put a scrollbar on the declare panel on every
+   single turn). Every character has exactly four skills, so the cards sit on one fixed row on
+   desktop rather than ragged-wrapping to three, and the heading, item, and prediction rows above them
+   are tightened to match. */
+.command-dock .decision-board { padding: 0.5rem 0.6rem; }
+
+.decision-heading {
+  margin-bottom: 0.3rem;
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.decision-extras { margin-bottom: 0.3rem; }
+
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+@media (min-width: 768px) {
+  .skill-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .command-dock .skill-card { padding: 0.35rem 0.5rem; }
+  .command-dock .held-item-button img { width: 1.25rem; height: 1.25rem; }
+}
+
 /* Camp sanctuary — one coherent environment for shopping, upgrading, and converting gems. */
 .camp-stage {
   position: relative;

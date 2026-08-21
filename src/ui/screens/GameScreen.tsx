@@ -41,7 +41,7 @@ export function GameScreen() {
   return (
     // Locked to the viewport on desktop so the action buttons are always reachable without
     // scrolling; the stage is the only flexible row and gives up height to the fixed panels.
-    <div className={`game-screen visual-${visualMode} md:h-screen md:overflow-y-auto flex flex-col gap-2 p-2`}>
+    <div className={`game-screen visual-${visualMode} md:h-screen md:overflow-y-auto flex flex-col gap-1.5 px-2 py-1.5`}>
       <div className="game-topbar flex items-center justify-between flex-shrink-0">
         <div className="text-sm gold-text font-display">{t('game.bossOf', { i: state.bossIndex + 1 })}</div>
         <div className="flex gap-2">
@@ -115,9 +115,13 @@ export function GameScreen() {
         <>
           {/* Desktop is split into a protected battle column and a full-height log rail. The main
               column deliberately keeps the pre-v0.4.3 stage sizing: it may make a short viewport
-              scroll, but it never scales the four-character line below the height it needs. */}
+              scroll, but it never scales the four-character line below the height it needs. The
+              command bar underneath it is sized the other way round: it is whatever height its
+              content needs (min-h, not h) and never scrolls inside itself, because a scrollbar on
+              the one panel you have to use every single turn is worse than a rare page scroll.
+              What makes that affordable is the fixed four-across card row — see .skill-grid. */}
           <div className="battle-layout relative w-full flex flex-col md:flex-row gap-2 flex-shrink-0">
-            <div className="battle-main min-w-0 flex-1 flex flex-col gap-2">
+            <div className="battle-main min-w-0 flex-1 flex flex-col gap-1.5">
               <div
                 className="battle-stage relative w-full flex-1 rounded-lg overflow-hidden gold-frame flex-shrink"
                 style={{
@@ -156,8 +160,8 @@ export function GameScreen() {
                 <ActionBanner state={state} event={session.currentEvent} />
               </div>
 
-              <div className="battle-console flex-shrink-0 flex flex-col md:flex-row gap-2 md:h-[170px]">
-                <div className="command-dock md:w-[42%] md:h-full md:overflow-y-auto">
+              <div className="battle-console flex-shrink-0 flex flex-col md:flex-row gap-2 md:min-h-[150px]">
+                <div className="command-dock md:w-[58%]">
                   {pending && !expInPopup ? (
                     isHumanTurn ? (
                       <DecisionPanel state={state} decision={pending} session={session} />
@@ -170,7 +174,7 @@ export function GameScreen() {
                     <div className="gold-frame rounded-lg h-full min-h-[60px]" />
                   )}
                 </div>
-                <div className="party-dock flex-1 md:h-full">
+                <div className="party-dock flex-1">
                   <PartyStatBar state={state} battle={shown} scoreOf={(id) => session.displayScoreFor(id)} onSelect={(id) => setDetail({ kind: 'hero', playerId: id })} />
                 </div>
               </div>
