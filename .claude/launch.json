@@ -3,8 +3,9 @@
   "configurations": [
     {
       "name": "moonrage-dungeon-dev",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "//": "Runs Vite's own bin through node rather than `npm run dev`: `npm` is a shell shim (npm.cmd on Windows) that a launcher spawning the executable directly cannot always resolve, and hardcoding a path to it pins the config to one machine. `node` is on PATH everywhere and the script path is repo-relative, so this entry works unchanged on Windows, macOS, and Linux.",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js"],
       "port": 5173,
       "autoPort": true
     }
