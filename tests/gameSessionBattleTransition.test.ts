@@ -28,6 +28,7 @@ function emptyBattle(bossIndexBoss: 'Ragorath' | 'Somnivar'): BattleState {
     partyBuff: null,
     guard: null,
     allyScoresForLuna: 0,
+    deathsThisBattle: 0,
     finishedBy: null,
     finishedBySkill: null,
     nextStackSeq: 0,

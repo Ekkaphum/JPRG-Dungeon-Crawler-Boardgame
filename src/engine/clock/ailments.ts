@@ -42,6 +42,14 @@ export function bossResistsAilment(state: GameState, id: AilmentId): boolean {
  * single-target boss move would put on her", and this is the first release where that sentence has
  * anything to cancel. AoE deliberately still lands on her — the passive is a reward for the boss
  * choosing her specifically, not blanket immunity.
+ *
+ * Keyed to Luna herself rather than to the Holy Water passive on purpose, and it is worth writing
+ * down why, because it reads like a bug. Ailments exist only under hasV040Content, and v0.4 is also
+ * the only ruleset running the v0.4.5 rework — so "the ruleset with ailments" and "the ruleset where
+ * Luna's passive is Divine Tithe instead of Holy Water" are the *same* ruleset. Gating this on the
+ * passive id would therefore not scope the ward to v0.3; it would delete it from the game outright,
+ * silently taking away the party's only protection from a single-target debuff. The ward stays, and
+ * Divine Tithe's own description names it (V045_PASSIVES.Luna) so the text matches the code.
  */
 export function applyAilment(
   state: GameState,

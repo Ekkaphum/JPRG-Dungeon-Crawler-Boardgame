@@ -1,6 +1,6 @@
 import type { GameState } from '@engine/index';
 import { BOSSES } from '@content/bosses3';
-import { CHARACTERS } from '@content/characters';
+import { CHARACTERS, charScore } from '@content/characters';
 import { CLASS_COLOR } from '@content/charColors';
 import { useT } from '@content/i18n/useT';
 import { useAppStore } from '@session/store';
@@ -14,7 +14,7 @@ export function ScoreBreakdownPanel({ state }: { state: GameState }) {
   const conditionLabel = (playerId: number, conditionId: string) => {
     if (conditionId === 'timeBonus') return t('scoring.breakdown.timeBonus');
     const charId = state.players.find((player) => player.id === playerId)?.charId;
-    const condition = charId ? CHARACTERS[charId].score.find((row) => row.id === conditionId) : null;
+    const condition = charId ? charScore(charId, state.ruleset).find((row) => row.id === conditionId) : null;
     return condition?.desc[lang] ?? conditionId;
   };
 

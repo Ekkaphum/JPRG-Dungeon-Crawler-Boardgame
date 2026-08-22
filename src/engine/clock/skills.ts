@@ -14,14 +14,20 @@ import {
   SAND_MAX,
   SAND_PER_REWIND,
   SAND_PER_SLOW_DECLARE,
+  V045_AURASHIELD_DEF_PER_MANA,
+  V045_LIORA_MANA_MAX,
+  V045_SLOW_BOSS_SLOTS,
+  charSkills,
   scorePoints,
+  skillDefFor,
   skillStats,
   type SkillDef,
   type SkillId,
   type SkillLevelStats,
 } from '@content/characters';
+import { hasV045Content } from '@content/rulesets';
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter, pushScore, reviveFighterNow } from './damage';
-import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onTrapTriggered, onWeakPointOpened } from './scoring';
+import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onSlowLanded, onTrapTriggered, onWeakPointOpened } from './scoring';
 import { ailmentRollPenalty, ailmentTimeTax, cleanseAilments, consumeTimeTaxAilments, isSilenced } from './ailments';
 import { spendItems } from './items';
 import type { Choice, Fighter, GameState } from './types';
@@ -82,7 +88,7 @@ export function effectiveDeclareTime(state: GameState, fighter: Fighter, baseTim
  *  what let the UI hand humans illegal slots while bots played by the rules. */
 export function legalTrapSlots(state: GameState, fighter: Fighter): number[] {
   const battle = state.battle!;
-  const trapTime = applySomnivarTax(state, skillStats('Trap', isLv2(state, fighter, 'Trap')).time);
+  const trapTime = applySomnivarTax(state, skillStats('Trap', isLv2(state, fighter, 'Trap'), state.ruleset).time);
   const slots: number[] = [];
   // s > 0, not s >= 0: slot 0 is never playable (the walk loop ends the battle the instant the
   // marker reaches it, before processing anything there — see walk.ts) so a trap armed on it could
@@ -98,9 +104,9 @@ export function legalTrapSlots(state: GameState, fighter: Fighter): number[] {
  *  rolled (floor 2, never resets, carries across battles). Sharp Shooting and Trap! never improve
  *  one another. Any other roll-using character (Dax's Focus) keeps the original per-battle,
  *  per-skill, reset-on-success ladder with its 5th-attempt auto-success. */
-function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpose: string, rng: RNG): boolean {
+function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpose: string, rng: RNG, focusBonus = 0): boolean {
   const battle = state.battle!;
-  const base = skillStats(skillId, isLv2(state, fighter, skillId)).rollBaseTarget ?? 5;
+  const base = skillStats(skillId, isLv2(state, fighter, skillId), state.ruleset).rollBaseTarget ?? 5;
   const improvementSkill = fighter.charId === 'Kit' && (skillId === 'SharpShooting' || skillId === 'Trap') ? skillId : null;
   const progress = state.progress[fighter.playerId];
 
@@ -115,9 +121,12 @@ function rollLadder(state: GameState, fighter: Fighter, skillId: SkillId, purpos
   // ladder just brought it down to — the point of the ailment is that the ladder stops rescuing you.
   if (target > 0) target += ailmentRollPenalty(fighter);
 
+  // v0.4.5 Focus is added to the *die*, not subtracted from the target, so it stacks with the
+  // Skill Improvement ladder and with 👁️ blind without any of the three needing to know about the
+  // others. Kit paid a ⏱2 turn per point; this is what he bought.
   const die = rng.int(1, 6);
-  const success = target === 0 || die >= target;
-  battle.log.push({ t: 'ROLL', playerId: fighter.playerId, purpose, die, target: target || null, success });
+  const success = target === 0 || die + focusBonus >= target;
+  battle.log.push({ t: 'ROLL', playerId: fighter.playerId, purpose, die: die + focusBonus, target: target || null, success });
 
   if (improvementSkill) {
     if (!success && progress) progress.rollPenalty[improvementSkill] = (progress.rollPenalty[improvementSkill] ?? 0) + 1;
@@ -211,10 +220,10 @@ function resolveAttackHits(state: GameState, fighter: Fighter, skillId: SkillId,
 
 /** Resolves an `attackRoll`-kind skill: the hit, then the weak-point roll. Used by both the
  *  immediate and resolve-delayed paths. */
-function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, rng: RNG) {
+function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, rng: RNG, focusBonus = 0) {
   const battle = state.battle!;
   dealAttackFor(state, fighter, skillId, stats.primary!, false);
-  if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng)) {
+  if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng, focusBonus)) {
     battle.weakPoint = { ownerId: fighter.playerId, expiresAtSlot: battle.marker - WEAK_POINT_SLOTS, hitsPaid: 0 };
     onWeakPointOpened(state, fighter.playerId);
   }
@@ -229,7 +238,10 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   // anything they set (haste, +damage, pierce) is already live when the skill below is priced.
   spendItems(state, fighter, choice.useItems);
   const skillId = choice.skillId;
-  const def = SKILLS[skillId];
+  // skillDefFor, not SKILLS: the v0.4.5 rework attaches costs and riders (Heal's mana, Power
+  // Strike's HP, Focus-spendable rolls) to cards that keep their id, and every one of them has to
+  // be validated here at the engine boundary rather than trusted from the caller.
+  const def = skillDefFor(skillId, state.ruleset);
 
   // Validated at the engine boundary rather than trusted from the caller — the UI already builds
   // legal choices, but a bot or a hand-built Choice bypasses that entirely. Without this, the
@@ -239,11 +251,31 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   if (def.charId !== fighter.charId) {
     throw new Error(`${skillId} does not belong to ${fighter.charId} (player ${fighter.playerId} declared it)`);
   }
-  if (def.kind === 'attackMana') {
+  // v0.4.5 folds Aura Shield in here: it spends optional mana the same way an attack spell does,
+  // just for armor instead of damage, so it answers to the same ceiling and the same validation.
+  if (def.kind === 'attackMana' || def.kind === 'buffShield') {
     const spent = choice.manaSpent ?? 0;
-    if (!Number.isInteger(spent) || spent < 0 || spent > 3 || spent > fighter.mana) {
+    if (!Number.isInteger(spent) || spent < 0 || spent > V045_LIORA_MANA_MAX || spent > fighter.mana) {
       throw new Error(`illegal mana spend ${spent} for player ${fighter.playerId} (has ${fighter.mana})`);
     }
+  }
+
+  // ── v0.4.5 costs. Checked before anything is spent or the pawn has moved. ──
+  if (def.manaCost != null && fighter.mana < def.manaCost) {
+    throw new Error(`${skillId} needs ${def.manaCost} mana (player ${fighter.playerId} has ${fighter.mana})`);
+  }
+  const focusSpent = choice.focusSpent ?? 0;
+  if (focusSpent !== 0) {
+    if (!def.focusSpendable) throw new Error(`${skillId} cannot spend Focus (player ${fighter.playerId})`);
+    if (!Number.isInteger(focusSpent) || focusSpent < 0 || focusSpent > fighter.focus) {
+      throw new Error(`illegal Focus spend ${focusSpent} for player ${fighter.playerId} (has ${fighter.focus})`);
+    }
+  }
+  // Power Strike is a swing past what the body can take, not a suicide button — the same rule Death
+  // Coil's HP surcharge already follows. Refusing the declare (rather than clamping the cost) keeps
+  // the card honest: if you cannot afford the swing, you cannot take it.
+  if (def.selfHpCost != null && fighter.hp <= def.selfHpCost) {
+    throw new Error(`${skillId}'s HP cost would kill player ${fighter.playerId}`);
   }
   // v0.4.0 resource gates. Validated here with mana rather than at each resolution site so an
   // illegal declare is rejected before the pawn has moved.
@@ -271,6 +303,14 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       throw new Error(`illegal Heal target ${choice.targetPlayerId} for player ${fighter.playerId} (target must be alive when declared)`);
     }
   }
+  if (def.kind === 'buffShield') {
+    // Unlike Guard, self-targeting is legal and expected — Aura Shield is Aura Charge's successor
+    // and protecting herself is still its primary use. Only "alive" is required.
+    const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+    if (!target || !target.alive) {
+      throw new Error(`illegal Aura Shield target ${choice.targetPlayerId} for player ${fighter.playerId} (must be a living fighter)`);
+    }
+  }
   if (def.kind === 'guard') {
     // Self-guard is rejected rather than silently no-op'd: it would read on the board as a defensive
     // action while doing literally nothing, and every existing damage path already sends a fighter's
@@ -290,7 +330,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
     throw new Error(`${skillId} cannot be declared while silenced (player ${fighter.playerId})`);
   }
 
-  const stats = skillStats(skillId, isLv2(state, fighter, skillId));
+  const stats = skillStats(skillId, isLv2(state, fighter, skillId), state.ruleset);
   const time = effectiveDeclareTime(state, fighter, stats.time);
   fighter.itemHaste = 0; // banked discount is spent by this declare whether or not it changed the total
   const landedAtSlot = battle.marker - time;
@@ -339,6 +379,31 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   if (fighter.charId === 'Chrono' && choice.predictedBossMove) {
     fighter.predictedBossMove = choice.predictedBossMove;
   }
+
+  // ── v0.4.5 costs and grants, all on declare ──
+  // Same principle as the v0.4.0 costs above: the commitment is the turn, so a boss that kills the
+  // caster before the effect lands must not refund anything.
+  if (def.manaCost) fighter.mana -= def.manaCost;
+  if (focusSpent > 0) {
+    fighter.focus -= focusSpent;
+    battle.log.push({ t: 'FOCUS_CHANGED', playerId: fighter.playerId, amount: -focusSpent, total: fighter.focus });
+  }
+  if (def.focusGain) {
+    fighter.focus += def.focusGain;
+    battle.log.push({ t: 'FOCUS_CHANGED', playerId: fighter.playerId, amount: def.focusGain, total: fighter.focus });
+  }
+  if (def.manaGain) {
+    // Liora is capped; Luna is not. The cap is a property of *her* economy (three points of mana as
+    // a spell's charge level), not of mana itself, so it is applied here by character rather than
+    // baked into a shared grant helper that Luna's uncapped pool would then have to opt out of.
+    fighter.mana = fighter.charId === 'Liora' ? Math.min(V045_LIORA_MANA_MAX, fighter.mana + def.manaGain) : fighter.mana + def.manaGain;
+    battle.log.push({ t: 'MANA_GAINED', playerId: fighter.playerId, amount: def.manaGain, total: fighter.mana });
+  }
+  // Paid before the swing resolves below, so Berserk sees the HP Power Strike just cost him — a
+  // ⚡ immediate card that drops him under half HP boosts *its own* hit. That is deliberate: it is
+  // the mechanical statement of "pushing past the body's limit", and it is the reason the card is
+  // worth its cost at all.
+  if (def.selfHpCost) applyDamageToFighter(state, fighter, def.selfHpCost, { selfInflicted: true });
   // ❄️/💫 are spent by the declare they taxed, not by the clock — so the penalty lands exactly once.
   consumeTimeTaxAilments(state, fighter);
 
@@ -355,8 +420,29 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       };
       break;
     case 'buffMana':
-      fighter.mana = Math.min(3, fighter.mana + stats.primary!);
+      fighter.mana = Math.min(V045_LIORA_MANA_MAX, fighter.mana + stats.primary!);
       fighter.shield = { kind: 'mana', reduction: stats.secondary! };
+      break;
+    case 'buffShield': {
+      // v0.4.5 Aura Shield. Aura Charge's flat reduction, +1, castable on anyone — and it may be
+      // fed mana for +V045_AURASHIELD_DEF_PER_MANA each, which is the defensive half of Liora's
+      // ManaCharge passive. It writes `shield` on the *target*, so a shield already there is
+      // replaced rather than stacked; one personal shield at a time is the rule everywhere else too.
+      const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId)!;
+      const manaSpent = choice.manaSpent ?? 0;
+      // Charged here rather than through the `attackMana` case below, which this kind does not fall
+      // into. Same rule either way: paid on declare, never refunded (§5.1/§8).
+      fighter.mana = Math.max(0, fighter.mana - manaSpent);
+      const boosted = (stats.secondary ?? 0) + V045_AURASHIELD_DEF_PER_MANA * manaSpent;
+      target.shield = { kind: 'mana', reduction: boosted };
+      battle.log.push({ t: 'RESOLVE_BUFF', playerId: target.playerId, skillId });
+      break;
+    }
+    case 'manaGain':
+      // Praying. The grant itself already happened above (def.manaGain) — this case exists so the
+      // switch stays total over SkillKind and so the card logs as the deliberate, visible turn it
+      // is rather than passing silently.
+      battle.log.push({ t: 'RESOLVE_BUFF', playerId: fighter.playerId, skillId });
       break;
     case 'buffHaste': {
       // Chrono's Haste. Drags an ally's pawn back *up* the clock toward the marker so they are
@@ -436,7 +522,9 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
           `illegal Trap slot ${choice.trapSlot} for player ${fighter.playerId} at marker ${battle.marker} (legal: ${legal.join(',') || 'none'})`
         );
       }
-      battle.traps.push({ slot: choice.trapSlot, dmg: stats.primary!, ownerId: fighter.playerId });
+      // focusBonus rides the token, not Kit: the spring roll happens later, inside the boss's own
+      // action, by which time his pool has moved on.
+      battle.traps.push({ slot: choice.trapSlot, dmg: stats.primary!, ownerId: fighter.playerId, focusBonus: focusSpent });
       break;
     }
     case 'attackMana':
@@ -462,7 +550,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   // do when this fighter is next visited — it just frees the pawn.
   if (def.immediate) {
     if (def.kind === 'attack') resolveAttackHits(state, fighter, skillId, stats, def);
-    else if (def.kind === 'attackRoll') resolveAttackRoll(state, fighter, skillId, stats, rng);
+    else if (def.kind === 'attackRoll') resolveAttackRoll(state, fighter, skillId, stats, rng, focusSpent);
     fighter.pending.resolved = true;
   }
 
@@ -470,10 +558,39 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
   // non-damaging actions (Aura Charge is currently the only one) grants +1 mana, cap 3. Kept
   // separate from Aura Charge's own `buffMana` handling above (its primary is 0) so the passive
   // reads as what it is — an always-on trait, not a property baked into one specific card.
+  //
+  // Off in v0.4.5: the rework moves her mana source onto Mana Drain, a card that banks a point
+  // *while dealing damage* (def.manaGain, handled above). Leaving the passive on as well would mean
+  // Aura Shield paid her mana for protecting someone, which is exactly the "charging up is a dead
+  // turn that also happens to be free" shape the rework exists to remove.
   const DAMAGING_KINDS = new Set(['attack', 'attackGated', 'attackRoll', 'attackMana', 'multiHit']);
-  if (fighter.charId === 'Liora' && !DAMAGING_KINDS.has(def.kind)) {
-    fighter.mana = Math.min(3, fighter.mana + 1);
+  if (!hasV045Content(state.ruleset) && fighter.charId === 'Liora' && !DAMAGING_KINDS.has(def.kind)) {
+    fighter.mana = Math.min(V045_LIORA_MANA_MAX, fighter.mana + 1);
   }
+}
+
+/** v0.4.5 ❄️ Slow (Liora's Freeze). Rolls a plain d6 against the card's `slowRollTarget` and, on a
+ *  pass, pushes the boss's pawn V045_SLOW_BOSS_SLOTS further down the clock — it acts that many
+ *  slots later.
+ *
+ *  Moving the *pawn* rather than tagging the declared move is what makes this compose with
+ *  everything else for free: it stacks with Trap!'s delay, it survives the boss changing move, and
+ *  it needs no new state. Floored at 0 because a pawn below the board would never be visited again
+ *  — the boss would simply stop acting, which is a win condition, not a debuff.
+ *
+ *  Deliberately NOT routed through the v0.4.0 ailment system: those live on `Fighter.ailments` and
+ *  the boss is not a Fighter. A second, boss-side ailment table for one effect would cost more than
+ *  the two lines it saves. */
+function applySlowToBoss(state: GameState, fighter: Fighter, target: number, rng: RNG) {
+  const battle = state.battle!;
+  const die = rng.int(1, 6);
+  const success = die >= target;
+  battle.log.push({ t: 'ROLL', playerId: fighter.playerId, purpose: 'Freeze slow', die, target, success });
+  if (!success) return;
+  battle.bossSlot = Math.max(0, battle.bossSlot - V045_SLOW_BOSS_SLOTS);
+  battle.bossStackSeq = battle.nextStackSeq++;
+  battle.log.push({ t: 'BOSS_SLOWED', slots: V045_SLOW_BOSS_SLOTS, toSlot: battle.bossSlot });
+  onSlowLanded(state, fighter.playerId);
 }
 
 function rollTarget(state: GameState, fighter: Fighter, skillId: SkillId, baseTarget: number): number {
@@ -495,8 +612,8 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
     return;
   }
   const skillId = pending.skillId;
-  const def = SKILLS[skillId];
-  const stats = skillStats(skillId, isLv2(state, fighter, skillId));
+  const def = skillDefFor(skillId, state.ruleset);
+  const stats = skillStats(skillId, isLv2(state, fighter, skillId), state.ruleset);
 
   const dealAttack = (rawBase: number, ignoresArmor: boolean) => dealAttackFor(state, fighter, skillId, rawBase, ignoresArmor);
 
@@ -522,6 +639,12 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       const base = stats.primary! + stats.secondary! * manaSpent;
       // manaSpent is forwarded so liora2 ("fully charged cast") can see how much she committed.
       dealAttackFor(state, fighter, skillId, base, false, manaSpent);
+      // v0.4.5 Freeze: ❄️ Slow rides the spell rather than gating it, so a missed roll is still a
+      // full-damage cast. Rolled after the damage so a Freeze that finishes the boss doesn't also
+      // ask the corpse to be slowed.
+      if (def.slowRollTarget != null && battle.outcome === 'in_progress') {
+        applySlowToBoss(state, fighter, def.slowRollTarget, rng);
+      }
       break;
     }
     case 'multiHit': {
@@ -534,9 +657,11 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
       if (!target || !target.alive) {
         battle.log.push({ t: 'RESOLVE_HEAL', playerId: fighter.playerId, targetId: pending.targetPlayerId ?? -1, amount: 0, wasted: true });
       } else {
+        // Snapshot before healFighter mutates it — v0.4.5's luna1 asks how hurt the target *was*.
+        const hpBefore = target.hp;
         const amount = healFighter(target, stats.primary!);
         battle.log.push({ t: 'RESOLVE_HEAL', playerId: fighter.playerId, targetId: target.playerId, amount, wasted: false });
-        onHealResolved(state, fighter.playerId, target.playerId, amount);
+        onHealResolved(state, fighter.playerId, target.playerId, amount, hpBefore);
       }
       break;
     }
@@ -559,6 +684,19 @@ export function resolveFighterPending(state: GameState, fighter: Fighter, rng: R
     case 'buffMana': {
       if (fighter.shield?.kind === 'mana') fighter.shield = null;
       battle.log.push({ t: 'RESOLVE_BUFF', playerId: fighter.playerId, skillId });
+      break;
+    }
+    case 'buffShield': {
+      // The shield lives on whoever it was cast on, so that is who it has to be cleared from when
+      // Liora comes back around. Cleared only if it is still a mana shield — anything that replaced
+      // it in the meantime belongs to whoever put it there.
+      const target = battle.fighters.find((f) => f.playerId === pending.targetPlayerId);
+      if (target?.shield?.kind === 'mana') target.shield = null;
+      battle.log.push({ t: 'RESOLVE_BUFF', playerId: fighter.playerId, skillId });
+      break;
+    }
+    case 'manaGain': {
+      // Praying resolved entirely at declare — reaching her next visit just frees the pawn.
       break;
     }
     case 'guard': {
@@ -612,7 +750,7 @@ export function springTrapOnBoss(state: GameState, rng: RNG): boolean {
   // Springing it is automatic; whether it actually cuts is a roll (Kit's Skill Improvement passive,
   // not the old per-battle ladder). A miss means no damage AND no cancel — it fired too weakly.
   const owner = battle.fighters.find((f) => f.playerId === trap.ownerId)!;
-  if (!rollLadder(state, owner, 'Trap', 'Trap trigger', rng)) {
+  if (!rollLadder(state, owner, 'Trap', 'Trap trigger', rng, trap.focusBonus ?? 0)) {
     battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: 0, ownerId: trap.ownerId });
     return false;
   }
@@ -723,7 +861,7 @@ export function resolveQueuedCounter(state: GameState, fighter: Fighter, counter
   // fighter actually has (Eric's Counter Attack, Dax's Riposte, ...) instead of assuming Eric's.
   // Previously hardcoded to 'CounterAttack' always, which would have mislabeled Dax's ripostes in
   // the log/UI and made a Riposte-specific score condition unreachable.
-  const counterSkillId = CHARACTERS[fighter.charId].skills.find((sid) => SKILLS[sid].kind === 'buffCounter') ?? 'CounterAttack';
+  const counterSkillId = charSkills(fighter.charId, state.ruleset).find((sid) => SKILLS[sid].kind === 'buffCounter') ?? 'CounterAttack';
   const outgoing = computeOutgoingPlayerDamage(battle, counterDmg, fighter.playerId);
   const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor: false, skillId: counterSkillId });
   onPlayerDealtDamage(state, fighter.playerId, counterSkillId, result.effective);

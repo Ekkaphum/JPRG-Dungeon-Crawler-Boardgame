@@ -19,7 +19,7 @@ export type DeclareRoute =
   /** Needs a follow-up choice; `picker` names the branch the panel must render for it. */
   | { kind: 'picker'; picker: DeclarePicker };
 
-export type DeclarePicker = 'mana' | 'guardTarget' | 'healTarget' | 'trapSlot' | 'hasteTarget' | 'raiseTarget' | 'deathCoilCost';
+export type DeclarePicker = 'mana' | 'guardTarget' | 'healTarget' | 'trapSlot' | 'hasteTarget' | 'raiseTarget' | 'deathCoilCost' | 'shieldTarget';
 
 /** Every picker the panel implements. Kept next to the routing so the test can hold the two to
  *  each other rather than trusting a comment. */
@@ -31,6 +31,7 @@ export const IMPLEMENTED_PICKERS: DeclarePicker[] = [
   'hasteTarget',
   'raiseTarget',
   'deathCoilCost',
+  'shieldTarget',
 ];
 
 export function declareRoute(skillId: SkillId, kind: SkillKind): DeclareRoute {
@@ -50,7 +51,13 @@ export function declareRoute(skillId: SkillId, kind: SkillKind): DeclareRoute {
     // and Rewind takes no target at all — neither has anything left to ask.
     case 'buffStealth':
     case 'rewind':
+    // v0.4.5: Praying takes no target and no amount — the mana it grants is fixed by the card.
+    case 'manaGain':
       return { kind: 'submit' };
+    // v0.4.5 Aura Shield asks two things at once (who, and how much mana to pour in), so its picker
+    // renders both rows together rather than being split into two steps.
+    case 'buffShield':
+      return { kind: 'picker', picker: 'shieldTarget' };
     case 'attackMana':
       return { kind: 'picker', picker: 'mana' };
     case 'guard':

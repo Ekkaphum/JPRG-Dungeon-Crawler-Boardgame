@@ -1,11 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { ALL_CHAR_IDS, CHARACTERS } from '@content/characters';
+import { ALL_CHAR_IDS, charSkills } from '@content/characters';
 import { ACTION_EFFECT_SPRITES, actionEffectSpriteUrl } from '@ui/common/ActionEffect';
 
 describe('action effect sprite strips', () => {
-  const everySkill = ALL_CHAR_IDS.flatMap((charId) => CHARACTERS[charId].skills);
+  // Both rulesets' kits: v0.4.5 gives three of the four core characters different cards, and every
+  // card a player can actually be dealt needs its own strip regardless of which ruleset dealt it.
+  const everySkill = [
+    ...new Set(ALL_CHAR_IDS.flatMap((charId) => [...charSkills(charId, 'v0.3'), ...charSkills(charId, 'v0.4')])),
+  ];
 
   it('assigns one unique effect sheet to every playable action', () => {
     expect(Object.keys(ACTION_EFFECT_SPRITES).sort()).toEqual([...everySkill].sort());

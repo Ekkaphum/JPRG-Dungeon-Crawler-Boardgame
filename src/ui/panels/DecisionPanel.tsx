@@ -8,6 +8,9 @@ import {
   SHADOW_PER_ASSASSINATE,
   SKILLS,
   SOULS_PER_DEATH_COIL,
+  V045_AURASHIELD_DEF_PER_MANA,
+  charSkills,
+  skillDefFor,
   skillStats,
 } from '@content/characters';
 import { landSlotDisplay } from '@content/eventText';
@@ -113,14 +116,22 @@ function DeclareActionPanel({
   // Items are a free action taken before the declare, so they are collected here and merged into
   // whatever card is finally played — one submission, no extra turn step.
   const [useItems, setUseItems] = useState<ItemId[]>([]);
+  // v0.4.5, Kit only. Orthogonal to which card is played — exactly like Chrono's prediction above —
+  // so it is held here and merged into whatever gets submitted, rather than becoming an extra step
+  // inside Sharp Shooting's and Trap!'s already-multi-step flows.
+  const [focusSpent, setFocusSpent] = useState(0);
+  // How much mana Aura Shield pours in. Local to that picker, cleared with it.
+  const [shieldMana, setShieldMana] = useState(0);
   const player = state.players.find((p) => p.id === decision.playerId)!;
-  const def = CHARACTERS[decision.options.charId];
   const battle = state.battle!;
   const fighter = battle.fighters.find((f) => f.playerId === decision.playerId)!;
+  const kit = charSkills(decision.options.charId, state.ruleset);
+  const skillFor = (sid: SkillId) => skillDefFor(sid, state.ruleset);
   const isLv2 = (sid: SkillId) => !!state.progress[decision.playerId]?.isLv2[sid];
 
   const submit = (choice: Choice) => {
     setSkillId(null);
+    setShieldMana(0);
     const withPrediction: Choice =
       prediction && choice.kind === 'DECLARE_ACTION' && player.charId === 'Chrono'
         ? { ...choice, predictedBossMove: prediction }
@@ -131,11 +142,20 @@ function DeclareActionPanel({
         ? { ...withPrediction, useItems: useItems.map((itemId) => ({ itemId, targetPlayerId: decision.playerId })) }
         : withPrediction;
     setUseItems([]);
-    session.submitHumanChoice(decision.playerId, withItems);
+    // Attached only to a card that can actually take it — the engine rejects Focus on anything else
+    // outright, so silently forwarding a stale amount would turn a leftover UI selection into a
+    // thrown declare.
+    const withFocus: Choice =
+      focusSpent > 0 && withItems.kind === 'DECLARE_ACTION' && skillFor(withItems.skillId).focusSpendable
+        ? { ...withItems, focusSpent }
+        : withItems;
+    setFocusSpent(0);
+    session.submitHumanChoice(decision.playerId, withFocus);
   };
 
   const held = state.progress[decision.playerId]?.items ?? [];
   const skillKind = skillId ? SKILLS[skillId].kind : null;
+  const manaAvailable = Math.min(fighter.mana, decision.options.maxManaSpend);
 
   return (
     <div className="decision-board gold-frame rounded-lg p-3">
@@ -186,9 +206,27 @@ function DeclareActionPanel({
         </div>
       )}
 
+      {/* v0.4.5 Kit only. Shown whenever he is holding Focus, because which card he wants to spend
+          it on is a decision he makes *before* picking the card — the two dice cards are worth
+          reaching for precisely when he can pay to make them land. */}
+      {fighter.focus > 0 && (
+        <div className="decision-extras flex gap-2 flex-wrap items-center text-xs">
+          <span className="text-gold-dim">{t('decision.focusSpend', { n: fighter.focus })}</span>
+          {Array.from({ length: fighter.focus + 1 }, (_, n) => (
+            <button
+              key={n}
+              onClick={() => setFocusSpent(n)}
+              className={`gold-frame rounded px-2 py-1 ${focusSpent === n ? 'bg-gold/30 text-gold-bright' : 'hover:bg-gold/10'}`}
+            >
+              {n === 0 ? '—' : `+${n}`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!skillId && (
         <div className="skill-grid">
-          {def.skills.map((sid) => {
+          {kit.map((sid) => {
             // Trap! needs at least one free slot inside its own ⏱ window, and Guard needs a
             // living ally other than the caster — otherwise the picker would open with nothing
             // to choose.
@@ -204,8 +242,12 @@ function DeclareActionPanel({
               (SKILLS[sid].kind === 'raise' && !hasDownedAlly) ||
               (sid === 'Rewind' && fighter.sand < SAND_PER_REWIND) ||
               (sid === 'Assassinate' && fighter.shadow < SHADOW_PER_ASSASSINATE) ||
-              (sid === 'DeathCoil' && fighter.souls < SOULS_PER_DEATH_COIL);
-            const stats = skillStats(sid, isLv2(sid));
+              (sid === 'DeathCoil' && fighter.souls < SOULS_PER_DEATH_COIL) ||
+              // v0.4.5 costs. Same reason as the v0.4.0 gates above: declaring without them throws
+              // out of declareSkill, which the player sees as the panel doing nothing at all.
+              (skillFor(sid).manaCost != null && fighter.mana < skillFor(sid).manaCost!) ||
+              (skillFor(sid).selfHpCost != null && fighter.hp <= skillFor(sid).selfHpCost!);
+            const stats = skillStats(sid, isLv2(sid), state.ruleset);
             // Same landing slot the boss's own pending-move readout and the party stat bar already
             // show for things already declared — surfacing it here too lets a player line their
             // pick up against what's already on the board before committing to it, instead of only
@@ -222,7 +264,7 @@ function DeclareActionPanel({
                   // Routing lives in declareRouting.ts and is exhaustive over SkillKind, so a new
                   // kind cannot silently fall through to a picker that was never written — which is
                   // precisely how Haste/Smoke Bomb/Rewind/Raise Dead shipped as dead buttons.
-                  const route = declareRoute(sid, SKILLS[sid].kind);
+                  const route = declareRoute(sid, skillFor(sid).kind);
                   if (route.kind === 'submit') submit({ kind: 'DECLARE_ACTION', skillId: sid });
                   else setSkillId(sid);
                 }}
@@ -250,6 +292,48 @@ function DeclareActionPanel({
           onPick={(m) => submit({ kind: 'DECLARE_ACTION', skillId, manaSpent: m })}
           onCancel={() => setSkillId(null)}
         />
+      )}
+
+      {/* v0.4.5 Aura Shield. Both questions in one row rather than two steps: how much mana is worth
+          pouring in depends entirely on who it is going on, so splitting them would ask the player
+          to commit to one before seeing the other. Each target button carries the shield value it
+          would actually apply at the currently selected mana. */}
+      {skillId && skillKind === 'buffShield' && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex gap-2 flex-wrap items-center">
+            <span className="text-xs text-gold-dim">{t('decision.mana')}</span>
+            {Array.from({ length: manaAvailable + 1 }, (_, m) => (
+              <button
+                key={m}
+                onClick={() => setShieldMana(m)}
+                className={`gold-frame rounded px-3 py-1 text-sm ${shieldMana === m ? 'bg-gold/30 text-gold-bright' : 'hover:bg-gold/10'}`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2 flex-wrap items-center">
+            <span className="text-xs text-gold-dim">{t('decision.shieldTarget')}</span>
+            {battle.fighters
+              .filter((f) => f.alive)
+              .map((f) => {
+                const p = state.players.find((pp) => pp.id === f.playerId)!;
+                const reduction = (skillStats(skillId, isLv2(skillId), state.ruleset).secondary ?? 0) + V045_AURASHIELD_DEF_PER_MANA * shieldMana;
+                return (
+                  <button
+                    key={f.playerId}
+                    onClick={() => submit({ kind: 'DECLARE_ACTION', skillId, targetPlayerId: f.playerId, manaSpent: shieldMana })}
+                    className="gold-frame rounded px-2 py-1 text-xs hover:bg-gold/10"
+                  >
+                    {p.name} ({f.hp}/{f.maxHp}) · Def +{reduction}
+                  </button>
+                );
+              })}
+            <button onClick={() => setSkillId(null)} className="text-xs text-gold-dim underline">
+              {t('common.close')}
+            </button>
+          </div>
+        </div>
       )}
 
       {skillId && skillKind === 'guard' && (
@@ -308,7 +392,7 @@ function DeclareActionPanel({
               // Same clamp the engine applies, so the preview can never promise a move that will
               // not happen. An ally already sitting on the marker is being visited this very tick,
               // so there is no earlier slot to pull them to — offering it would be a dead click.
-              const to = Math.min(battle.marker - 1, f.slot + (skillStats(skillId, isLv2(skillId)).primary ?? 0));
+              const to = Math.min(battle.marker - 1, f.slot + (skillStats(skillId, isLv2(skillId), state.ruleset).primary ?? 0));
               const noGain = to <= f.slot;
               return (
                 <button
@@ -359,14 +443,14 @@ function DeclareActionPanel({
             onClick={() => submit({ kind: 'DECLARE_ACTION', skillId, payHp: false })}
             className="gold-frame rounded px-2 py-1 text-xs hover:bg-gold/10"
           >
-            {skillStats('DeathCoil', isLv2('DeathCoil')).primary}
+            {skillStats('DeathCoil', isLv2('DeathCoil'), state.ruleset).primary}
           </button>
           <button
             disabled={fighter.hp <= DEATH_COIL_HP_COST}
             onClick={() => submit({ kind: 'DECLARE_ACTION', skillId, payHp: true })}
             className="gold-frame rounded px-2 py-1 text-xs hover:bg-gold/10 disabled:opacity-30"
           >
-            {skillStats('DeathCoil', isLv2('DeathCoil')).secondary} (−{DEATH_COIL_HP_COST} HP)
+            {skillStats('DeathCoil', isLv2('DeathCoil'), state.ruleset).secondary} (−{DEATH_COIL_HP_COST} HP)
           </button>
           <button onClick={() => setSkillId(null)} className="text-xs text-gold-dim underline">
             {t('common.close')}

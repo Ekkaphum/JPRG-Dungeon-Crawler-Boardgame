@@ -3,7 +3,17 @@
 // per skill.
 
 import { BOSSES } from '@content/bosses3';
-import { SOULS_PER_POINT, SOUL_HP_LOSS_THRESHOLD, CHARACTERS, LAST_SHOT_CONDITION_ID, LUNA1_ALLY_SCORES_PER_POINT, scorePoints, type SkillId } from '@content/characters';
+import {
+  SOULS_PER_POINT,
+  SOUL_HP_LOSS_THRESHOLD,
+  CHARACTERS,
+  LAST_SHOT_CONDITION_ID,
+  LUNA1_ALLY_SCORES_PER_POINT,
+  V045_LUNA_MANA_PER_BOSS_DAMAGE,
+  scorePoints,
+  type SkillId,
+} from '@content/characters';
+import { STABLE_RULESET, hasV045Content, type RulesetVersion } from '@content/rulesets';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
 /** Berserk's threshold (@content/characters PASSIVES.Eric) — always-on, checked here rather than
@@ -14,13 +24,18 @@ const BERSERK_HP_THRESHOLD = 7;
 /** Outgoing damage a player deals to the boss: base + party Blessing atk buff + weak-point bonus +
  *  Eric's Berserk passive.
  *  "ทุกคน" buffs never apply to the boss (GAME_DESIGN_v0_3_0.md §5.1) so this is player-only. */
-export function computeOutgoingPlayerDamage(battle: BattleState, base: number, attackerId?: number): number {
+export function computeOutgoingPlayerDamage(battle: BattleState, base: number, attackerId?: number, ruleset: RulesetVersion = STABLE_RULESET): number {
   let dmg = base;
   if (battle.partyBuff) dmg += battle.partyBuff.atk;
   if (battle.weakPoint) dmg += 4;
   if (attackerId != null) {
     const attacker = battle.fighters.find((f) => f.playerId === attackerId);
-    if (attacker?.charId === 'Eric' && attacker.alive && attacker.hp < BERSERK_HP_THRESHOLD) dmg += 4;
+    // v0.4.5 restates the threshold as "below half your maximum" instead of the flat 7. At Eric's
+    // 16 HP that is 8, so the trigger point moves by one — but it now means the same thing on any
+    // future HP total, and it lines up with everDroppedBelowHalfThisBattle, which the UI already
+    // draws a line at.
+    const berserkBar = hasV045Content(ruleset) ? attacker && attacker.maxHp / 2 : BERSERK_HP_THRESHOLD;
+    if (attacker?.charId === 'Eric' && attacker.alive && berserkBar != null && attacker.hp < berserkBar) dmg += 4;
     // v0.5 Power Elixir: one flat bump, spent by the hit it lands on.
     if (attacker && attacker.itemAtkBonus > 0) {
       dmg += attacker.itemAtkBonus;
@@ -74,6 +89,12 @@ export function applyDamageToBoss(
   if (opts.countsAsAttack ?? true) {
     if (attacker) attacker.attackCountThisBattle += 1;
   }
+
+  // v0.4.5 — Luna's Divine Tithe. Keyed on damage the *party* does, not on Luna's own: she has
+  // almost no damage of her own by design, so keying it to her output would fire it about once a
+  // battle. Sited here rather than in a scoring hook because it must catch every source, traps and
+  // counter-strikes included — the passive is about evil being undone, not about who swung.
+  grantDivineTithe(state, effective);
 
   if (battle.bossHp <= 0 && battle.finishedBy === null) {
     battle.finishedBy = attackerId;
@@ -138,6 +159,31 @@ export function applyDamageToFighter(
   return dmg;
 }
 
+/** v0.4.5 — Luna's Divine Tithe: every V045_LUNA_MANA_PER_BOSS_DAMAGE points of boss HP the party
+ *  removes hands her 1 mana. The remainder is carried on her fighter rather than recomputed from
+ *  total damage, so a mid-battle save/replay can never pay the same threshold twice, and a single
+ *  huge hit correctly grants several points at once. */
+function grantDivineTithe(state: GameState, effectiveDamage: number) {
+  if (effectiveDamage <= 0 || !hasV045Content(state.ruleset)) return;
+  const battle = state.battle!;
+  const luna = battle.fighters.find((f) => f.charId === 'Luna');
+  // Dead is fine — the tithe is the world paying her, not an action she takes, and a cleric who
+  // revives to an empty pool would just be punished twice for having gone down.
+  if (!luna) return;
+  // Judged per hit, with no carry: a swing worth less than the bar pays nothing and is *not*
+  // remembered, and the change left over from one that clears it is lost rather than banked toward
+  // the next. This is the whole character of the passive — it answers to single decisive blows, not
+  // to accumulated chip damage, which is what keeps a cleric with no damage of her own from being
+  // funded simply by the battle lasting a while. It also makes her economy legible at the table:
+  // you can see whether a hit paid her by looking at that one hit.
+  const gained = Math.floor(effectiveDamage / V045_LUNA_MANA_PER_BOSS_DAMAGE);
+  if (gained <= 0) return;
+  // Uncapped on purpose (see V045_LUNA_START_MANA): the pool is wiped between battles, so banking
+  // is a bet on this fight running long rather than a stockpile carried into the next one.
+  luna.mana += gained;
+  battle.log.push({ t: 'MANA_GAINED', playerId: luna.playerId, amount: gained, total: luna.mana });
+}
+
 /** Morvane's soul counter, and the count-and-exchange payout that rides it. Every SOULS_PER_POINT
  *  souls scores morvane1 once — `soulsScored` tracks what has already been paid so the pile is not
  *  re-scored each time it grows. */
@@ -182,6 +228,9 @@ export function killFighter(state: GameState, fighter: Fighter) {
     }
   }
   state.deathCounts[fighter.playerId] = (state.deathCounts[fighter.playerId] ?? 0) + 1;
+  // v0.4.5 luna3 reads this per-battle count rather than the per-fighter flag, because its payout
+  // slopes: a fighter who dies, revives and dies again must cost her twice.
+  battle.deathsThisBattle += 1;
   fighter.pending = null;
   fighter.shield = null;
   // Death cancels the entire unfinished Multi Shot. Hits that already fired stay fired; every
@@ -263,12 +312,17 @@ export function pushScore(state: GameState, entry: Omit<ScoreEntry, 'atSlot' | '
   // shared bonuses (Last Shot, the leftover-clock time bonus), which are not anyone's *play*: they
   // are handed out by the rules, and counting them would pay her three extra points at the buzzer
   // for having done nothing.
+  //
+  // v0.4.5 takes luna1 off this path entirely — it now rides Heal again (onHealResolved in
+  // scoring.ts) with a 30%-HP bar on the target. The echo's frequency was the party's scoring rate,
+  // which is not something Luna plays for or can read, so no rate on it was ever stably correct.
+  if (hasV045Content(state.ruleset)) return;
   if (LUNA1_IGNORES.includes(entry.conditionId)) return;
   const luna = state.players.find((p) => p.charId === 'Luna');
   if (!luna || luna.id === entry.playerId) return;
   battle.allyScoresForLuna += 1;
   if (battle.allyScoresForLuna % LUNA1_ALLY_SCORES_PER_POINT !== 0) return;
-  pushScore(state, { playerId: luna.id, conditionId: 'luna1', points: scorePoints('luna1') });
+  pushScore(state, { playerId: luna.id, conditionId: 'luna1', points: scorePoints('luna1', state.ruleset) });
 }
 
 export function currentTotalScore(state: GameState, playerId: number): number {

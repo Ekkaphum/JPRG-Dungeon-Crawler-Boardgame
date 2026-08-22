@@ -100,7 +100,10 @@ export interface Fighter {
   pending: PendingAction | null;
   /** Dice-ladder attempt counter per skill, resets every battle (§5.2). */
   rollAttempt: Partial<Record<SkillId, number>>;
-  mana: number; // Liora only, 0..3
+  /** Liora, 0..V045_LIORA_MANA_MAX. In the v0.4.5 ruleset Luna also runs on this field, uncapped
+   *  and opening at V045_LUNA_START_MANA — one resource field, two economies, so nothing downstream
+   *  (UI, save format, bots) needs a second concept. */
+  mana: number;
   shield: Shield | null;
   /** Set the instant this fighter dies; cleared on revival. null once revival slot is computed
    *  but not yet reached is NOT how this works — see BattleState.deadWaiting below instead. */
@@ -178,12 +181,30 @@ export interface Fighter {
   /** Permanents in play, copied from PlayerProgress at battle setup so the damage/revival paths can
    *  read them without reaching back into progress. */
   itemPermanents: ItemId[];
+
+  // ─────────────── v0.4.5 rework ───────────────
+  // Inert in the v0.3 ruleset, exactly like the v0.4.0 block above: nothing writes to them unless
+  // hasV045Content() is true. On Fighter rather than in a side map for the same reason — no read
+  // site should have to branch on ruleset just to look at a fighter.
+
+  /** Kit's Focus. Banked 1 per Sighting Shot, spent 1-for-1 as a flat bonus on Sharp Shooting's and
+   *  Trap!'s d6. Uncapped: each point already cost a whole ⏱2 turn, which is price enough. */
+  focus: number;
+  /** eric2 in the rework: how many times Guard has moved a hit off an ally onto this fighter this
+   *  battle. Counted rather than scored per event — the condition is now a once-per-battle threshold
+   *  (V045_ERIC_GUARD_SAVES_BAR), which is what stops it inflating with boss activity the way the
+   *  uncapped v0.3 version did. */
+  guardRedirectsThisBattle: number;
 }
 
 export interface TrapToken {
   slot: number;
   dmg: number;
   ownerId: PlayerId;
+  /** v0.4.5: Focus Kit committed at declare, added to the spring roll. Carried on the token because
+   *  the roll happens much later — inside the boss's action, when the boss stops on this slot — and
+   *  Kit's Focus pool has moved on by then. */
+  focusBonus?: number;
 }
 
 /** Kit's Multi Shot (kind: 'multiHit'): extra hits scheduled at declare time, fired without a roll
@@ -254,6 +275,14 @@ export type ClockLogEvent =
   | { t: 'STEALTH_BROKEN'; playerId: PlayerId }
   /** Morvane gained souls (from his own wounds, or from anyone going down). */
   | { t: 'SOULS_GAINED'; playerId: PlayerId; amount: number; total: number }
+  // ── v0.4.5 ──
+  /** Liora's Freeze landed ❄️ Slow: the boss's pawn was pushed `slots` further down the clock. */
+  | { t: 'BOSS_SLOWED'; slots: number; toSlot: number }
+  /** Mana banked from any source (Mana Drain, Praying, Luna's Divine Tithe). `total` is the pool
+   *  after the gain, so the log alone is enough to audit an economy the sim cannot price. */
+  | { t: 'MANA_GAINED'; playerId: PlayerId; amount: number; total: number }
+  /** Kit banked or spent Focus. `amount` is signed — negative when it was paid into a roll. */
+  | { t: 'FOCUS_CHANGED'; playerId: PlayerId; amount: number; total: number }
   | { t: 'MARKER_TICK'; marker: number }
   | { t: 'BATTLE_END'; outcome: 'boss_defeated' | 'clock_ran_out' | 'party_wiped'; finishedBy: PlayerId | null; expGranted: number };
 
@@ -289,6 +318,11 @@ export interface BattleState {
    *  resets each boss, matching kit3's per-battle count — at the table this is a small pile of cubes
    *  on her card that she cashes in fours. */
   allyScoresForLuna: number;
+  /** v0.4.5 luna3: how many times *anyone* has gone down this battle. A count, not the per-fighter
+   *  `everDiedThisBattle` flag, because the rework's luna3 slopes — each death costs 2 points — so a
+   *  fighter who dies, revives and dies again has to cost twice. Reset every battle by prepareBattle,
+   *  which is what distinguishes it from GameState.deathCounts (cumulative, for end-of-game stats). */
+  deathsThisBattle: number;
   finishedBy: PlayerId | null;
   finishedBySkill: SkillId | null;
   nextStackSeq: number;
@@ -382,6 +416,9 @@ export type Choice =
       payHp?: boolean;
       /** Chrono only: his call on the boss's next move, scored by chrono1 when the boss acts. */
       predictedBossMove?: 'A' | 'B' | 'C';
+      /** v0.4.5, Kit only: Focus committed to this card's dice check, +1 to the die per point.
+       *  Rejected by declareSkill unless the card is `focusSpendable` and he actually holds it. */
+      focusSpent?: number;
     }
   | { kind: 'CHOOSE_CHARACTER'; charId: CharId }
   | { kind: 'PLACE_EXP'; allocations: { skillId: SkillId; count: number }[] }

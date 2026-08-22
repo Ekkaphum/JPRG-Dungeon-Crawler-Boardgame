@@ -1,10 +1,14 @@
 import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
+import { useAppStore as useLangStore } from '@session/store';
 import type { Difficulty } from '@content/difficulty';
 import { RULESETS, rulesetDef, type RulesetVersion } from '@content/rulesets';
 
 export function SetupScreen() {
   const t = useT();
+  // The ruleset entries carry their own th/en text (they are content, not i18n keys), so this screen
+  // has to pick the side itself — it was hardcoded to .th and showed Thai to English players.
+  const lang = useLangStore((s) => s.settings.lang);
   const {
     players,
     difficulty,
@@ -81,13 +85,13 @@ export function SetupScreen() {
                 >
                   <div className="flex items-baseline gap-2">
                     <strong className="text-sm">{def.label}</strong>
-                    <span className="text-xs">{def.name.th}</span>
+                    <span className="text-xs">{def.name[lang]}</span>
                     {def.experimental && <span className="version-warn text-[11px]">⚠️</span>}
                   </div>
-                  <div className="text-[11px] mt-0.5 opacity-90">{def.desc.th}</div>
+                  <div className="text-[11px] mt-0.5 opacity-90">{def.desc[lang]}</div>
                   <ul className="text-[11px] mt-1 opacity-80 list-disc list-inside">
                     {def.highlights.map((h) => (
-                      <li key={h.th}>{h.th}</li>
+                      <li key={h.th}>{h[lang]}</li>
                     ))}
                   </ul>
                 </button>

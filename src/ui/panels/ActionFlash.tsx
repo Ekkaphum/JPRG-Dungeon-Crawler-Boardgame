@@ -17,6 +17,9 @@ const TONE: Record<FlashTone, string> = {
  *  the parent must be `relative`; pointer events pass straight through. */
 export function ActionFlash({ flash, bossId }: { flash: Flash | null; bossId: BossId }) {
   const lang = useAppStore((s) => s.settings.lang);
+  // The flash is the most-read text in the game and it was quoting STABLE_RULESET numbers in every
+  // v0.4.5 match — the default skillBriefText falls back to, since this call never passed a ruleset.
+  const ruleset = useAppStore((s) => s.ruleset);
   if (!flash) return null;
 
   let title = '';
@@ -29,7 +32,7 @@ export function ActionFlash({ flash, bossId }: { flash: Flash | null; bossId: Bo
     detail = move.desc[lang];
   } else if (flash.source === 'skill') {
     title = SKILLS[flash.skillId].name[lang];
-    detail = skillBriefText(flash.skillId, flash.isLv2, lang);
+    detail = skillBriefText(flash.skillId, flash.isLv2, lang, ruleset);
   } else {
     title = `🎲 ${flash.die}`;
     if (flash.moveKey) {

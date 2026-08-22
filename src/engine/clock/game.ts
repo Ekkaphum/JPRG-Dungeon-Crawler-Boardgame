@@ -1,4 +1,4 @@
-import { CHARACTERS } from '@content/characters';
+import { charSkills } from '@content/characters';
 import type { RNG } from '../rng';
 import { runDraft, prepareBattle } from './setup';
 import { runClockBattle } from './walk';
@@ -11,12 +11,13 @@ function* runExpPlacement(state: GameState): Generator<PendingDecision, void, Ch
   for (const p of state.players) {
     const prog = state.progress[p.id];
     if (prog.bankedExp <= 0) continue;
-    const charDef = CHARACTERS[p.charId];
+    // charSkills(), not CHARACTERS[…].skills: the v0.4.5 ruleset hands three of the four core
+    // characters a different kit, and EXP has to be placeable on the cards they are actually holding.
     const choice = yield {
       kind: 'PLACE_EXP',
       playerId: p.id,
       bankedExp: prog.bankedExp,
-      skills: charDef.skills,
+      skills: charSkills(p.charId, state.ruleset),
       expOnCard: { ...prog.expOnCard },
     };
     if (choice.kind !== 'PLACE_EXP') throw new Error(`expected PLACE_EXP for player ${p.id}`);

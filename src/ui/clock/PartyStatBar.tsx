@@ -16,6 +16,12 @@ function resourcePip(charId: CharId, f: Fighter): string {
   switch (charId) {
     case 'Liora':
       return `💧${f.mana}`;
+    // v0.4.5 gives Kit and Luna resources of their own. Both read 0 in the v0.3 ruleset — nothing
+    // there ever writes to them — so the pip is hidden rather than showing a permanent zero.
+    case 'Kit':
+      return f.focus > 0 ? `🎯${f.focus}` : '';
+    case 'Luna':
+      return f.mana > 0 ? `💧${f.mana}` : '';
     case 'Chrono':
       return `⏳${f.sand}`;
     case 'Kage':

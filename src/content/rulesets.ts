@@ -48,18 +48,27 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
     // 2a6ca31 reused the number for a far larger change — the whole camp. Two different rulesets
     // answering to one label is unusable for anything that has to reference a version later, so the
     // camp round takes the next number and the fix keeps the one it shipped with.
-    label: 'v0.4.2',
+    // v0.4.5 folds in the character rework (Eric/Kit/Liora/Luna re-cut for the experimental track).
+    label: 'v0.4.5',
     experimental: true,
     name: { th: 'ทดลอง', en: 'Experimental' },
+    // Split deliberately into "measured" and "unmeasured" rather than the blanket "not balance-
+    // tested" this said before v0.4.5. The four core characters now have 1,500 hard games behind
+    // them and land within 1.2 points of each other; Chrono/Kage/Morvane still have none, because
+    // the sim cannot price sand, shadow, souls, stealth or a marker rewind at all. Telling a player
+    // both halves are untested is as wrong as telling them both are tuned.
     desc: {
-      th: 'ตัวละครใหม่ 3 ตัว (เฉพาะผู้เล่นจริง) · สถานะผิดปกติจากท่าบอส · ค่ายพักระหว่างบอส — ยังไม่ผ่านการวัดสมดุล',
-      en: 'Adds 3 new characters (human seats only), boss-inflicted ailments, and a camp between bosses. Not balance-tested.',
+      th: 'รื้อสกิล 4 ตัวหลักใหม่ทั้งชุด · ตัวละครใหม่ 3 ตัว (เฉพาะผู้เล่นจริง) · สถานะผิดปกติจากท่าบอส · ค่ายพักระหว่างบอส',
+      en: 'The four core characters re-cut, plus 3 new characters (human seats only), boss-inflicted ailments, and a camp between bosses.',
     },
     highlights: [
-      { th: 'Chrono · Kage · Morvane — บอทเลือกไม่ได้', en: 'Chrono · Kage · Morvane — bots cannot draft them' },
-      { th: 'ท่าบอสติดสถานะผิดปกติ · บอสมีเผ่า/ธาตุ/ขนาด', en: 'Boss moves inflict ailments; bosses gain race, element, size' },
-      { th: 'ค่ายพักระหว่างบอส — ได้เจม ซื้อไอเทม อัปสกิล หรือแลกเป็นแต้ม', en: 'A camp between bosses — earn gems, buy items, upgrade skills, or convert to points' },
-      { th: 'ไอเทมใช้เป็น free action ในตาตัวเอง ไม่เสีย ⏱ · เจมไม่ทบข้ามค่าย', en: 'Items are a free action on your visit — no ⏱; gems never carry between camps' },
+      { th: '⚔️ Eric — Slash/Power Strike แรงขึ้น · Power Strike เสีย HP ตัวเอง 1 ทุกครั้ง · Berserk เข้าที่ต่ำกว่าครึ่งของ HP สูงสุด', en: '⚔️ Eric — Slash and Power Strike hit harder; Power Strike costs 1 of his own HP a swing; Berserk now triggers below half max HP' },
+      { th: '🎯 Kit — Sighting Shot เก็บ Focus · จ่าย Focus บวกแต้มเต๋าของ Sharp Shooting / Trap! ได้', en: '🎯 Kit — Sighting Shot banks Focus; spend it to raise the d6 on Sharp Shooting or Trap!' },
+      { th: '❄️ Liora — Mana Drain ตีพร้อมเก็บมานา · Freeze ทำบอสช้า · Aura Shield ให้เกราะเพื่อนได้', en: '❄️ Liora — Mana Drain deals damage and banks mana; Freeze can Slow the boss; Aura Shield can be cast on anyone' },
+      { th: '✨ Luna — เดินด้วยมานา: Holy Smite ทะลุเกราะ · Praying เติมมานา · Heal จ่ายมานา · ตีบอสแรงๆ ได้มานาคืน', en: '✨ Luna — runs on mana: Holy Smite ignores armor, Praying refills, Heal costs mana, and heavy hits on the boss tithe it back' },
+      { th: 'Chrono · Kage · Morvane — บอทเลือกไม่ได้ · ท่าบอสติดสถานะผิดปกติ · บอสมีเผ่า/ธาตุ/ขนาด', en: 'Chrono · Kage · Morvane — bots cannot draft them · boss moves inflict ailments · bosses gain race, element, size' },
+      { th: 'ค่ายพักระหว่างบอส — ได้เจม ซื้อไอเทม อัปสกิล หรือแลกเป็นแต้ม · ไอเทมใช้ฟรี ไม่เสีย ⏱ · เจมไม่ทบข้ามค่าย', en: 'A camp between bosses — gems, items, skill upgrades or points · items are a free action, no ⏱ · gems never carry over' },
+      { th: '📊 4 ตัวหลักผ่าน sim แล้ว (1,500 เกม hard — คะแนนห่างกันไม่เกิน 1.2) · 3 ตัวใหม่ยังไม่เคยวัด', en: '📊 The four core characters are sim-measured (1,500 hard games, within 1.2 points of each other); the 3 new ones are not' },
     ],
   },
 };
@@ -80,5 +89,18 @@ export function hasV040Content(v: RulesetVersion): boolean {
  *  being built. Kept as a predicate rather than an inline `=== 'v0.4'` so a later ruleset that drops
  *  the camp is a one-line change. */
 export function hasCamp(v: RulesetVersion): boolean {
+  return v === 'v0.4';
+}
+
+/** Whether this ruleset runs the v0.4.5 character rework — Eric's Guard/survival scoring, Kit's
+ *  Focus economy, Liora's Freeze/Aura Shield kit, and Luna's mana-fuelled cleric.
+ *
+ *  Deliberately NOT a third RulesetVersion. v0.4 was already the experimental, un-tuned track and
+ *  this belongs on it; a third entry in the picker would ask players to choose between two un-tuned
+ *  variants of the same roster. Keeping the union at two members also means every
+ *  `Record<RulesetVersion, …>` stays exhaustive with no churn — and, critically, that the stable
+ *  v0.3 ruleset is untouched by construction: every rework read site goes through this predicate,
+ *  so there is no path by which a v0.3 game can see any of it. */
+export function hasV045Content(v: RulesetVersion): boolean {
   return v === 'v0.4';
 }

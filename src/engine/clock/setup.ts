@@ -2,8 +2,8 @@ import type { RNG } from '../rng';
 import { CHAR_IDS, CHARACTERS, type CharId } from '@content/characters';
 import { BOSS_IDS, BOSSES } from '@content/bosses3';
 import { DIFFICULTY_MULTIPLIER, type Difficulty } from '@content/difficulty';
-import { STABLE_RULESET, hasV040Content, type RulesetVersion } from '@content/rulesets';
-import { V040_CHAR_IDS } from '@content/characters';
+import { STABLE_RULESET, hasV040Content, hasV045Content, type RulesetVersion } from '@content/rulesets';
+import { V040_CHAR_IDS, V045_LUNA_START_MANA } from '@content/characters';
 import type { GameState, PlayerMeta, PlayerId, Choice, PendingDecision } from './types';
 
 export interface NewGameSetup {
@@ -160,6 +160,7 @@ export function prepareBattle(state: GameState) {
     partyBuff: null,
     guard: null,
     allyScoresForLuna: 0,
+    deathsThisBattle: 0,
     finishedBy: null,
     finishedBySkill: null,
     nextStackSeq: 0,
@@ -178,7 +179,10 @@ export function prepareBattle(state: GameState) {
         stackSeq: 0, // reassigned below once we know boss.bossStackSeq ordering
         pending: null,
         rollAttempt: {},
-        mana: 0,
+        // v0.4.5: Luna opens every battle already able to act as a cleric instead of spending her
+        // first two turns earning the right to. Wiped and re-granted here each battle, never
+        // carried — banking mana is a bet on *this* fight, not a stockpile across the game.
+        mana: hasV045Content(state.ruleset) && p.charId === 'Luna' ? V045_LUNA_START_MANA : 0,
         shield: null,
         reviveAtSlot: null,
         everDiedThisBattle: false,
@@ -204,6 +208,10 @@ export function prepareBattle(state: GameState) {
         itemWard: 0,
         itemHaste: 0,
         itemPermanents: [...(state.progress[p.id]?.permanents ?? [])],
+        // v0.4.5 — inert unless the rework is on. All three reset per battle: Focus and the tithe
+        // carry are in-battle economies, and eric2's counter is a per-battle threshold.
+        focus: 0,
+        guardRedirectsThisBattle: 0,
       };
     }),
   };

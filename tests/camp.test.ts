@@ -6,7 +6,7 @@ import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage } 
 import { useItem } from '@engine/clock/items';
 import { ITEMS, buildItemDeck } from '@content/items';
 import { BOSSES } from '@content/bosses3';
-import { CHARACTERS } from '@content/characters';
+import { CHARACTERS, charSkills } from '@content/characters';
 import { fixedDraftState } from './testUtils';
 
 function campState(): GameState {
@@ -135,7 +135,9 @@ describe('camp — upgrade and points', () => {
       return { kind: 'CAMP_VP', gemsSpent: 0 };
     });
     for (const p of state.players) {
-      const flipped = CHARACTERS[p.charId].skills.filter((s) => state.progress[p.id].isLv2[s]);
+      // charSkills, not CHARACTERS[…].skills: the camp runs under v0.4, where three of the four
+      // core characters hold their v0.4.5 kit — checking the v0.3 list would find nothing flipped.
+      const flipped = charSkills(p.charId, state.ruleset).filter((s) => state.progress[p.id].isLv2[s]);
       expect(flipped).toHaveLength(1);
     }
   });

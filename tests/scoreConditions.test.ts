@@ -286,7 +286,9 @@ describe('per-occurrence conditions — kit1/kit2/luna1 (v0.3.16)', () => {
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
     const matt = findFighter(state, 'Eric');
-    onHealResolved(state, luna.playerId, matt.playerId, 1);
+    // hpBefore of 1 is well under the rework's 30% bar — v0.3 stays silent even on the input the
+    // v0.4.5 luna1 pays the most for.
+    onHealResolved(state, luna.playerId, matt.playerId, 1, 1);
     expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
   });
 
@@ -295,7 +297,7 @@ describe('per-occurrence conditions — kit1/kit2/luna1 (v0.3.16)', () => {
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
     const matt = findFighter(state, 'Eric');
-    onHealResolved(state, luna.playerId, matt.playerId, 0);
+    onHealResolved(state, luna.playerId, matt.playerId, 0, 1);
     expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
   });
 
@@ -303,7 +305,7 @@ describe('per-occurrence conditions — kit1/kit2/luna1 (v0.3.16)', () => {
     const state = fixedDraftState();
     prepareBattle(state);
     const luna = findFighter(state, 'Luna');
-    onHealResolved(state, luna.playerId, luna.playerId, 6);
+    onHealResolved(state, luna.playerId, luna.playerId, 6, 1);
     expect(state.scoreLog.some((e) => e.conditionId === 'luna1')).toBe(false);
   });
 });

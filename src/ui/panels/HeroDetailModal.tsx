@@ -1,5 +1,6 @@
 import type { BattleState, GameState } from '@engine/index';
-import { CHARACTERS, PASSIVES, SAND_MAX, SHADOW_MAX, SKILLS, skillStats } from '@content/characters';
+import { CHARACTERS, SAND_MAX, SHADOW_MAX, SKILLS, V045_LIORA_MANA_MAX, charPassive, charScore, charSkills, skillStats } from '@content/characters';
+import { hasV045Content } from '@content/rulesets';
 import { skillEffectText } from '@content/skillText';
 import { heroStatuses } from '@content/statuses';
 import { landSlotDisplay } from '@content/eventText';
@@ -25,6 +26,11 @@ export function HeroDetailModal({
   const p = state.players.find((x) => x.id === playerId)!;
   const f = battle.fighters.find((x) => x.playerId === playerId)!;
   const def = CHARACTERS[p.charId];
+  // Everything the modal lists is ruleset-dependent under v0.4.5 — the kit, the trait and the
+  // three conditions all differ — so all three read through the accessors rather than off def.
+  const kit = charSkills(p.charId, state.ruleset);
+  const passive = charPassive(p.charId, state.ruleset);
+  const conditions = charScore(p.charId, state.ruleset);
   const progress = state.progress[playerId];
   const hpPct = Math.max(0, Math.min(100, (f.hp / f.maxHp) * 100));
   const pending = f.pending ? SKILLS[f.pending.skillId] : null;
@@ -46,7 +52,12 @@ export function HeroDetailModal({
           </div>
           <div className="text-xs text-gold-dim mt-1">
             {t('game.hp')} {f.hp}/{f.maxHp}
-            {p.charId === 'Liora' && <span className="ml-2">💧 {t('game.mana')} {f.mana}/3</span>}
+            {p.charId === 'Liora' && <span className="ml-2">💧 {t('game.mana')} {f.mana}/{V045_LIORA_MANA_MAX}</span>}
+            {/* v0.4.5's two new economies. Shown only when they exist: both fields read 0 in the
+                stable ruleset, where a permanent "Focus 0" would just be noise. Luna's has no
+                denominator because her pool is genuinely uncapped. */}
+            {p.charId === 'Kit' && hasV045Content(state.ruleset) && <span className="ml-2">🎯 {t('game.focus')} {f.focus}</span>}
+            {p.charId === 'Luna' && hasV045Content(state.ruleset) && <span className="ml-2">💧 {t('game.mana')} {f.mana}</span>}
             {p.charId === 'Chrono' && <span className="ml-2">⏳ {t('game.sand')} {f.sand}/{SAND_MAX}</span>}
             {p.charId === 'Kage' && <span className="ml-2">🌑 {t('game.shadow')} {f.shadow}/{SHADOW_MAX}</span>}
             {p.charId === 'Morvane' && <span className="ml-2">💀 {t('game.souls')} {f.souls}</span>}
@@ -77,9 +88,9 @@ export function HeroDetailModal({
 
       <Section title={t('detail.skills')}>
         <div className="flex flex-col gap-2">
-          {def.skills.map((sid) => {
+          {kit.map((sid) => {
             const isLv2 = !!progress?.isLv2[sid];
-            const st = skillStats(sid, isLv2);
+            const st = skillStats(sid, isLv2, state.ruleset);
             const exp = progress?.expOnCard[sid] ?? 0;
             const isPending = f.pending?.skillId === sid;
             return (
@@ -92,7 +103,7 @@ export function HeroDetailModal({
                   </span>
                   <span className="text-[10px] text-gold-dim flex-shrink-0">⏱{st.time}</span>
                 </div>
-                <div className="text-[11px] text-gold-dim mt-0.5 leading-snug">{skillEffectText(sid, isLv2, lang)}</div>
+                <div className="text-[11px] text-gold-dim mt-0.5 leading-snug">{skillEffectText(sid, isLv2, lang, state.ruleset)}</div>
                 <div className="text-[10px] text-gold-dim/70 mt-1">{isLv2 ? t('game.expPlacement.flipped') : `EXP ${exp}/3`}</div>
               </div>
             );
@@ -100,18 +111,18 @@ export function HeroDetailModal({
         </div>
       </Section>
 
-      {PASSIVES[p.charId] && (
+      {passive && (
         <Section title={t('detail.passive')}>
           <div className="rounded p-2 border border-gold-dim/25">
-            <div className="text-xs gold-text">{PASSIVES[p.charId]!.name[lang]}</div>
-            <div className="text-[11px] text-gold-dim mt-0.5 leading-snug">{PASSIVES[p.charId]!.desc[lang]}</div>
+            <div className="text-xs gold-text">{passive.name[lang]}</div>
+            <div className="text-[11px] text-gold-dim mt-0.5 leading-snug">{passive.desc[lang]}</div>
           </div>
         </Section>
       )}
 
       <Section title={t('detail.scoreConditions')}>
         <div className="flex flex-col gap-1.5">
-          {def.score.map((c) => {
+          {conditions.map((c) => {
             const claimed = state.scoreLog.filter((e) => e.playerId === playerId && e.conditionId === c.id).length;
             return (
               <div key={c.id} className="flex gap-2 items-start">

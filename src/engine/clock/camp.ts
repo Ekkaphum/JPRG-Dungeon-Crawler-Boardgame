@@ -15,7 +15,7 @@
 // 12-15 a savings-based economy costs (docs/DESIGN_VARIABLES.md §6.2).
 
 import { BOSSES } from '@content/bosses3';
-import { CHARACTERS, type SkillId } from '@content/characters';
+import { CHARACTERS, charSkills, type SkillId } from '@content/characters';
 import { ITEMS, buildItemDeck, type ItemId } from '@content/items';
 import { hasCamp } from '@content/rulesets';
 import type { RNG } from '../rng';
@@ -77,7 +77,7 @@ function refillMarket(state: GameState): void {
 /** Skills this player could still flip to Lv2. */
 function upgradableSkills(state: GameState, playerId: PlayerId): SkillId[] {
   const prog = state.progress[playerId];
-  return CHARACTERS[prog.charId].skills.filter((id) => !prog.isLv2[id]);
+  return charSkills(prog.charId, state.ruleset).filter((id) => !prog.isLv2[id]);
 }
 
 export function initCamp(state: GameState, rng: RNG): void {
@@ -134,7 +134,7 @@ export function* runCamp(state: GameState, rng: RNG): Generator<PendingDecision,
     for (const skillId of choice.skillIds) {
       if (prog.gems < GEMS_PER_UPGRADE) break;
       if (prog.isLv2[skillId]) continue;
-      if (!CHARACTERS[prog.charId].skills.includes(skillId)) continue;
+      if (!charSkills(prog.charId, state.ruleset).includes(skillId)) continue;
       prog.gems -= GEMS_PER_UPGRADE;
       prog.isLv2[skillId] = true;
       // Keep the EXP display honest: a card bought to Lv2 reads as a full card, not a blank one.

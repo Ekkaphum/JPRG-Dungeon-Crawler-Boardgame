@@ -1,4 +1,4 @@
-import { CHARACTERS, SKILLS } from '@content/characters';
+import { SKILLS, charSkills } from '@content/characters';
 import { ITEMS, type ItemId } from '@content/items';
 import { GEMS_PER_UPGRADE, GEMS_PER_VP } from '@engine/clock/camp';
 import type { Choice, GameState, PendingDecision } from '@engine/index';
@@ -11,10 +11,10 @@ export function chooseCharacterDefault(decision: Extract<PendingDecision, { kind
 /** Bots always spend every banked EXP token immediately, preferring to flip their first
  *  not-yet-Lv2 skill (attack skills first) rather than spreading thin. */
 export function placeExpDefault(state: GameState, decision: Extract<PendingDecision, { kind: 'PLACE_EXP' }>): Choice {
-  const charDef = CHARACTERS[state.players.find((p) => p.id === decision.playerId)!.charId];
+  const kit = charSkills(state.players.find((p) => p.id === decision.playerId)!.charId, state.ruleset);
   let remaining = decision.bankedExp;
-  const allocations: { skillId: (typeof charDef.skills)[number]; count: number }[] = [];
-  const order = [...charDef.skills].sort((a, b) => (decision.expOnCard[a] ?? 0) - (decision.expOnCard[b] ?? 0)).reverse();
+  const allocations: { skillId: (typeof kit)[number]; count: number }[] = [];
+  const order = [...kit].sort((a, b) => (decision.expOnCard[a] ?? 0) - (decision.expOnCard[b] ?? 0)).reverse();
   for (const skillId of order) {
     if (remaining <= 0) break;
     const capacity = 3 - (decision.expOnCard[skillId] ?? 0);

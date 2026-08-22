@@ -138,8 +138,8 @@ export const AILMENTS: Record<AilmentId, AilmentDef> = {
     icon: '⏳',
     name: { th: 'นับถอยหลัง', en: 'Doom' },
     desc: {
-      th: 'ล้มทันทีเมื่อครบ 8 ช่อง ถ้ายังไม่ถูกล้าง — Aura Smite ของ Luna ชำระให้ทั้งวง',
-      en: "You go down when the 8 slots run out unless cleansed. Luna's Aura Smite cleanses the whole party.",
+      th: 'ล้มทันทีเมื่อครบ 8 ช่อง ถ้ายังไม่ถูกล้าง — ตัวล้างมี Aura Smite ของ Luna (v0.3) และน้ำมนต์จากค่ายพัก',
+      en: 'You go down when the 8 slots run out unless cleansed. The cleanses are Luna\'s Aura Smite (v0.3 only) and the camp\'s Holy Water.',
     },
     slots: 8,
     maxStacks: 1,

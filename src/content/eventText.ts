@@ -49,9 +49,10 @@ export function describeEvent(ev: ClockLogEvent): string | null {
     case 'AILMENT_CLEANSED':
       return `✨ ${who(ev.playerId)} ถูกชำระสถานะผิดปกติทั้งหมด`;
     case 'AILMENT_WARDED':
-      // Luna's Holy Water finally doing something — worth naming explicitly the first time players
-      // ever see it fire.
-      return `💧 Holy Water ปัดป้อง${AILMENTS[ev.ailment].name.th}ให้ ${who(ev.playerId)}`;
+      // Named after the effect rather than after the passive: v0.3 grants this through Holy Water,
+      // v0.4.5 through Divine Tithe, and the log has no business claiming a card the player cannot
+      // find on their sheet.
+      return `💧 พรคุ้มครองปัดป้อง${AILMENTS[ev.ailment].name.th}ให้ ${who(ev.playerId)}`;
     case 'MARKER_REWOUND':
       return `⏳ ${who(ev.playerId)} ย้อนเวลา — มาร์กเกอร์ถอยขึ้น ${ev.slots} ช่อง (เหลือ ${ev.marker})`;
     case 'PREDICTION_HIT':
@@ -64,6 +65,15 @@ export function describeEvent(ev: ClockLogEvent): string | null {
       return `🌫️ ${who(ev.playerId)} ออกจากการซ่อนตัว`;
     case 'SOULS_GAINED':
       return `💀 ${who(ev.playerId)} ได้วิญญาณ +${ev.amount} (รวม ${ev.total})`;
+    // ── v0.4.5 ──
+    case 'BOSS_SLOWED':
+      return `❄️ บอสติดสถานะช้า — หมากบอสถอยลง ${ev.slots} ช่อง (ไปช่อง ${ev.toSlot})`;
+    case 'MANA_GAINED':
+      return `🔷 ${who(ev.playerId)} ได้มานา +${ev.amount} (รวม ${ev.total})`;
+    case 'FOCUS_CHANGED':
+      return ev.amount >= 0
+        ? `🎯 ${who(ev.playerId)} ได้ Focus +${ev.amount} (รวม ${ev.total})`
+        : `🎯 ${who(ev.playerId)} จ่าย Focus ${-ev.amount} (เหลือ ${ev.total})`;
     case 'RESOLVE_ATTACK':
       return ev.wasted
         ? `${who(ev.playerId)} ${skillLabel(ev.skillId)} — เงื่อนไขไม่ครบ เสียฟรี`

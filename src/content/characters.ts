@@ -9,6 +9,8 @@
 // pts/win against everyone else's 5-8. Keeping two half-alive characters in every Record<CharId,…>
 // and every test fixture cost more than they were worth, and v0.4.0's three new characters occupy
 // the design space they were holding.
+import { STABLE_RULESET, hasV045Content, type RulesetVersion } from './rulesets';
+
 export type CharId = 'Eric' | 'Kit' | 'Liora' | 'Luna' | 'Chrono' | 'Kage' | 'Morvane';
 
 /** The v0.3.x roster — the only characters bots ever play, and the whole pool in the stable
@@ -60,7 +62,17 @@ export type SkillId =
   | 'Drain'
   | 'SoulSiphon'
   | 'RaiseDead'
-  | 'DeathCoil';
+  | 'DeathCoil'
+  // ── v0.4.5 rework ── replacement cards for the four core characters. New ids rather than
+  // rewritten ones on purpose: Sighting Shot is not a re-tuned Quick Shot, it is a different card
+  // that banks Focus, and a v0.3 save must keep meaning exactly what it meant. Which of the two
+  // versions a character holds is decided by charSkills(charId, ruleset) — nothing else.
+  | 'SightingShot' // Kit ⓪ — replaces Quick Shot
+  | 'ManaDrain' // Liora ⓪ — replaces Air Push
+  | 'Freeze' // Liora ① — replaces Fireball
+  | 'AuraShield' // Liora ② — replaces Aura Charge
+  | 'HolySmite' // Luna ⓪ — replaces Hitting
+  | 'Praying'; // Luna ① — replaces Aura Smite
 
 /** Which resolution family a skill belongs to — see docs/RULINGS.md §5. */
 export type SkillKind =
@@ -80,7 +92,10 @@ export type SkillKind =
   | 'buffHaste' // Haste (Chrono) — immediate: drags an ally's pawn back up the clock so they act sooner
   | 'buffStealth' // Smoke Bomb (Kage) — immediate: hides everyone sharing the caster's slot
   | 'raise' // Raise Dead (Morvane) — immediate: revives a downed ally now instead of on their revive slot
-  | 'rewind'; // Rewind (Chrono ③) — immediate: walks the *clock marker itself* back up
+  | 'rewind' // Rewind (Chrono ③) — immediate: walks the *clock marker itself* back up
+  // ── v0.4.5 ──
+  | 'manaGain' // Praying (Luna) — immediate: banks mana and nothing else
+  | 'buffShield'; // Aura Shield (Liora) — immediate: flat damage reduction on *any* ally, self included
 
 export interface SkillLevelStats {
   time: number;
@@ -115,6 +130,32 @@ export interface SkillDef {
    *  Strike, Sharp Shooting, Aura Smite) — charged/scaling attacks (Fireball, Meteor) and multi-slot
    *  ones (Multi Shot) stay resolve-delayed. */
   immediate?: boolean;
+
+  // ─────────────── v0.4.5 rework ───────────────
+  // Five small, orthogonal flags rather than five new SkillKinds. Each one is a *cost or a rider*
+  // bolted onto a card that still resolves through its existing kind — Sighting Shot is an ordinary
+  // `attack` that also banks Focus, Heal is an ordinary `heal` that also costs mana — so giving
+  // each its own kind would have forked the resolution switch four extra ways for no gain.
+
+  /** Mana banked the instant this card is declared (Mana Drain +1, Praying +3). */
+  manaGain?: number;
+  /** Focus banked the instant this card is declared (Sighting Shot +1). Kit's resource: it does
+   *  nothing on its own, it is only ever spent to nudge a d6 up. */
+  focusGain?: number;
+  /** Whether Focus may be spent on this card's dice check, 1 Focus = +1 to the die. Uncapped by
+   *  design: Focus costs Kit a whole ⏱2 turn per point, so "spend six" already means six turns not
+   *  spent shooting — the price is paid in the same currency the clock charges for everything else. */
+  focusSpendable?: boolean;
+  /** Roll this or better on a d6 to also inflict ❄️ Slow on the boss (Freeze). Rides the attack
+   *  rather than replacing it, so a missed roll still deals full damage. */
+  slowRollTarget?: number;
+  /** Mana that must be in hand and is spent on declare (Heal costs 2 in the rework). Separate from
+   *  `attackMana`'s optional variable spend, which is a choice; this one is a gate. */
+  manaCost?: number;
+  /** HP the caster pays on every use, ignoring all mitigation (Power Strike in the rework — the
+   *  theme is a swing past what the body can take). Never allowed to be lethal; see declareSkill. */
+  selfHpCost?: number;
+
   lv1: SkillLevelStats;
   lv2: SkillLevelStats;
 }
@@ -127,7 +168,10 @@ export type PassiveId =
   // v0.4.0
   | 'TimeSpiral'
   | 'Shadowless'
-  | 'UndeadPact';
+  | 'UndeadPact'
+  // v0.4.5 — replaces Holy Water on Luna. A new id rather than a reworded HolyWater because it is a
+  // different trait entirely: Holy Water warded a debuff, this one is a mana engine.
+  | 'DivineTithe';
 
 export interface PassiveDef {
   id: PassiveId;
@@ -538,6 +582,124 @@ export const SKILLS: Record<SkillId, SkillDef> = {
     lv1: { time: 5, primary: 14, secondary: 20 },
     lv2: { time: 5, primary: 18, secondary: 26 },
   },
+
+  // ══════════════ v0.4.5 — the reworked core four ══════════════
+  // These six cards exist only in the v0.4.5 ruleset. They are never in any v0.3 character's skill
+  // list (charSkills() decides that), so their numbers can be set freely without touching the one
+  // ruleset that has actually been balance-tested.
+
+  SightingShot: {
+    id: 'SightingShot',
+    charId: 'Kit',
+    kind: 'attack',
+    immediate: true,
+    focusGain: 1,
+    name: { th: 'Sighting Shot', en: 'Sighting Shot' },
+    // Quick Shot's ⏱2 slot, repriced as the front of an economy rather than as filler. The damage
+    // is deliberately unexciting — what the card actually sells is a Focus, which is what turns
+    // Sharp Shooting and Trap! from dice gambles into things Kit can decide to make happen.
+    lv1: { time: 2, primary: 3 },
+    lv2: { time: 2, primary: 4 },
+  },
+  ManaDrain: {
+    id: 'ManaDrain',
+    charId: 'Liora',
+    kind: 'attack',
+    immediate: true,
+    manaGain: 1,
+    name: { th: 'Mana Drain', en: 'Mana Drain' },
+    // The rework's single biggest change to Liora: mana now comes off a card that *also* deals
+    // damage. Under v0.3 her only mana source was Aura Charge, a turn that produced nothing, so
+    // every point of mana cost the party a whole visit's worth of output — which is exactly why
+    // liora2 measured 0.00 fires per win at a 3-mana bar. Charging up is no longer a dead turn.
+    lv1: { time: 2, primary: 3 },
+    lv2: { time: 2, primary: 4 },
+  },
+  Freeze: {
+    id: 'Freeze',
+    charId: 'Liora',
+    kind: 'attackMana',
+    slowRollTarget: 4,
+    name: { th: 'Freeze', en: 'Freeze' },
+    // Fireball's numbers exactly, plus a 50% (4+ on a d6) chance to push the boss's pawn 2 slots
+    // further down the clock. The roll rides the attack instead of gating it: a miss is still a
+    // full-damage spell, so the card never reads as a wasted turn — the same lesson v0.3.15 learned
+    // when Trap!'s all-or-nothing version measured at 85 declares in 3,000 games.
+    lv1: { time: 3, primary: 5, secondary: 3 },
+    lv2: { time: 3, primary: 8, secondary: 3 },
+  },
+  AuraShield: {
+    id: 'AuraShield',
+    charId: 'Liora',
+    kind: 'buffShield',
+    name: { th: 'Aura Shield', en: 'Aura Shield' },
+    // secondary = flat damage reduction, +1 over Aura Charge's, and castable on an ally instead of
+    // only on herself. It no longer grants mana (Mana Drain does that now), which is what stops the
+    // card from being the mandatory opener it was: it is played when someone needs protecting.
+    lv1: { time: 2, primary: 0, secondary: 4 },
+    lv2: { time: 2, primary: 0, secondary: 6 },
+  },
+  HolySmite: {
+    id: 'HolySmite',
+    charId: 'Luna',
+    kind: 'attack',
+    ignoresArmor: true,
+    immediate: true,
+    name: { th: 'Holy Smite', en: 'Holy Smite' },
+    // Hitting's ⏱2 and damage, but armor never applies. Against Aurelius (armor 4) the old Hitting
+    // landed for 0 and Luna's common attack was literally worthless; this is the fix.
+    lv1: { time: 2, primary: 2 },
+    lv2: { time: 2, primary: 3 },
+  },
+  Praying: {
+    id: 'Praying',
+    charId: 'Luna',
+    kind: 'manaGain',
+    manaGain: 3,
+    name: { th: 'Praying', en: 'Praying' },
+    // ⏱3 for 3 mana — one turn buys one Heal (2) with change. Luna's mana is uncapped and wiped
+    // between battles, so banking it is a bet on this battle lasting, not a stockpile across the
+    // game.
+    lv1: { time: 3, primary: 0 },
+    lv2: { time: 3, primary: 0 },
+  },
+};
+
+/** Per-ruleset changes to cards that keep their identity. Anything that becomes a *different card*
+ *  got a new SkillId above instead; this table is only for "same card, different numbers or a new
+ *  rider". Merged in by skillDefFor()/skillStats(), which are the only two readers.
+ *
+ *  Nothing here can reach a v0.3 game: both readers take the ruleset and ignore this table unless
+ *  hasV045Content() is true. */
+export interface SkillOverride {
+  ignoresArmor?: boolean;
+  immediate?: boolean;
+  manaGain?: number;
+  focusGain?: number;
+  focusSpendable?: boolean;
+  slowRollTarget?: number;
+  manaCost?: number;
+  selfHpCost?: number;
+  lv1?: Partial<SkillLevelStats>;
+  lv2?: Partial<SkillLevelStats>;
+}
+
+export const V045_SKILL_OVERRIDES: Partial<Record<SkillId, SkillOverride>> = {
+  // Eric: both attacks hit harder, and the big one now costs him HP every swing. That cost is not a
+  // downside bolted on for flavour — it is what makes his own Berserk passive (+4 below half HP)
+  // and his rework score conditions (survive the battle; land 10+ hits) pull against each other,
+  // which is the whole point of a berserker who is also the party's protector.
+  Slash: { lv1: { primary: 4 }, lv2: { primary: 5 } },
+  PowerStrike: { selfHpCost: 1, lv1: { primary: 7 }, lv2: { primary: 10 } },
+  // Kit: the two dice cards accept Focus. Numbers untouched — the whole change is that the roll
+  // stops being pure luck.
+  SharpShooting: { focusSpendable: true },
+  Trap: { focusSpendable: true },
+  // Luna: Blessing swaps its emphasis from offence to protection (atk 3→2, armor 2→3), and Heal
+  // stops being free. A cleric who must pay for every heal has to choose between healing and
+  // praying, which is the decision the whole rework is built around.
+  Blessing: { lv1: { primary: 2, secondary: 3 }, lv2: { primary: 3, secondary: 4 } },
+  Heal: { manaCost: 2 },
 };
 
 export const CHARACTERS: Record<CharId, CharacterDef> = {
@@ -939,10 +1101,316 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
 export function skillDef(id: SkillId): SkillDef {
   return SKILLS[id];
 }
-export function skillStats(id: SkillId, isLv2: boolean): SkillLevelStats {
-  const s = SKILLS[id];
+
+/** The card as this ruleset plays it: the base definition with V045_SKILL_OVERRIDES merged on top
+ *  when the rework is on. Every reader that cares about a card's *riders* (mana cost, HP cost,
+ *  whether Focus may be spent on its roll) goes through here rather than through SKILLS directly —
+ *  readers that only want the kind or the name may keep using SKILLS, since neither ever differs. */
+export function skillDefFor(id: SkillId, ruleset: RulesetVersion): SkillDef {
+  const base = SKILLS[id];
+  if (!hasV045Content(ruleset)) return base;
+  const ov = V045_SKILL_OVERRIDES[id];
+  if (!ov) return base;
+  const { lv1, lv2, ...flags } = ov;
+  return { ...base, ...flags, lv1: { ...base.lv1, ...lv1 }, lv2: { ...base.lv2, ...lv2 } };
+}
+
+/** `ruleset` is optional and defaults to the stable one so every pre-rework caller — the v0.3 tests,
+ *  the balance sim, the UI paths that never had a ruleset to hand — keeps its exact behaviour with
+ *  no edit. Passing it is what opts a call site into the rework's numbers. */
+export function skillStats(id: SkillId, isLv2: boolean, ruleset: RulesetVersion = STABLE_RULESET): SkillLevelStats {
+  const s = skillDefFor(id, ruleset);
   return isLv2 ? s.lv2 : s.lv1;
 }
+
+/** Which four cards a character holds in this ruleset. The single switch that turns the rework on
+ *  or off for a given character — swap the list and the draft, the UI, the bots and the engine all
+ *  follow, because none of them reads CHARACTERS[…].skills directly any more. */
+export function charSkills(charId: CharId, ruleset: RulesetVersion): SkillId[] {
+  if (hasV045Content(ruleset)) {
+    const reworked = V045_CHAR_SKILLS[charId];
+    if (reworked) return reworked;
+  }
+  return CHARACTERS[charId].skills;
+}
+
+/** The reworked kits. Eric keeps his four card *ids* (his changes are all numbers and scoring, held
+ *  in V045_SKILL_OVERRIDES and V045_SCORE), so he is deliberately absent here. */
+export const V045_CHAR_SKILLS: Partial<Record<CharId, SkillId[]>> = {
+  Kit: ['SightingShot', 'SharpShooting', 'Trap', 'MultiShot'],
+  Liora: ['ManaDrain', 'Freeze', 'AuraShield', 'Meteor'],
+  Luna: ['HolySmite', 'Praying', 'Heal', 'Blessing'],
+};
+
+/** This character's three score conditions as this ruleset scores them. */
+export function charScore(charId: CharId, ruleset: RulesetVersion): ScoreConditionDef[] {
+  if (hasV045Content(ruleset)) {
+    const reworked = V045_SCORE[charId];
+    if (reworked) return reworked;
+  }
+  return CHARACTERS[charId].score;
+}
+
+/** The always-on trait as this ruleset states it. Only the wording and, for Eric, the threshold
+ *  differ — the ids stay put so nothing keyed on PassiveId has to branch. */
+export function charPassive(charId: CharId, ruleset: RulesetVersion): PassiveDef | undefined {
+  if (hasV045Content(ruleset)) {
+    const reworked = V045_PASSIVES[charId];
+    if (reworked) return reworked;
+  }
+  return PASSIVES[charId];
+}
+
+// ══════════════════════ v0.4.5 rework constants ══════════════════════
+// Same health warning as the v0.4.0 block above, and then some: these are first-guess numbers for a
+// ruleset the sim can only partially price. `tools/balance.ts --ruleset v0.4` measures them for the
+// four core characters (unlike Chrono/Kage/Morvane, all four are still bot-playable), but the bots
+// value Focus and Luna's mana with hand-written heuristics rather than by search, so read the
+// output as "nothing is catastrophically broken", not as a tuned balance.
+
+/** Mana Luna opens every battle with. Uncapped afterwards and wiped between battles — banking is a
+ *  bet on *this* fight running long, never a stockpile carried into the next one. 5 is exactly two
+ *  Heals plus change, so she starts the battle already able to act as a cleric rather than having
+ *  to spend her first two turns earning the right to. */
+export const V045_LUNA_START_MANA = 5;
+
+/** Damage a *single hit* must do for Luna to tithe 1 mana from it. Party-wide, not Luna's own: her
+ *  whole design is that she has almost no damage of her own, so keying the engine to her output
+ *  would have made the passive fire about once a battle.
+ *
+ *  Judged per hit with no carry (see grantDivineTithe) — a 9-damage swing pays nothing and is not
+ *  remembered, and the change from a 25-damage one is lost rather than banked toward the next. That
+ *  is what makes the passive answer to *decisive blows* rather than to the battle merely lasting a
+ *  while, and it is why the bar can sit this high: at 7 with a running carry she drew roughly 15
+ *  mana a battle against a ceiling of about 10 she could actually spend, which made Praying a
+ *  skipped turn and Heal's mana cost meaningless. */
+export const V045_LUNA_MANA_PER_BOSS_DAMAGE = 10;
+
+/** Liora's mana ceiling, unchanged from v0.3 — what changed is that Mana Drain fills it while
+ *  dealing damage. Luna is deliberately NOT subject to this; see V045_LUNA_START_MANA. */
+export const V045_LIORA_MANA_MAX = 3;
+
+/** Damage Liora's Aura Shield gains per mana poured into it, matching the +3 per mana her attack
+ *  spells get. One number for both halves of the passive, so "what is a mana worth" has one answer. */
+export const V045_AURASHIELD_DEF_PER_MANA = 3;
+
+/** How far down the clock a landed ❄️ Slow pushes the boss's pawn — it acts that many slots later.
+ *  Applied to the boss's pawn rather than to its declared move so it stacks cleanly with Trap!'s
+ *  own delay and needs no new state to track. */
+export const V045_SLOW_BOSS_SLOTS = 2;
+
+/** kit3's rate in the rework: 5 attacks per point, up from 4. Sighting Shot at ⏱2 plus a Focus-fed
+ *  Sharp Shooting makes Kit's attack count climb faster than v0.3's did, so the same payout per
+ *  battle needs a longer count. */
+export const V045_KIT3_HITS_PER_POINT = 5;
+
+/** kit3's rate for the ruleset in play — the one reader of both KIT3_HITS_PER_POINT constants. */
+export function kit3HitsPerPoint(ruleset: RulesetVersion): number {
+  return hasV045Content(ruleset) ? V045_KIT3_HITS_PER_POINT : KIT3_HITS_PER_POINT;
+}
+
+/** How many Guard redirects eric2 needs in one battle before it pays. Two, not one: a single save
+ *  can be luck of the boss's targeting roll, but choosing to stand in front of someone twice in one
+ *  battle is a strategy. */
+export const V045_ERIC_GUARD_SAVES_BAR = 2;
+
+/** The bar luna1 asks for in the rework: the heal target must be strictly under this fraction of
+ *  their max HP at the moment the heal resolves. 30% is deliberately below the 35% the bot already
+ *  used as its "urgent" cutoff, so scoring costs Luna something — she has to let an ally slide past
+ *  the point she would have topped them up anyway, which runs straight into luna3's "nobody dies".
+ *  Read pre-heal, so a heal that lifts them clear still pays. */
+export const V045_LUNA1_HEAL_HP_PCT = 0.3;
+
+/** luna2's bar in the rework: >14 in one hit from someone under her Blessing, down from >15. Moves
+ *  with Blessing's own attack buff, which the rework cut 3 -> 2. */
+export const V045_LUNA2_BLESSED_HIT_DAMAGE = 14;
+
+/** luna3's intact value, and what each death this battle takes off it. The payout is
+ *  `max(0, BASE - PENALTY * deaths)` — see the luna3 entry in V045_SCORE for why it slopes rather
+ *  than being all-or-nothing. */
+export const V045_LUNA3_BASE_POINTS = 6;
+export const V045_LUNA3_DEATH_PENALTY = 2;
+
+/** v0.4.5 score conditions. Same three ids per character as v0.3 — what each id *asks for* and what
+ *  it pays changes, but the id does not, so scoreLog entries, the breakdown panel and every replay
+ *  keep working without a migration.
+ *
+ *  Kit is absent: his only change is kit3's rate, which is a constant (see kit3HitsPerPoint()). */
+export const V045_SCORE: Partial<Record<CharId, ScoreConditionDef[]>> = {
+  Eric: [
+    {
+      id: 'eric1',
+      charId: 'Eric',
+      slot: 1,
+      // 1 -> 2. Same trigger as v0.3, but the rework hands him Slash +1, Power Strike +1 and a
+      // Berserk that now fires below *half* max HP rather than below a flat 7 — so clearing 10 is
+      // both more reachable and more clearly the thing he is built to do.
+      points: 2,
+      perOccurrence: true,
+      desc: { th: 'ทำ dmg ครั้งเดียวได้มากกว่า 10', en: 'Deal more than 10 damage in one hit' },
+    },
+    {
+      id: 'eric2',
+      charId: 'Eric',
+      slot: 2,
+      // Per-occurrence 1pt -> a once-per-battle 3 at a bar of two saves. v0.3.15 measured the
+      // uncapped version taking Eric to an 82.3% individual win share purely on redirect frequency
+      // (4.36 fires per win), and halving the value only slowed that down. A threshold fixes the
+      // shape rather than the price: protecting is worth points, protecting *repeatedly* is what
+      // scores, and no amount of extra boss activity can inflate it past 3.
+      points: 3,
+      perOccurrence: false,
+      desc: {
+        th: `ยืนหน้าให้ทั้งวง — Guard รับดาเมจแทนเพื่อนได้ ${V045_ERIC_GUARD_SAVES_BAR} ครั้งขึ้นไปในยกนี้`,
+        en: `Hold the line: Guard takes a hit for an ally ${V045_ERIC_GUARD_SAVES_BAR} or more times this battle`,
+      },
+    },
+    {
+      id: 'eric3',
+      charId: 'Eric',
+      slot: 3,
+      // Drops v0.3's "must have dropped below half" half of the latch. That clause existed to stop
+      // a 2-point payout for doing nothing, but the rework gives Eric a Power Strike that bleeds
+      // him 1 HP a swing — staying up is now something he actively spends resources on rather than
+      // something that happens to him.
+      points: 2,
+      perOccurrence: false,
+      desc: { th: 'ยืนอยู่จนจบ — จบยกบอสโดยไม่ตายเลยสักครั้ง', en: 'Still standing: end the battle without ever going down' },
+    },
+  ],
+  Liora: [
+    {
+      id: 'liora1',
+      charId: 'Liora',
+      slot: 1,
+      // Repointed entirely. v0.3's liora1 was a damage threshold that fired on the same hit as
+      // liora2 most of the time, so one action paid her twice and her conditions compounded instead
+      // of pulling apart (measured 42.8% win share). This asks for the rework's new effect instead:
+      // the ❄️ Slow, which is the half of Freeze that is not damage.
+      points: 2,
+      perOccurrence: true,
+      desc: { th: 'Freeze ติด ❄️ ช้า ใส่บอสสำเร็จ', en: 'Freeze successfully lands ❄️ Slow on the boss' },
+    },
+    {
+      id: 'liora2',
+      charId: 'Liora',
+      slot: 2,
+      // 1 -> 3. The bar itself is unchanged, but what it costs changed completely: Mana Drain banks
+      // mana *while dealing damage*, so a 2-mana cast no longer means two wasted turns. Paying more
+      // for a condition that got easier looks backwards and isn't — under v0.3 this fired 0.00
+      // times per win at 3 mana and barely at all at 2, i.e. it was priced for a play nobody made.
+      points: 3,
+      perOccurrence: true,
+      desc: {
+        th: 'ร่ายอัดพลัง — จ่ายมานา 2 ขึ้นไปแล้วเวทย์เข้าเป้า',
+        en: 'Charged cast: spend 2+ mana on a spell and land it',
+      },
+    },
+    {
+      id: 'liora3',
+      charId: 'Liora',
+      slot: 3,
+      // 3 -> 5, and the survival clause is gone. Meteor is ⏱7 on a 24-slot clock — nearly a third
+      // of the battle committed to one card — and the rework did nothing to make that cheaper. The
+      // survival half was doing the same job as the new eric3/luna3 and made her third condition
+      // read as another "don't die" rather than as the payoff for the biggest swing in the game.
+      points: 5,
+      perOccurrence: false,
+      desc: {
+        th: 'ร่ายใหญ่สำเร็จ — Meteor เข้าเป้าอย่างน้อย 1 ครั้งในยกนี้',
+        en: 'Land at least one Meteor that deals damage this battle',
+      },
+    },
+  ],
+  Luna: [
+    {
+      id: 'luna1',
+      charId: 'Luna',
+      slot: 1,
+      // Off the ally echo entirely and back onto Heal, where luna1 lived before v0.3.15 — but with
+      // a bar this time: the target has to be under V045_LUNA1_HEAL_HP_PCT of their max HP when the
+      // heal resolves.
+      //
+      // The echo version had no stable rate because its frequency was the *party's* scoring rate,
+      // not hers: measured across 1,500-game runs it put her win share at 11.0% when off, 38.3% at
+      // every-5, 69.0% at every-3 and 100.0% at every-1. Any number picked there is only correct
+      // for today's roster — tuning Kit or Liora later would silently retune Luna. The heal bar
+      // instead caps at her own visit count and asks a question she can read off the board: who is
+      // actually in danger right now, and can I hold the card until they are.
+      points: 1,
+      perOccurrence: true,
+      desc: {
+        th: `ทุกครั้งที่ Heal ให้ตัวละครที่มี HP ต่ำกว่า ${V045_LUNA1_HEAL_HP_PCT * 100}% ของสูงสุด`,
+        en: `Every time you Heal a character below ${V045_LUNA1_HEAL_HP_PCT * 100}% of their max HP`,
+      },
+    },
+    {
+      id: 'luna2',
+      charId: 'Luna',
+      slot: 2,
+      // Bar 15 -> 14 (V045_LUNA2_BLESSED_HIT_DAMAGE). Blessing's own attack buff dropped 3 -> 2 in
+      // the rework, so holding the old bar would have quietly made this condition *harder* while the
+      // card that enables it got weaker — the bar moves with it to keep the ask the same.
+      points: 1,
+      perOccurrence: true,
+      desc: {
+        th: `คนที่อยู่ใต้ Blessing ของคุณ ทำ dmg ครั้งเดียวได้มากกว่า ${V045_LUNA2_BLESSED_HIT_DAMAGE}`,
+        en: 'An ally under your Blessing deals more than 14 damage in one hit',
+      },
+    },
+    {
+      id: 'luna3',
+      charId: 'Luna',
+      slot: 3,
+      // 3 -> 6, but it is now a *sliding* payout: every death this battle costs 2, floored at 0
+      // (V045_LUNA3_BASE_POINTS / V045_LUNA3_DEATH_PENALTY, applied in onBattleEndScoring).
+      //
+      // The v0.3 version was all-or-nothing, which made it worthless the instant anyone went down —
+      // and a cleric whose signature condition is already lost has no reason to keep healing for the
+      // rest of the battle. A slope keeps every subsequent save worth something: after one death
+      // there are still 4 points on the table, after two there are 2. `points` here is the intact
+      // value, the way kit3's is the value of one payout rather than the whole battle's.
+      points: 6,
+      perOccurrence: false,
+      desc: {
+        th: `จบยกโดยไม่มีใครตายเลย — ${V045_LUNA3_BASE_POINTS} แต้ม · ทุกการตายหัก ${V045_LUNA3_DEATH_PENALTY} (ต่ำสุด 0)`,
+        en: `End the battle with nobody having died — ${V045_LUNA3_BASE_POINTS} points, less ${V045_LUNA3_DEATH_PENALTY} per death, floored at 0`,
+      },
+    },
+  ],
+};
+
+/** v0.4.5 passives. Same PassiveIds as v0.3 for Eric and Liora (the trait is recognisably the same
+ *  one, restated); Luna's is a genuinely different trait and takes a new id. */
+export const V045_PASSIVES: Partial<Record<CharId, PassiveDef>> = {
+  Eric: {
+    id: 'Berserk',
+    charId: 'Eric',
+    name: { th: 'Berserk', en: 'Berserk' },
+    desc: {
+      th: 'ทำงานเองตลอดเวลา: ขณะ HP ต่ำกว่าครึ่งของ HP สูงสุด พลังโจมตีของ Eric ทุกครั้ง +4 (เช็คในเวลาที่การโจมตีเกิดผล; สกิล ⚡ จึงเช็คตอนประกาศ)',
+      en: "Always active: while Eric's HP is below half his maximum, every attack deals +4 (checked when the hit takes effect, so ⚡ skills check on declare).",
+    },
+  },
+  Liora: {
+    id: 'ManaCharge',
+    charId: 'Liora',
+    name: { th: 'ManaCharge', en: 'ManaCharge' },
+    desc: {
+      th: `ทำงานเองตลอดเวลา: จ่ายมานา 1 หน่วยเพื่อเพิ่มพลังโจมตีเวทย์ +${V045_AURASHIELD_DEF_PER_MANA} หรือเพิ่มเกราะของ Aura Shield +${V045_AURASHIELD_DEF_PER_MANA} (เก็บมานาได้สูงสุด ${V045_LIORA_MANA_MAX} · มานาได้จาก Mana Drain เท่านั้น)`,
+      en: `Always active: spend 1 mana for +${V045_AURASHIELD_DEF_PER_MANA} spell damage, or for +${V045_AURASHIELD_DEF_PER_MANA} armor on an Aura Shield (cap ${V045_LIORA_MANA_MAX} mana; Mana Drain is the only source).`,
+    },
+  },
+  Luna: {
+    id: 'DivineTithe',
+    charId: 'Luna',
+    name: { th: 'ส่วนสิบศักดิ์สิทธิ์', en: 'Divine Tithe' },
+    desc: {
+      th: `ทำงานเองตลอดเวลา: การโจมตีบอสครั้งใดที่ทำดาเมจถึง ${V045_LUNA_MANA_PER_BOSS_DAMAGE} Luna ได้มานา +1 (ถึง ${V045_LUNA_MANA_PER_BOSS_DAMAGE * 2} ได้ +2 ไปเรื่อยๆ) — คิดแยกทีละครั้ง ไม่สะสมและไม่ทบไปครั้งหน้า · เริ่มยกด้วยมานา ${V045_LUNA_START_MANA} · ไม่มีเพดาน · ล้างทุกยกบอส · และเธอยังคงปัดป้องสถานะผิดปกติจากท่าบอสที่เล็งเธอคนเดียวได้เสมอ (ท่าที่ตีทุกคนยังติดปกติ)`,
+      en: `Always active: any single hit on the boss that deals ${V045_LUNA_MANA_PER_BOSS_DAMAGE} damage gives Luna 1 mana (${V045_LUNA_MANA_PER_BOSS_DAMAGE * 2} gives 2, and so on) — each hit is judged on its own, with nothing accumulated and no remainder carried forward. She opens each battle with ${V045_LUNA_START_MANA} mana; there is no cap, and it is wiped between battles. She also still shrugs off any ailment from a boss move that singles her out — an attack that hits everyone still lands.`,
+    },
+  },
+};
 
 /** Universal Last Shot bonus (v0.3.7): whoever lands the killing blow on a boss scores this,
  *  whatever character they are. Previously this was a *personal* condition worth 3 points that only
@@ -977,11 +1445,11 @@ export const VERA_BIG_HIT_DAMAGE = 14;
  *  calls read through this instead of repeating the number, so a rebalance only ever needs to
  *  change it here. (Doesn't cover 'timeBonus'/'lastShot', which aren't personal conditions — the
  *  first is computed from the clock's remaining slots, the second is the flat bonus above.) */
-export function scorePoints(conditionId: string): number {
+export function scorePoints(conditionId: string, ruleset: RulesetVersion = STABLE_RULESET): number {
   // ALL_CHAR_IDS, not CHAR_IDS: v0.4.0's three characters are outside the bot-facing pool but
   // their conditions still have to resolve whenever a human is playing one.
   for (const charId of ALL_CHAR_IDS) {
-    const c = CHARACTERS[charId].score.find((s) => s.id === conditionId);
+    const c = charScore(charId, ruleset).find((s) => s.id === conditionId);
     if (c) return c.points;
   }
   throw new Error(`unknown score condition: ${conditionId}`);

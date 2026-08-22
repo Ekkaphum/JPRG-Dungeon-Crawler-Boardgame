@@ -32,6 +32,16 @@ export const ACTION_EFFECT_SPRITES = {
   SoulSiphon: '/assets/effects/SoulSiphon.png',
   RaiseDead: '/assets/effects/RaiseDead.png',
   DeathCoil: '/assets/effects/DeathCoil.png',
+  // ── v0.4.5 ── Each of these ships as its own file that is currently a byte-for-byte copy of the
+  // strip belonging to the card it replaces. Copies rather than aliases on purpose: the file the
+  // card wants already exists at the path the card names, so replacing any one of them with real
+  // art is dropping a PNG in place, with no code change and nothing else affected.
+  SightingShot: '/assets/effects/SightingShot.png',
+  ManaDrain: '/assets/effects/ManaDrain.png',
+  Freeze: '/assets/effects/Freeze.png',
+  AuraShield: '/assets/effects/AuraShield.png',
+  HolySmite: '/assets/effects/HolySmite.png',
+  Praying: '/assets/effects/Praying.png',
 } as const satisfies Record<SkillId, string>;
 
 export function actionEffectSpriteUrl(skillId: SkillId): string {

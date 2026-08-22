@@ -3,10 +3,16 @@ import {
   MORVANE_LOW_HP_BAR,
   SAND_PER_REWIND,
   SKILLS,
+  V045_AURASHIELD_DEF_PER_MANA,
+  V045_LIORA_MANA_MAX,
+  V045_ERIC_GUARD_SAVES_BAR,
+  V045_LUNA1_HEAL_HP_PCT,
   VERA_CHARGED_CAST_MANA,
+  skillDefFor,
   skillStats,
   type CharId,
 } from '@content/characters';
+import { hasV045Content } from '@content/rulesets';
 
 import { applySomnivarTax, type Choice, type GameState } from '@engine/index';
 
@@ -30,8 +36,8 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
   const battle = state.battle!;
   const fighter = battle.fighters.find((f) => f.playerId === playerId)!;
   const isLv2 = !!state.progress[playerId]?.isLv2[choice.skillId];
-  const stats = skillStats(choice.skillId, isLv2);
-  const def = SKILLS[choice.skillId];
+  const stats = skillStats(choice.skillId, isLv2, state.ruleset);
+  const def = skillDefFor(choice.skillId, state.ruleset);
   const timeCost = battle.bossId === 'Somnivar' && stats.time >= 5 ? stats.time + 2 : stats.time;
   const buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPoint ? 4 : 0);
 
@@ -68,7 +74,11 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       break;
     }
     case 'attackRoll': {
-      value = Math.max(0, stats.primary! + buffAtk - battle.armor) + 2.5; // + chance to open a weak point
+      // The +2.5 is the flat premium for the chance to open a weak point. v0.4.5 lets Kit buy that
+      // chance outright with Focus, so the premium scales with how much he committed — capped at
+      // double, past which the roll is already certain and more Focus buys nothing.
+      const focusLift = 1 + Math.min(1, (choice.focusSpent ?? 0) / 3);
+      value = Math.max(0, stats.primary! + buffAtk - battle.armor) + 2.5 * focusLift;
       break;
     }
     case 'attackMana': {
@@ -90,6 +100,14 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       const missing = target.maxHp - target.hp;
       const urgency = target.hp / target.maxHp < 0.35 ? 2 : 1;
       value = Math.min(stats.primary!, missing) * 1.4 * urgency;
+      // v0.4.5 luna1 pays 1 for landing this on someone already under 30%. Deliberately a *small*
+      // tiebreak, not an incentive: measured over 1,500 games, a +5 nudge made the bot hold heals to
+      // farm the bar and cost the party 5pp of win rate (62.2% -> 57.3%) to buy 0.17 extra fires per
+      // win. 1.5 and 0 produce identical play — the existing 0.35 urgency step already walks Luna
+      // onto sub-30% targets often enough — so this only breaks ties toward the scoring target.
+      if (hasV045Content(state.ruleset) && fighter.charId === 'Luna' && target.hp < target.maxHp * V045_LUNA1_HEAL_HP_PCT) {
+        value += 1.5;
+      }
       break;
     }
     case 'buffCounter':
@@ -124,7 +142,9 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       // on the boss's tempo, because there is no declared move left to cancel or delay. Same flat
       // premium the delay version carried; a 3,000-game sim put cancel and delay within noise.
       if (choice.trapSlot !== battle.bossSlot) return 0.2;
-      value = stats.primary! + 5;
+      // v0.4.5: same Focus lift as attackRoll — a trap that is going to spring is worth more than
+      // one that might, and Focus is exactly what converts the second into the first.
+      value = stats.primary! + 5 * (1 + Math.min(1, (choice.focusSpent ?? 0) / 3));
       break;
     }
     // ── v0.4.0 (Chrono) ──
@@ -162,6 +182,35 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
       value = missed * PARTY_DAMAGE_PER_SLOT;
       break;
     }
+    // ── v0.4.5 ──
+    case 'buffShield': {
+      // Aura Shield. Priced like a targeted, mana-scaled version of buffMana: worth more the more
+      // trouble the target is in, and worth the mana only while she has some. The flat reduction is
+      // multiplied by 1.2 for the same reason Guard's is — mitigation that reliably lands is worth
+      // slightly more than its face value, but must stay well under an attack's per-⏱ figure or the
+      // party shields itself to death on the clock (§10).
+      const target = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+      if (!target || !target.alive) return -Infinity;
+      const reduction = (stats.secondary ?? 0) + V045_AURASHIELD_DEF_PER_MANA * (choice.manaSpent ?? 0);
+      const fragility = 1 - target.hp / target.maxHp;
+      // 0.6, not the 1.2 Guard's own reduction gets. Guard's term is multiplied against a
+      // `secondary` that is undefined for the card, so in practice almost all of Guard's value comes
+      // from its fragility term and its ceiling is ~4; pricing Aura Shield's real 4-6 reduction at
+      // 1.2 put it *above* an attack and a 400-game probe had Liora declaring it 1,835 times for
+      // zero damage. §10's constraint is party damage before the clock runs out, so mitigation has
+      // to sit under attacking unless the target is genuinely in trouble.
+      value = reduction * 0.6 * (0.5 + fragility);
+      break;
+    }
+    case 'manaGain': {
+      // Praying. Mana's only worth is what it later buys, so it is priced as the Heal it funds
+      // (V045_HEAL_MANA_COST worth of healing at heal's own 1.4 multiplier) rather than per point —
+      // and it drops off sharply once she is already sitting on more than she can spend, which is
+      // what stops a bot from praying the whole battle.
+      const banked = fighter.mana;
+      value = banked >= 8 ? 1 : (stats.time >= 3 ? 6 : 4) * (banked < 3 ? 1.5 : 1);
+      break;
+    }
     case 'rewind': {
       if (fighter.sand < SAND_PER_REWIND) return -Infinity;
       // Rewind hands its slots to all four seats at once, which is what makes a card that deals no
@@ -172,8 +221,40 @@ export function estimateChoiceValue(state: GameState, playerId: number, choice: 
     default:
       value = 0;
   }
-  return value / Math.max(1, timeCost);
+  return (value + bankedResourceValue(fighter, def)) / Math.max(1, timeCost);
 }
+
+/** What the Focus or mana a card banks is worth, added on top of whatever else the card does.
+ *
+ *  Without this the v0.4.5 economies are invisible to the bot, because every one of its other terms
+ *  prices a card by what it does *this turn*. Measured over 400 games with the term missing: Kit
+ *  declared Sighting Shot 39 times against Sharp Shooting's 2,415 (so Focus was never banked and
+ *  both dice cards ran on bare d6s), and liora2 — "spend 2+ mana and land it" — fired 0.00 times per
+ *  win, exactly the way it did in v0.3 for the same reason.
+ *
+ *  Both rates are deliberately modest. These are nudges toward stocking a resource, not instructions
+ *  to stockpile: each one decays to nothing once the fighter is holding more than they can spend,
+ *  so a bot never spends the whole battle charging. */
+function bankedResourceValue(fighter: { mana: number; focus: number; charId: string }, def: { manaGain?: number; focusGain?: number }): number {
+  let extra = 0;
+  if (def.manaGain) {
+    // A mana is worth V045_AURASHIELD_DEF_PER_MANA damage on her next spell, discounted for the
+    // fact that it is only realised a turn or more later. Liora's pool caps, so mana banked past the
+    // cap is worth literally nothing and must not be priced as if it were.
+    const headroom = fighter.charId === 'Liora' ? Math.max(0, V045_LIORA_MANA_MAX - fighter.mana) : Math.max(0, 6 - fighter.mana);
+    extra += Math.min(def.manaGain, headroom) * V045_AURASHIELD_DEF_PER_MANA * 0.8;
+  }
+  if (def.focusGain) {
+    // A Focus is worth a slice of the flat +2.5 premium attackRoll already pays for the *chance* to
+    // open a weak point — buying certainty is worth a fraction of what the chance itself is worth.
+    // Falls to zero past 3 held, which is enough to make any d6 target certain.
+    extra += fighter.focus >= 3 ? 0 : def.focusGain * FOCUS_BANK_VALUE;
+  }
+  return extra;
+}
+
+/** Per-point worth of banking a Focus, in the same damage-ish units as everything else here. */
+const FOCUS_BANK_VALUE = 2.5;
 
 /** Rough post-armor damage a candidate attack would land, used only to spot "this could be the
  *  killing blow" for the shared Last Shot bonus (v0.3.7). Deliberately optimistic and approximate —
@@ -183,10 +264,12 @@ function estimateFinishingDamage(state: GameState, playerId: number, choice: Ext
   const battle = state.battle!;
   const fighter = battle.fighters.find((f) => f.playerId === playerId)!;
   const isLv2 = !!state.progress[playerId]?.isLv2[choice.skillId];
-  const stats = skillStats(choice.skillId, isLv2);
-  const def = SKILLS[choice.skillId];
+  const stats = skillStats(choice.skillId, isLv2, state.ruleset);
+  const def = skillDefFor(choice.skillId, state.ruleset);
   let buffAtk = (battle.partyBuff?.atk ?? 0) + (battle.weakPoint ? 4 : 0);
-  if (fighter.charId === 'Eric' && fighter.hp < 7) buffAtk += 4; // Berserk
+  // Berserk. v0.4.5 restates the bar as "below half max HP"; see computeOutgoingPlayerDamage.
+  const berserkBar = hasV045Content(state.ruleset) ? fighter.maxHp / 2 : 7;
+  if (fighter.charId === 'Eric' && fighter.hp < berserkBar) buffAtk += 4;
   const armor = def.ignoresArmor ? 0 : battle.armor;
   const perHit = (base: number) => Math.max(0, base + buffAtk - armor);
 
@@ -222,12 +305,19 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   if (player.charId === 'Eric') {
     // eric1 (>10 in one hit) is reachable specifically when Berserk is live, and Power Strike is the
     // card that gets there.
-    if (choice.skillId === 'PowerStrike' && fighter.hp < 7) bonus += 2;
+    if (choice.skillId === 'PowerStrike' && fighter.hp < (hasV045Content(state.ruleset) ? fighter.maxHp / 2 : 7)) bonus += 2;
     // v0.3.7: Guard is a *scoring* card for him, not just a defensive one — eric2 pays per absorbed
     // hit, and eating those hits also drives him under half HP for eric3. Halved again in v0.3.15
     // alongside eric2's own 2 -> 1: after the v0.3.14 boss pass a standing Guard connects on nearly
     // every boss action, so the condition needed no encouragement at all to reach 4.36 fires/win.
     if (choice.skillId === 'Guard') bonus += 0.5;
+    // v0.4.5 eric2 is a *threshold* (two saves in one battle), so the nudge is worth more on the
+    // save that actually crosses it and nothing at all once it is already banked.
+    if (hasV045Content(state.ruleset) && choice.skillId === 'Guard') {
+      const saves = fighter.guardRedirectsThisBattle;
+      if (saves === V045_ERIC_GUARD_SAVES_BAR - 1) bonus += 1.5;
+      else if (saves >= V045_ERIC_GUARD_SAVES_BAR) bonus -= 0.5;
+    }
   }
   if (player.charId === 'Liora') {
     // v0.3.7: liora2 wants a *fully charged* cast (all 3 mana) and liora3 wants a Meteor to have
@@ -243,14 +333,24 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
     // whatever she holds (more mana = more damage right now), so without this she never accumulates
     // enough to clear liora2's bar at all — measured 0.00 fires per win before this nudge existed.
     if (choice.skillId === 'AuraCharge' && fighter.mana < VERA_CHARGED_CAST_MANA) bonus += 1.5;
+    // v0.4.5: Mana Drain is the new charge card. It already deals damage, so estimateChoiceValue
+    // does not undervalue it the way it did Aura Charge — but a bot still needs telling that the
+    // mana is the point when she is short of liora2's bar.
+    if (choice.skillId === 'ManaDrain' && fighter.mana < VERA_CHARGED_CAST_MANA) bonus += 1.5;
+    // liora1 in the rework pays 2 per landed ❄️ Slow, and Freeze is the only card that can do it.
+    if (choice.skillId === 'Freeze') bonus += 1;
     // liora3 wants a 14+ hit banked, not Meteor specifically — but Meteor is the surest way there.
-    if (choice.skillId === 'Meteor' && !fighter.landedMeteorThisBattle) bonus += 1;
+    // At 5 points in the rework it is worth reaching for harder than v0.3's 3.
+    if (choice.skillId === 'Meteor' && !fighter.landedMeteorThisBattle) bonus += hasV045Content(state.ruleset) ? 2 : 1;
   }
   if (player.charId === 'Kit') {
     // kit3 pays per 4 attacks with no ceiling now, so cheap repeatable attacks matter throughout the
     // battle rather than only up to a bar — and Multi Shot is worth 3 of them from a single declare.
     if (choice.skillId === 'QuickShot') bonus += 1;
     if (choice.skillId === 'MultiShot') bonus += 1;
+    // v0.4.5: Sighting Shot fills Quick Shot's slot for kit3, and it is also the only source of the
+    // Focus the two dice cards run on — so it is worth reaching for hardest when he is out.
+    if (choice.skillId === 'SightingShot') bonus += fighter.focus === 0 ? 2 : 1;
     // kit1 pays on the roll landing AND on every hit that cashes the window in afterwards (any
     // player's, Kit's own included) — the double-dip restored after a hit-only cut proved too costly
     // (kit1 4.18 -> 2.35 pts/win, Kit's win share 25.6% -> 11.6% at hard). Sized the same as Liora's
@@ -268,6 +368,10 @@ export function scoreConditionBonus(state: GameState, playerId: number, choice: 
   }
   if (player.charId === 'Luna') {
     if (choice.skillId === 'Heal' && choice.targetPlayerId !== playerId) bonus += 0.5;
+    // v0.4.5: Heal costs mana, so running dry means she stops being a cleric at all. Praying is
+    // nudged only when the pool is genuinely low — its own per-⏱ value already covers the rest, and
+    // a bot that prays on a full pool is just skipping turns.
+    if (hasV045Content(state.ruleset) && choice.skillId === 'Praying' && fighter.mana < 3) bonus += 1.5;
   }
   if (player.charId === 'Kage') {
     // kage1 pays 4 for finishing with Assassinate specifically — the largest single-condition payout
@@ -320,7 +424,7 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
   const battle = state.battle!;
   const player = state.players.find((p) => p.id === playerId)!;
   const isLv2 = !!state.progress[playerId]?.isLv2[choice.skillId];
-  const timeCost = applySomnivarTax(state, skillStats(choice.skillId, isLv2).time);
+  const timeCost = applySomnivarTax(state, skillStats(choice.skillId, isLv2, state.ruleset).time);
   const landedAtSlot = battle.marker - timeCost;
 
   const pendingOf = (charId: CharId) => {
@@ -328,7 +432,8 @@ export function comboSynergyBonus(state: GameState, playerId: number, choice: Ex
     const f = p ? battle.fighters.find((ff) => ff.playerId === p.id) : undefined;
     return f?.pending ?? null;
   };
-  const isBigHit = (skillId: string) => skillId === 'Fireball' || skillId === 'Meteor';
+  // Freeze is v0.4.5's Fireball — same slot, same numbers, so the same combo read applies.
+  const isBigHit = (skillId: string) => skillId === 'Fireball' || skillId === 'Freeze' || skillId === 'Meteor';
   // The boss's pawn is now the entire public signal about it (v0.3.14): the party knows when it
   // acts next and nothing else. Its next action is what clears the weak point, whatever that
   // action turns out to be.

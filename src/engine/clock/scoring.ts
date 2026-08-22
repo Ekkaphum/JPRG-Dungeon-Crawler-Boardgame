@@ -3,7 +3,23 @@
 // instant they happen; the "slot 3" end-of-battle conditions are checked once here after a boss
 // dies.
 
-import { CHRONO_TIME_LEFT_BAR, KIT3_HITS_PER_POINT, LAST_SHOT_CONDITION_ID, LAST_SHOT_POINTS, MORVANE_LOW_HP_BAR, SOULS_PER_POINT, VERA_BIG_HIT_DAMAGE, VERA_CHARGED_CAST_MANA, scorePoints, type SkillId } from '@content/characters';
+import {
+  CHRONO_TIME_LEFT_BAR,
+  LAST_SHOT_CONDITION_ID,
+  LAST_SHOT_POINTS,
+  MORVANE_LOW_HP_BAR,
+  SOULS_PER_POINT,
+  V045_ERIC_GUARD_SAVES_BAR,
+  V045_LUNA1_HEAL_HP_PCT,
+  V045_LUNA2_BLESSED_HIT_DAMAGE,
+  V045_LUNA3_DEATH_PENALTY,
+  VERA_BIG_HIT_DAMAGE,
+  VERA_CHARGED_CAST_MANA,
+  kit3HitsPerPoint,
+  scorePoints,
+  type SkillId,
+} from '@content/characters';
+import { hasV045Content } from '@content/rulesets';
 import { pushScore, currentTotalScore } from './damage';
 import type { GameState, PlayerId } from './types';
 
@@ -22,10 +38,12 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   const charId = state.players.find((p) => p.id === playerId)!.charId;
 
   if (charId === 'Eric' && effectiveDmg > 10) {
-    pushScore(state, { playerId, conditionId: 'eric1', points: scorePoints('eric1') });
+    pushScore(state, { playerId, conditionId: 'eric1', points: scorePoints('eric1', state.ruleset) });
   }
-  if (charId === 'Liora' && effectiveDmg >= VERA_BIG_HIT_DAMAGE) {
-    pushScore(state, { playerId, conditionId: 'liora1', points: scorePoints('liora1') });
+  // v0.4.5 repoints liora1 onto the ❄️ Slow itself (onSlowLanded below), so the damage threshold
+  // that used to fire it is gone — under the rework it double-paid with liora2 on the same hit.
+  if (!hasV045Content(state.ruleset) && charId === 'Liora' && effectiveDmg >= VERA_BIG_HIT_DAMAGE) {
+    pushScore(state, { playerId, conditionId: 'liora1', points: scorePoints('liora1', state.ruleset) });
   }
   // liora3's half: her signature spell actually went off this battle. Keyed on Meteor connecting
   // rather than on any big hit — a fully-charged Fireball can clear liora1's damage bar, but only
@@ -34,12 +52,15 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
     const f = battle.fighters.find((x) => x.playerId === playerId);
     if (f) f.landedMeteorThisBattle = true;
   }
-  if (battle.partyBuff && effectiveDmg > 15) {
+  // v0.4.5 drops the bar to 14 alongside Blessing's own attack buff going 3 -> 2 — holding 15 would
+  // have made the condition harder while the card that enables it got weaker.
+  const blessedHitBar = hasV045Content(state.ruleset) ? V045_LUNA2_BLESSED_HIT_DAMAGE : 15;
+  if (battle.partyBuff && effectiveDmg > blessedHitBar) {
     // Guarded rather than assumed safe: only Luna's own Blessing can set partyBuff, so this is
     // unreachable when she isn't drafted in practice — but "unreachable in practice" is exactly
     // how playerByChar's crash on a missing Luna slipped in undetected until Mira exposed it.
     const lunaId = playerByChar(state, 'Luna');
-    if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna2', points: scorePoints('luna2') });
+    if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna2', points: scorePoints('luna2', state.ruleset) });
   }
   // Universal Last Shot bonus (v0.3.7) — every character, not just Eric and Liora as before. Fires
   // here rather than in onBattleEndScoring so it lands on the exact hit that killed the boss, which
@@ -53,7 +74,7 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   // sim at 3 fired the condition exactly 0.00 times per win — nobody ever banks three turns' worth
   // before casting, so the condition was dead on arrival.
   if (charId === 'Liora' && manaSpent >= VERA_CHARGED_CAST_MANA && effectiveDmg > 0) {
-    pushScore(state, { playerId, conditionId: 'liora2', points: scorePoints('liora2') });
+    pushScore(state, { playerId, conditionId: 'liora2', points: scorePoints('liora2', state.ruleset) });
   }
   // kit1 (v0.3.16): Kit is paid every time the weak point he opened actually connects — by anyone,
   // himself included. v0.3.15 tried this allies-only under the id 'kit2' (to keep it separate from
@@ -66,7 +87,7 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
     const opener = state.players.find((p) => p.id === battle.weakPoint!.ownerId);
     if (opener?.charId === 'Kit') {
       battle.weakPoint.hitsPaid += 1;
-      pushScore(state, { playerId: battle.weakPoint.ownerId, conditionId: 'kit1', points: scorePoints('kit1') });
+      pushScore(state, { playerId: battle.weakPoint.ownerId, conditionId: 'kit1', points: scorePoints('kit1', state.ruleset) });
     }
   }
   // kage2 (v0.4.0): the attack that breaks stealth has to actually connect. `stealthUntilSlot` is
@@ -74,7 +95,7 @@ export function onPlayerDealtDamage(state: GameState, playerId: PlayerId, skillI
   // what makes "came out of hiding to land this" checkable at all.
   const kageFighter = charId === 'Kage' ? battle.fighters.find((x) => x.playerId === playerId) : undefined;
   if (kageFighter?.stealthUntilSlot != null && effectiveDmg > 0) {
-    pushScore(state, { playerId, conditionId: 'kage2', points: scorePoints('kage2') });
+    pushScore(state, { playerId, conditionId: 'kage2', points: scorePoints('kage2', state.ruleset) });
   }
 }
 
@@ -104,14 +125,14 @@ export function onWeakPointOpened(state: GameState, playerId: PlayerId) {
   // opening pays again, on top of — not instead of — the hit-based payout, so kit1 now double-dips
   // the way it effectively did before v0.3.16, just consolidated under one id.
   const charId = state.players.find((p) => p.id === playerId)!.charId;
-  if (charId === 'Kit') pushScore(state, { playerId, conditionId: 'kit1', points: scorePoints('kit1') });
+  if (charId === 'Kit') pushScore(state, { playerId, conditionId: 'kit1', points: scorePoints('kit1', state.ruleset) });
 }
 
 /** kit2 (v0.3.16): Trap actually triggers — the roll passed, so it dealt damage and cancelled the
  *  boss's move. Restored after v0.3.15 repointed kit2 onto the weak point and left Trap without a
  *  score condition of its own; springTrapOnBoss (skills.ts) calls this only on a passed roll. */
 export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
-  pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2') });
+  pushScore(state, { playerId: ownerId, conditionId: 'kit2', points: scorePoints('kit2', state.ruleset) });
 }
 
 /** eric2 (v0.3.7): Eric's Guard actually absorbed a hit that was aimed at an ally. Fires on the
@@ -122,15 +143,57 @@ export function onTrapTriggered(state: GameState, ownerId: PlayerId) {
 export function onGuardRedirected(state: GameState, guardianId: PlayerId) {
   const charId = state.players.find((p) => p.id === guardianId)?.charId;
   if (charId !== 'Eric') return;
+  // v0.4.5 turns this from a per-redirect payout into a once-per-battle threshold. The counting
+  // still happens here, on the same event, but the points are handed out at the crossing rather
+  // than on every save — see the eric2 comment in V045_SCORE for the 82.3%-win-share measurement
+  // that made an uncapped version untenable.
+  if (hasV045Content(state.ruleset)) {
+    const f = state.battle!.fighters.find((x) => x.playerId === guardianId);
+    if (!f) return;
+    f.guardRedirectsThisBattle += 1;
+    if (f.guardRedirectsThisBattle === V045_ERIC_GUARD_SAVES_BAR) {
+      pushScore(state, { playerId: guardianId, conditionId: 'eric2', points: scorePoints('eric2', state.ruleset) });
+    }
+    return;
+  }
   pushScore(state, { playerId: guardianId, conditionId: 'eric2', points: scorePoints('eric2') });
 }
 
-/** Kept as a hook with no scoring body since v0.4.0: luna1 moved off Heal in v0.3.15 and Mira, the
- *  only other character whose condition rode this path, was removed. Healing still happens — it just
- *  pays nobody a point any more. The call site stays so a future heal-based condition has somewhere
- *  to live, and so the resolve path doesn't have to change shape to add one. */
-export function onHealResolved(_state: GameState, _healerId: PlayerId, _targetId: PlayerId, _actualAmount: number) {
-  // intentionally empty
+/** liora1 in the v0.4.5 rework: Freeze's ❄️ Slow actually landed on the boss. Called from
+ *  applySlowToBoss (skills.ts) on a passed roll only — a missed roll still deals full damage, so the
+ *  card is never a wasted turn, but it is the Slow specifically that scores. */
+export function onSlowLanded(state: GameState, playerId: PlayerId) {
+  if (!hasV045Content(state.ruleset)) return;
+  const charId = state.players.find((p) => p.id === playerId)?.charId;
+  if (charId !== 'Liora') return;
+  pushScore(state, { playerId, conditionId: 'liora1', points: scorePoints('liora1', state.ruleset) });
+}
+
+/** luna1 in the v0.4.5 rework: Luna scores whenever a heal she casts resolves on someone who was
+ *  under V045_LUNA1_HEAL_HP_PCT of their max HP. Empty for v0.3, where luna1 moved off Heal in
+ *  v0.3.15 and rides pushScore's ally echo instead.
+ *
+ *  hpBefore is passed in rather than read off the fighter because healFighter has already run by
+ *  the time this is called — the bar is about how much trouble they were in, not where the heal
+ *  left them, so a heal that lifts them clear of 30% still pays.
+ *
+ *  No ally-only clause: the rule says "a character", and Luna healing herself out of a death spiral
+ *  is the same read the condition is paying for. It is self-limiting anyway — Heal costs 2 mana and
+ *  the heal itself pushes her back over the bar. */
+export function onHealResolved(
+  state: GameState,
+  healerId: PlayerId,
+  targetId: PlayerId,
+  actualAmount: number,
+  targetHpBefore: number,
+) {
+  if (!hasV045Content(state.ruleset)) return;
+  if (actualAmount <= 0) return;
+  const charId = state.players.find((p) => p.id === healerId)?.charId;
+  if (charId !== 'Luna') return;
+  const target = state.battle!.fighters.find((f) => f.playerId === targetId);
+  if (!target || targetHpBefore >= target.maxHp * V045_LUNA1_HEAL_HP_PCT) return;
+  pushScore(state, { playerId: healerId, conditionId: 'luna1', points: scorePoints('luna1', state.ruleset) });
 }
 
 /** "Slot 3" end-of-battle conditions — only meaningful when the boss was actually defeated. */
@@ -144,8 +207,15 @@ export function onBattleEndScoring(state: GameState) {
     // everDroppedBelowHalfThisBattle rather than his HP right now, so being healed back up after
     // surviving a mauling still scores — the old "HP < 5 at the final frame" version fired 0.13
     // times per win and pulled against Berserk.
-    if (p.charId === 'Eric' && !f.everDiedThisBattle && f.everDroppedBelowHalfThisBattle) {
-      pushScore(state, { playerId: p.id, conditionId: 'eric3', points: scorePoints('eric3') });
+    //
+    // v0.4.5 drops the "was beaten down" half of the latch: Power Strike now bleeds him 1 HP a
+    // swing, so simply staying up is something he spends resources on rather than something that
+    // happens to him. The v0.3 form is unchanged and still requires both.
+    const ericSurvived = hasV045Content(state.ruleset)
+      ? !f.everDiedThisBattle
+      : !f.everDiedThisBattle && f.everDroppedBelowHalfThisBattle;
+    if (p.charId === 'Eric' && ericSurvived) {
+      pushScore(state, { playerId: p.id, conditionId: 'eric3', points: scorePoints('eric3', state.ruleset) });
     }
     // kit3 (v0.3.15): pays per KIT3_HITS_PER_POINT attacks instead of once at a threshold. The 8+
     // bar was Kit's only real earner and it was capped at one payout a battle, so his best card
@@ -153,41 +223,63 @@ export function onBattleEndScoring(state: GameState) {
     // at all. Rewarding the rate rather than a single milestone also matches the fantasy the card
     // is named for — continuous fire — and it keeps paying when he beats the old bar by a lot.
     if (p.charId === 'Kit') {
-      const points = Math.floor(f.attackCountThisBattle / KIT3_HITS_PER_POINT) * scorePoints('kit3');
+      // v0.4.5 raises the rate to 5 (kit3HitsPerPoint): Sighting Shot at ⏱2 plus a Focus-fed Sharp
+      // Shooting climbs his attack count faster than v0.3's kit did.
+      const points = Math.floor(f.attackCountThisBattle / kit3HitsPerPoint(state.ruleset)) * scorePoints('kit3', state.ruleset);
       if (points > 0) pushScore(state, { playerId: p.id, conditionId: 'kit3', points });
     }
     // v0.3.7 liora3: surviving only pays if she also delivered the spell she was being protected for.
-    if (p.charId === 'Liora' && !f.everDiedThisBattle && f.landedMeteorThisBattle) {
-      pushScore(state, { playerId: p.id, conditionId: 'liora3', points: scorePoints('liora3') });
+    //
+    // v0.4.5 drops the survival half and pays 5 for the Meteor alone. Her third condition was
+    // otherwise a third "don't die" alongside eric3 and luna3, and Meteor at ⏱7 on a 24-slot clock
+    // is already the hardest commitment in the game to make good on.
+    const lioraDelivered = hasV045Content(state.ruleset)
+      ? f.landedMeteorThisBattle
+      : !f.everDiedThisBattle && f.landedMeteorThisBattle;
+    if (p.charId === 'Liora' && lioraDelivered) {
+      pushScore(state, { playerId: p.id, conditionId: 'liora3', points: scorePoints('liora3', state.ruleset) });
     }
     // ── v0.4.0 slot-③ conditions ──
     // chrono3: his whole kit spends his own ⏱ to buy the table time; the leftover clock is the
     // honest scoreboard for whether that trade paid.
     if (p.charId === 'Chrono' && battle.marker >= CHRONO_TIME_LEFT_BAR) {
-      pushScore(state, { playerId: p.id, conditionId: 'chrono3', points: scorePoints('chrono3') });
+      pushScore(state, { playerId: p.id, conditionId: 'chrono3', points: scorePoints('chrono3', state.ruleset) });
     }
     // kage1 reads finishedBySkill, which the engine has recorded since v0.3.0 with nothing ever
     // reading it. kage3 asks for a completely untouched battle — the hardest bar on the roster.
     if (p.charId === 'Kage') {
       if (battle.finishedBy === p.id && battle.finishedBySkill === 'Assassinate') {
-        pushScore(state, { playerId: p.id, conditionId: 'kage1', points: scorePoints('kage1') });
+        pushScore(state, { playerId: p.id, conditionId: 'kage1', points: scorePoints('kage1', state.ruleset) });
       }
       if (!f.everHitByBossThisBattle) {
-        pushScore(state, { playerId: p.id, conditionId: 'kage3', points: scorePoints('kage3') });
+        pushScore(state, { playerId: p.id, conditionId: 'kage3', points: scorePoints('kage3', state.ruleset) });
       }
     }
     // morvane3: alive, but only just. Mirrors eric3's "battered but unbroken" shape at a harsher bar,
     // which suits a character who cannot be healed at all.
     if (p.charId === 'Morvane' && !f.everDiedThisBattle && f.hp < MORVANE_LOW_HP_BAR) {
-      pushScore(state, { playerId: p.id, conditionId: 'morvane3', points: scorePoints('morvane3') });
+      pushScore(state, { playerId: p.id, conditionId: 'morvane3', points: scorePoints('morvane3', state.ruleset) });
     }
   }
-  const noOneEverDied = battle.fighters.every((f) => !f.everDiedThisBattle);
-  if (noOneEverDied) {
-    // This one WAS reachable with Luna undrafted (a full-party-survives battle needs nothing from
-    // her specifically) — playerByChar(state, 'Luna')!.id would throw here in a real game.
+  // luna3. v0.3 is all-or-nothing; v0.4.5 slopes it — 6 points intact, less 2 per death, floored at
+  // 0. The slope is the point: under the all-or-nothing version the condition was worth nothing the
+  // instant anyone went down, which left the cleric with no reason to keep healing for the rest of
+  // the battle. Now every save after the first death still protects points that are still on the
+  // table.
+  //
+  // Counted off battle.deathsThisBattle rather than the per-fighter everDiedThisBattle flags,
+  // because a fighter who dies, revives and dies again has to cost her twice.
+  const lunaPoints = hasV045Content(state.ruleset)
+    ? Math.max(0, scorePoints('luna3', state.ruleset) - V045_LUNA3_DEATH_PENALTY * battle.deathsThisBattle)
+    : battle.fighters.every((f) => !f.everDiedThisBattle)
+      ? scorePoints('luna3', state.ruleset)
+      : 0;
+  if (lunaPoints > 0) {
+    // Guarded rather than assumed: this one IS reachable with Luna undrafted (a battle nobody dies
+    // in needs nothing from her specifically), so an unguarded playerByChar(...)!.id would throw in
+    // a real game.
     const lunaId = playerByChar(state, 'Luna');
-    if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna3', points: scorePoints('luna3') });
+    if (lunaId !== null) pushScore(state, { playerId: lunaId, conditionId: 'luna3', points: lunaPoints });
   }
 }
 

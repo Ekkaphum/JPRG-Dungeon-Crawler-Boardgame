@@ -1,6 +1,6 @@
 import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
-import { CHAR_IDS, CHARACTERS, SKILLS } from '@content/characters';
+import { CHAR_IDS, CHARACTERS, SKILLS, charScore, charSkills, skillStats } from '@content/characters';
 import { BOSS_IDS, BOSSES } from '@content/bosses3';
 import { charImageUrl, bossImageUrl } from '@ui/common/assets';
 
@@ -8,6 +8,10 @@ export function TutorialScreen() {
   const t = useT();
   const lang = useAppStore((s) => s.settings.lang);
   const setScreen = useAppStore((s) => s.setScreen);
+  // The ruleset the *next* game will start under, not a fixed one: under v0.4.5 three of the four
+  // core characters hold a different kit and two of them score for different things, so a tutorial
+  // pinned to v0.3 would teach the wrong game to anyone who picked Experimental in the menu.
+  const ruleset = useAppStore((s) => s.ruleset);
 
   return (
     <div className="min-h-screen p-6 flex flex-col items-center gap-4">
@@ -54,10 +58,10 @@ export function TutorialScreen() {
                       <td className="px-2 py-1.5 text-gold-dim">{def.hp}</td>
                       <td className="px-2 py-1.5 text-gold-dim">{def.startSlot}</td>
                       <td className="px-2 py-1.5 text-gold-dim leading-relaxed">
-                        {def.skills.map((sid) => `${SKILLS[sid].immediate ? '⚡ ' : ''}${SKILLS[sid].name[lang]} (⏱${SKILLS[sid].lv1.time})`).join(' · ')}
+                        {charSkills(def.id, ruleset).map((sid) => `${SKILLS[sid].immediate ? '⚡ ' : ''}${SKILLS[sid].name[lang]} (⏱${skillStats(sid, false, ruleset).time})`).join(' · ')}
                       </td>
                       <td className="px-2 py-1.5 text-gold-dim leading-relaxed">
-                        {def.score.map((c) => `${c.desc[lang]} (${c.points}p)`).join(' · ')}
+                        {charScore(def.id, ruleset).map((c) => `${c.desc[lang]} (${c.points}p)`).join(' · ')}
                       </td>
                     </tr>
                   );
