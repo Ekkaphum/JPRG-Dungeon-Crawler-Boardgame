@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CASTING_SKILLS, hasSpriteSheet, heroHitSpriteUrl, isCastingSkill, spriteActionRow } from '@ui/clock/HeroSprite';
 
@@ -6,6 +8,18 @@ describe('hero sprite animation rows', () => {
     for (const charId of ['Eric', 'Kit', 'Liora', 'Luna', 'Chrono', 'Kage', 'Morvane'] as const) {
       expect(hasSpriteSheet(charId)).toBe(true);
       expect(spriteActionRow(charId, null)).toBe(0);
+    }
+  });
+
+  it('packs every hero sheet into exact square 4x5 cells', () => {
+    for (const charId of ['Eric', 'Kit', 'Liora', 'Luna', 'Chrono', 'Kage', 'Morvane'] as const) {
+      const file = readFileSync(join(process.cwd(), 'public', 'assets', 'sprites', `${charId}.png`));
+      expect(file.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
+      const width = file.readUInt32BE(16);
+      const height = file.readUInt32BE(20);
+      expect(width % 4).toBe(0);
+      expect(height % 5).toBe(0);
+      expect(width / 4).toBe(height / 5);
     }
   });
 

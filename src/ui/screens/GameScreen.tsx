@@ -180,7 +180,10 @@ export function GameScreen() {
               </div>
             </div>
 
-            <div className="battle-log-dock flex-shrink-0 min-h-[150px] md:min-h-0 md:self-stretch w-full md:w-[220px] lg:w-[280px]">
+            {/* The log body is positioned inside this rail on desktop, so its growing content is
+                never part of the battle row's intrinsic height calculation. The rail stretches only
+                to the height established by battle-main; LogPanel scrolls anything beyond it. */}
+            <div className="battle-log-dock relative overflow-hidden flex-shrink-0 min-h-[150px] max-h-[40vh] md:max-h-none md:min-h-0 md:self-stretch w-full md:w-[220px] lg:w-[280px]">
               <LogPanel log={session.visibleLog} />
             </div>
           </div>

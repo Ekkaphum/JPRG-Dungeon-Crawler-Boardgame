@@ -2,6 +2,12 @@
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
+## 2026-08-22
+
+- **Stopped the battle log from growing the screen and planted every hero's idle stance** — on desktop, the scrolling log body is now contained inside a rail whose height comes only from the battle column, so new lines produce an internal scrollbar instead of making the whole page taller; the mobile log is capped at 40vh for the same reason. Repacked all seven 4×5 hero sheets onto exact square cells and aligned the dominant lower-body/foot anchor across all four idle frames (including Luna's 1–2px vertical drift), while leaving every action row unchanged. Eric's source frames changed the width of his actual stance rather than merely translating it, so his boots/lower-body band now uses one pixel-identical planted pose while the authored upper-body idle motion continues above it. Also removed tiny disconnected frame-boundary fragments from Chrono and Morvane's idle rows.
+
+- **Cleaned the pale extraction fringe from the three expanded-roster sprite sets** — audited every character, boss, hit, and action-effect sheet; the binary-alpha main and hit sheets for Time Mage (Chrono), Ninja (Kage), and Necromancer (Morvane) were the six outliers. Replaced only neutral white/gray pixels in their two-pixel exterior contour with a dark colour sampled from each sprite's own palette, and added a soft alpha edge. The original dimensions, 4×5/4×1 grids, silhouettes, poses, frame order, and saturated spell glows are unchanged.
+
 ## 2026-08-21
 
 - **The dev-server launch config is machine-independent again** — `.claude/launch.json` named `npm` as its `runtimeExecutable`, which a launcher that spawns the executable directly cannot always resolve on Windows (there `npm` is the `npm.cmd` shim, not a binary), so this machine had been running with an absolute `C:\Program Files\nodejs\npm.cmd` path in the working tree — correct locally, broken for every other checkout, and therefore never committable. It now runs `node node_modules/vite/bin/vite.js`: `node` is on PATH on every platform and the script path is repo-relative, so the same entry works on Windows, macOS, and Linux. Verified by restarting the preview from this config — Vite comes up on 5173 and the app renders.
