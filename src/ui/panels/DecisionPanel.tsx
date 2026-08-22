@@ -22,6 +22,7 @@ import { useT } from '@content/i18n/useT';
 import { useAppStore } from '@session/store';
 import type { GameSession } from '@session/GameSession';
 import { charImageUrl, itemImageUrl } from '@ui/common/assets';
+import { ActionSkillCard } from '@ui/common/ActionSkillCard';
 
 export function DecisionPanel({ state, decision, session }: { state: GameState; decision: PendingDecision; session: GameSession }) {
   if (decision.kind === 'CHOOSE_CHARACTER') return <ChooseCharacterPanel decision={decision} session={session} />;
@@ -256,10 +257,18 @@ function DeclareActionPanel({
             // <=0, not <0: slot 0 itself is never playable (the battle ends the instant the marker
             // reaches it, before anything there resolves).
             const tooSlow = landedSlot <= 0;
+            const landingText = skillFor(sid).immediate
+              ? `⏱${stats.time} → ${t('game.landsImmediately', { n: landSlotDisplay(landedSlot) })}`
+              : `⏱${stats.time} → ${t('game.willLandAt', { n: landSlotDisplay(landedSlot) })}`;
             return (
-              <button
+              <ActionSkillCard
                 key={sid}
+                skillId={sid}
+                isLv2={isLv2(sid)}
+                ruleset={state.ruleset}
                 disabled={disabled}
+                landingText={`${landingText}${tooSlow ? ` (${t('decision.tooSlow')})` : ''}`}
+                tooSlow={tooSlow}
                 onClick={() => {
                   // Routing lives in declareRouting.ts and is exhaustive over SkillKind, so a new
                   // kind cannot silently fall through to a picker that was never written — which is
@@ -268,19 +277,7 @@ function DeclareActionPanel({
                   if (route.kind === 'submit') submit({ kind: 'DECLARE_ACTION', skillId: sid });
                   else setSkillId(sid);
                 }}
-                className="skill-card gold-frame rounded-lg px-3 py-2 hover:bg-gold/10 disabled:opacity-30 text-left"
-              >
-                <div className="text-sm">
-                  {SKILLS[sid].immediate && <span title={t('decision.immediateBadge')}>⚡ </span>}
-                  {SKILLS[sid].name[lang]} {isLv2(sid) && <span className="text-gold-bright">{t('decision.lv2')}</span>}
-                </div>
-                <div className={`text-[10px] ${tooSlow ? 'text-boss' : 'text-gold-dim'}`}>
-                  {SKILLS[sid].immediate
-                    ? `⏱${stats.time} → ${t('game.landsImmediately', { n: landSlotDisplay(landedSlot) })}`
-                    : `⏱${stats.time} → ${t('game.willLandAt', { n: landSlotDisplay(landedSlot) })}`}
-                  {tooSlow && ` (${t('decision.tooSlow')})`}
-                </div>
-              </button>
+              />
             );
           })}
         </div>

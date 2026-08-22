@@ -96,12 +96,286 @@ html, body, #root {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.4rem;
+  position: relative;
 }
 
 @media (min-width: 768px) {
-  .skill-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .command-dock .skill-card { padding: 0.35rem 0.5rem; }
   .command-dock .held-item-button img { width: 1.25rem; height: 1.25rem; }
+}
+
+/* At the md breakpoint the log rail and party panel consume too much horizontal space for four
+   cards. Stack the console through tablet widths so the cards keep a usable, undistorted size. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .battle-console { flex-direction: column !important; }
+  .command-dock { width: 100% !important; }
+}
+
+@media (min-width: 1280px) {
+  .skill-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Action cards use the existing four-frame skill effects as their live illustration. The compact
+   card remains a practical button; hover or keyboard focus opens the full card above the command
+   dock without baking localised/rules-sensitive text into an image. */
+.action-skill-card {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  justify-self: center;
+  width: 100%;
+  max-width: 160px;
+  aspect-ratio: 3 / 2;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 !important;
+  overflow: visible;
+  border: 2px solid #8e6e32;
+  border-radius: 7px;
+  background: linear-gradient(155deg, #171310, #090807 72%) !important;
+  color: #f5e4b4 !important;
+  box-shadow: 0 4px 0 #100a07, inset 0 0 0 1px rgba(242, 202, 112, 0.2), 0 8px 20px rgba(0, 0, 0, 0.32) !important;
+  text-shadow: 0 1px 2px #000 !important;
+  transition: transform 150ms ease, border-color 150ms ease, filter 150ms ease;
+}
+
+.action-skill-card:not(:disabled):hover,
+.action-skill-card:not(:disabled):focus-visible {
+  z-index: 50;
+  transform: translateY(-3px) !important;
+  border-color: #f0cf78;
+  filter: brightness(1.08);
+  outline: none;
+}
+
+.action-skill-card:disabled { opacity: 0.3; filter: saturate(0.35); cursor: not-allowed; }
+
+.action-skill-card__art,
+.action-card-preview__art {
+  display: block;
+  background-image: var(--action-art), radial-gradient(circle at 50% 65%, rgba(137, 92, 33, 0.34), transparent 54%);
+  background-repeat: no-repeat;
+  background-size: 400% 100%, 100% 100%;
+  background-position: 0% 50%, center;
+  /* Heroes stand on the right side of the arena and face the boss on the left. Mirror every
+     card illustration to match the already-mirrored in-battle ActionEffect direction. */
+  transform: scaleX(-1);
+  transform-origin: center;
+}
+
+.action-skill-card__art {
+  justify-self: center;
+  width: auto;
+  max-width: calc(100% - 8px);
+  height: 100%;
+  min-height: 0;
+  aspect-ratio: 1;
+  margin: 0;
+  border-radius: 4px 4px 1px 1px;
+}
+
+.action-skill-card:hover .action-skill-card__art,
+.action-skill-card:focus-visible .action-skill-card__art,
+.action-skill-card:hover .action-card-preview__art,
+.action-skill-card:focus-visible .action-card-preview__art {
+  animation: action-card-art-frames 1.05s steps(3) infinite;
+}
+
+@keyframes action-card-art-frames {
+  from { background-position: 0% 50%, center; }
+  to { background-position: 100% 50%, center; }
+}
+
+.action-skill-card__compact-stats {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  right: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.action-skill-card__name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.24rem;
+  min-width: 0;
+  padding: 0.28rem 0.32rem 0.34rem;
+  border-top: 1px solid rgba(218, 171, 76, 0.5);
+  background: linear-gradient(180deg, rgba(48, 35, 22, 0.93), rgba(16, 12, 10, 0.98));
+  color: #f0cf78;
+  font-size: clamp(0.62rem, 1.45vw, 0.76rem);
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-skill-card__name em,
+.action-card-preview__name em {
+  color: #fff0a4;
+  font-size: 0.68em;
+  font-style: normal;
+}
+
+.action-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  border: 1px solid rgba(239, 214, 153, 0.24);
+  border-radius: 999px;
+  padding: 0.08rem 0.3rem;
+  background: rgba(8, 8, 10, 0.86);
+  color: #efe6cf;
+  font: 700 0.57rem/1.25 system-ui, sans-serif;
+  letter-spacing: 0;
+  text-shadow: 0 1px 1px #000;
+  white-space: nowrap;
+}
+
+.action-stat b { font-size: 1.05em; }
+.action-stat--time { border-color: #b59348; color: #f4d77e; }
+.action-stat--attack { border-color: #a9443f; color: #ffaaa1; }
+.action-stat--defense { border-color: #4677a8; color: #a9d5ff; }
+.action-stat--heal { border-color: #4d8c61; color: #aff0bd; }
+.action-stat--other { border-color: #775aa0; color: #d6bbff; }
+
+.action-card-preview {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  z-index: 100;
+  display: grid;
+  grid-template-rows: 55% 45%;
+  width: min(300px, 82vw);
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #17120f url('/assets/cards/action-card-frame.png') center / 100% 100% no-repeat;
+  color: #f4ead4;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.75), 0 0 0 2px rgba(240, 203, 116, 0.5);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, 12px) scale(0.94);
+  transform-origin: bottom center;
+  transition: opacity 140ms ease, visibility 140ms ease, transform 180ms ease;
+}
+
+.action-skill-card:hover .action-card-preview,
+.action-skill-card:focus-visible .action-card-preview {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0) scale(1);
+}
+
+@media (min-width: 768px) {
+  .skill-grid .action-skill-card:first-child .action-card-preview {
+    left: 0;
+    transform: translate(0, 12px) scale(0.94);
+    transform-origin: bottom left;
+  }
+  .skill-grid .action-skill-card:last-child .action-card-preview {
+    right: 0;
+    left: auto;
+    transform: translate(0, 12px) scale(0.94);
+    transform-origin: bottom right;
+  }
+  .skill-grid .action-skill-card:first-child:hover .action-card-preview,
+  .skill-grid .action-skill-card:first-child:focus-visible .action-card-preview,
+  .skill-grid .action-skill-card:last-child:hover .action-card-preview,
+  .skill-grid .action-skill-card:last-child:focus-visible .action-card-preview {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.action-card-preview__art {
+  align-self: end;
+  width: 78%;
+  height: auto;
+  aspect-ratio: 1;
+  margin: 12% auto 0;
+  filter: drop-shadow(0 12px 10px rgba(0, 0, 0, 0.48));
+}
+
+.action-card-preview__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 4px 8.5% 8%;
+  padding: 0 4%;
+  text-align: center;
+}
+
+.action-card-preview__name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.05rem;
+  color: #f3d489;
+  font-size: 1.02rem;
+  line-height: 1.1;
+}
+
+.action-card-preview__stats {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0.18rem 0 0.42rem;
+}
+
+.action-card-preview__stats .action-stat { padding: 0.13rem 0.42rem; font-size: 0.67rem; }
+
+.action-card-preview__description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #dfd4c2;
+  font-size: 0.65rem;
+  line-height: 1.38;
+  text-align: left;
+  text-shadow: 0 1px 2px #000;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
+.action-card-preview__landing {
+  margin-top: auto;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(209, 169, 89, 0.22);
+  color: #bcae91;
+  font-size: 0.58rem;
+  line-height: 1.2;
+}
+
+.action-card-preview__landing.is-too-slow { color: #f08074; }
+
+@media (max-width: 767px) {
+  .skill-grid .action-skill-card:nth-child(odd) .action-card-preview {
+    left: 0;
+    transform: translate(0, 12px) scale(0.94);
+  }
+  .skill-grid .action-skill-card:nth-child(even) .action-card-preview {
+    right: 0;
+    left: auto;
+    transform: translate(0, 12px) scale(0.94);
+  }
+  .skill-grid .action-skill-card:nth-child(odd):hover .action-card-preview,
+  .skill-grid .action-skill-card:nth-child(odd):focus-visible .action-card-preview,
+  .skill-grid .action-skill-card:nth-child(even):hover .action-card-preview,
+  .skill-grid .action-skill-card:nth-child(even):focus-visible .action-card-preview {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-skill-card__art,
+  .action-card-preview__art { animation: none !important; }
+  .action-card-preview { transition: opacity 120ms ease; }
 }
 
 /* Camp sanctuary — one coherent environment for shopping, upgrading, and converting gems. */
