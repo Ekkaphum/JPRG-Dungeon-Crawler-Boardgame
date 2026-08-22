@@ -76,6 +76,23 @@ export function SettingsScreen() {
           </div>
         </div>
 
+        <div>
+          <label className="flex items-center gap-2 text-sm mb-2">
+            <input type="checkbox" checked={settings.musicEnabled} onChange={(e) => updateSettings({ musicEnabled: e.target.checked })} />
+            {t('common.music')}
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={settings.musicVolume}
+            disabled={!settings.musicEnabled}
+            onChange={(e) => updateSettings({ musicVolume: Number(e.target.value) })}
+            className="w-full disabled:opacity-30"
+          />
+        </div>
+
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

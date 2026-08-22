@@ -180,6 +180,7 @@ export const th = {
   'common.animSpeed.hint': 'เวลาหน่วงต่อ 1 เหตุการณ์ · 0 = แสดงผลทันทีไม่มีดีเลย์',
   'common.sound': 'เสียงเอฟเฟกต์',
   'common.sound.test': 'ลองฟัง',
+  'common.music': 'เพลงประกอบฉากต่อสู้',
 
   'tutorial.title': 'สอนเล่น',
   'tutorial.close': 'เข้าใจแล้ว เริ่มเล่น',

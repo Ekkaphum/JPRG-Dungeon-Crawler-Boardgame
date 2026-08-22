@@ -182,6 +182,7 @@ export const en: Record<I18nKey, string> = {
   'common.animSpeed.hint': 'Pause between events · 0 resolves instantly',
   'common.sound': 'Sound effects',
   'common.sound.test': 'Test sound',
+  'common.music': 'Battle music',
 
   'tutorial.title': 'How to Play',
   'tutorial.close': 'Got it, start playing',

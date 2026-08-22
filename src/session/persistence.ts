@@ -28,6 +28,8 @@ export interface Settings {
   showBotIntents: boolean;
   soundEnabled: boolean;
   soundVolume: number;
+  musicEnabled: boolean;
+  musicVolume: number;
   visualMode: VisualMode;
 }
 
@@ -37,6 +39,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showBotIntents: false,
   soundEnabled: true,
   soundVolume: 0.5,
+  musicEnabled: true,
+  musicVolume: 0.4,
   visualMode: 'classic',
 };
 

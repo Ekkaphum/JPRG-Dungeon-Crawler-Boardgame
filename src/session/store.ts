@@ -16,6 +16,7 @@ import {
 } from './persistence';
 import type { Difficulty } from '@content/difficulty';
 import { audioEngine } from '@ui/audio/AudioEngine';
+import { musicPlayer } from '@ui/audio/MusicPlayer';
 
 export type Screen = 'menu' | 'setup' | 'game' | 'scoring' | 'allLose' | 'tutorial' | 'stats' | 'settings';
 
@@ -72,6 +73,8 @@ function randomSeed(): number {
 const initialSettings = loadSettings();
 audioEngine.enabled = initialSettings.soundEnabled;
 audioEngine.volume = initialSettings.soundVolume;
+musicPlayer.setEnabled(initialSettings.musicEnabled);
+musicPlayer.setVolume(initialSettings.musicVolume);
 
 export const useAppStore = create<AppState>((set, get) => ({
   screen: 'menu',
@@ -97,6 +100,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (patch.animDelayMs !== undefined) get().session?.setAnimSpeed(patch.animDelayMs);
     if (patch.soundEnabled !== undefined) audioEngine.enabled = patch.soundEnabled;
     if (patch.soundVolume !== undefined) audioEngine.volume = patch.soundVolume;
+    if (patch.musicEnabled !== undefined) musicPlayer.setEnabled(patch.musicEnabled);
+    if (patch.musicVolume !== undefined) musicPlayer.setVolume(patch.musicVolume);
   },
 
   updatePlayer: (i, patch) => {
@@ -123,6 +128,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Must happen inside this real click handler, not later when a bot's sound first tries to
     // play — browsers refuse to start audio outside a user gesture.
     audioEngine.unlock();
+    musicPlayer.unlock();
     const { players, difficulty, ruleset, seedText, draftMode, draftOrder } = get();
     const setup: NewGameSetup = {
       players: players.map((p) => ({ name: p.name || 'Player', kind: p.kind, botLevel: p.kind === 'bot' ? p.botLevel : undefined })),
@@ -143,6 +149,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   continueGame: () => {
     audioEngine.unlock();
+    musicPlayer.unlock();
     const save = loadSaveFile();
     if (!save) return;
     const session = new GameSession(save.setup, save.seed, save.snapshot, get().settings.animDelayMs);
