@@ -2,6 +2,14 @@
 
 Human-readable log of changes to this project, newest first. Add an entry here whenever you commit — whether the change was made by Claude Code or by hand — so anyone picking up the project can see what happened without digging through `git log`.
 
+## 2026-08-23
+
+- **v0.4.6 — action choices are now illustrated, responsive skill cards.** The four plain action buttons in the command dock have been replaced with compact cards that keep their artwork ratio at every viewport size. Hovering or focusing a card opens a full-size preview with the skill name, ruleset-aware description, time cost, and effect badges for attack, defense, healing, mana, Focus, HP cost, Freeze, Aura Shield, Praying, and other special effects.
+  - Action artwork and directional effects face from the heroes on the right toward the boss on the left, matching the characters' position on the battle stage.
+  - Both stable v0.3 and experimental v0.4.5 skill values are read from the engine rather than duplicated in UI copy, including the reworked Focus and mana mechanics.
+  - The production battle-music implementation and optimized audio asset from v0.4.5 are retained unchanged.
+  - 330/330 tests, typecheck, and production build pass.
+
 ## 2026-08-22
 
 - **How to Play is now a rulebook you page through, not three paragraphs and two tables.** The old tutorial gave a first-time player 4 sentences of rules and then a reference table of every skill in the game — which taught nobody the one thing the game actually asks you to understand: that what you declare now resolves several slots from now, against a board that will have changed. It is now nine chapters (Goal · Clock · Your Turn · The Screen · Combat · Down & Back · Scoring · Camp · Reference), one mounted at a time, with the chapter buttons doubling as an index for someone who came back mid-game to check one rule.
