@@ -1,6 +1,8 @@
 import type { I18nKey } from './th';
+import { tutorialEn } from './tutorialEn';
 
 export const en: Record<I18nKey, string> = {
+  ...tutorialEn,
   'app.title': 'MoonRage Dungeon',
   'app.version': 'Clock of Doom',
   'menu.newGame': 'New Game',
@@ -186,13 +188,6 @@ export const en: Record<I18nKey, string> = {
 
   'tutorial.title': 'How to Play',
   'tutorial.close': 'Got it, start playing',
-  'tutorial.core.title': 'The core loop: declare now, resolve next visit',
-  'tutorial.core.body':
-    "The 24-slot clock counts down. Every time the marker reaches your pawn, you declare a move — it doesn't happen yet. It resolves the next time the marker reaches you again (⏱ slots later) — except skills marked ⚡, which resolve the instant you declare them (the pawn still walks its usual ⏱ though). Everyone can see everyone's declared actions at all times, including the boss's — nothing is hidden.",
-  'tutorial.death.title': "Dying isn't the end",
-  'tutorial.death.body': 'HP hits 0 → you leave the clock temporarily, then auto-revive 6 slots later at half HP.',
-  'tutorial.score.title': 'Scoring is personal',
-  'tutorial.score.body': "Each character has 3 personal score conditions, claimed the instant they trigger — you're all defeating the boss together, but racing for points at the same time.",
   'tutorial.characters': 'Characters',
   'tutorial.bosses': 'Bosses',
   'tutorial.col.char': 'Character',
