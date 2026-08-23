@@ -142,7 +142,7 @@ function assignCharacter(state: GameState, playerId: PlayerId, charId: CharId) {
  *
  *  `rng` is optional only because ~130 existing tests call this as `prepareBattle(state)` to build
  *  a board and never touch randomness. It is needed for exactly one thing: the v0.4.6 fracture draw,
- *  which shuffles the item deck on the first battle and pops two cards off it. Without one, a v0.4.6
+ *  which shuffles the item deck on the first battle and pops two cards off it. Without one, a fracture
  *  battle simply starts with no fracture lines — which is the right failure for a test that never
  *  asked for them, and why fracture.ts iterates `battle.fractures` everywhere instead of indexing
  *  it. Every real caller (playGame) passes it. */
@@ -233,7 +233,7 @@ export function prepareBattle(state: GameState, rng?: RNG) {
   state.battle.nextStackSeq = state.battle.fighters.length + 1;
 
   // Last, so the BATTLE_START log entry and the whole board already exist when the bounties are
-  // laid out. initCamp is idempotent and normally runs at the first camp; v0.4.6 needs the deck one
+  // laid out. initCamp is idempotent and normally runs at the first camp; fractures need the deck one
   // battle earlier, and calling it here means the deck is shuffled exactly once either way.
   if (hasFractures(state.ruleset) && rng) {
     initCamp(state, rng);

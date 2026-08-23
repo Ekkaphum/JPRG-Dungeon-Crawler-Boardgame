@@ -142,6 +142,10 @@ export function loadSaveFile(): SaveFile | null {
     } else if (save.snapshot.pending?.kind === 'DECLARE_ACTION') {
       save.snapshot.pending.options.charId = migrateCharId(save.snapshot.pending.options.charId);
     }
+    // The fracture ruleset shipped for one release under a version-shaped id, before ids and
+    // labels were separated. Saves written in that window still say so.
+    if ((save.snapshot.ruleset as string) === 'v0.4.6') save.snapshot.ruleset = 'fracture';
+
     // v0.3.5 and earlier stored Kit's Skill Improvement as one shared number. Preserve the earned
     // improvement when loading that save, but split it into the two independent counters now used.
     for (const progress of Object.values(save.snapshot.progress)) {

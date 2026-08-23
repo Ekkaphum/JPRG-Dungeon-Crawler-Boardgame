@@ -48,7 +48,7 @@ export function BossDetailModal({
       </div>
 
       {/* Above the statuses on purpose: this is the panel players open to answer 'what do I get',
-          and the answer should not be below the fold. Renders nothing outside v0.4.6. */}
+          and the answer should not be below the fold. Renders nothing outside the fracture ruleset. */}
       {battle.fractures.length > 0 && (
         <Section title={t('fracture.title')}>
           <FractureBounties battle={battle} players={players} />

@@ -6,6 +6,23 @@ import { fixedDraftState, fourEasyBotSetup } from './testUtils';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('save migration', () => {
+  it('renames the fracture ruleset id that shipped for one release as a version', () => {
+    // The fracture ruleset went out keyed as `v0.4.6` before ids and labels were separated. A save
+    // made in that window still names it, and an unmigrated one would fail every hasFractures()
+    // check silently — the game would load and simply have no fracture lines.
+    const state = fixedDraftState();
+    (state as unknown as { ruleset: string }).ruleset = 'v0.4.6';
+    const save = { version: 1, savedAt: new Date(0).toISOString(), setup: fourEasyBotSetup(), seed: 1, snapshot: state };
+    const storage = new Map<string, string>([['mc.save.v3', JSON.stringify(save)]]);
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    });
+
+    expect(loadSaveFile()!.snapshot.ruleset).toBe('fracture');
+  });
+
   it('splits the legacy shared Skill Improvement number into two preserved counters', () => {
     const state = fixedDraftState();
     const kit = state.players.find((player) => player.charId === 'Kit')!;

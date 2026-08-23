@@ -988,9 +988,13 @@ stops being negative-sum.
 
 ---
 
-## v0.4.6 fracture lines — first measurement, 2026-08-23 (`npm run balance -- 1500 hard v0.4` vs `… v0.4.6`)
+## Fracture lines — first measurement, 2026-08-23 (`npm run balance -- 1500 hard v0.4` vs `… fracture`)
 
-v0.4.6 is v0.4.5 plus one rule: two marks on the boss HP track at 60% and 30% of its starting HP,
+> Measured on the build released as **v0.4.6**. The ruleset keeps the key `fracture`; its
+> displayed label follows the app version, so it reads higher than this today. The rules have not
+> changed since the run.
+
+The fracture ruleset is v0.4.5 plus one rule: two marks on the boss HP track at 60% and 30% of its starting HP,
 each carrying an item card drawn face-up at the start of the battle. Whoever’s damage takes the
 boss to or below a mark takes that item, or gems equal to its shop price minus 1. Nothing else
 differs, which is the entire reason it is a separate ruleset rather than folded onto v0.4 — the
@@ -998,7 +1002,7 @@ two columns below are a controlled A/B on that rule.
 
 **1,500 games per column, 4 hard bots, standard difficulty.**
 
-| | v0.4.5 | v0.4.6 | Δ |
+| | v0.4.5 | fracture | Δ |
 |---|---|---|---|
 | win rate (all 3 bosses) | 62.2% | **66.5%** | **+4.3pp** |
 | Ragorath cleared | 80.9% | 83.5% | +2.6 |

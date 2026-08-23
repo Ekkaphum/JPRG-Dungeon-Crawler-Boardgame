@@ -20,11 +20,11 @@ import { ITEMS, buildItemDeck } from '@content/items';
 import { createHardBot } from '@bots/hard';
 import { fixedDraftState, fourEasyBotSetup, playFullGame } from './testUtils';
 
-/** A v0.4.6 battle with the fracture lines actually drawn — prepareBattle only rolls them when it is
+/** A fracture-ruleset battle with the lines actually drawn — prepareBattle only rolls them when it is
  *  handed an rng, which is what keeps the ~130 existing `prepareBattle(state)` calls unchanged. */
 function fractureState(seed = 99): GameState {
   const state = fixedDraftState(seed);
-  state.ruleset = 'v0.4.6';
+  state.ruleset = 'fracture';
   prepareBattle(state, createRNG(seed));
   return state;
 }
@@ -247,8 +247,8 @@ describe('fracture lines — through the walk', () => {
     expect(line.taken).not.toBeNull();
   });
 
-  it('runs a full v0.4.6 game to a result with every seat botted', async () => {
-    const final = await playFullGame(2026, { ...fourEasyBotSetup(), ruleset: 'v0.4.6' });
+  it('runs a full fracture-ruleset game to a result with every seat botted', async () => {
+    const final = await playFullGame(2026, { ...fourEasyBotSetup(), ruleset: 'fracture' });
     expect(final.gameOver).not.toBeNull();
     // Whatever the outcome, no bounty may be left hanging: every crossed line is settled one way or
     // the other by the time the battle it belongs to is over.

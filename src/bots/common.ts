@@ -87,7 +87,7 @@ export function campVpDefault(
  * static ITEM_VALUE against the gem payout, which happens to be roughly the right scale (an
  * 8-gem card values 7-12 and pays 7 in cash) but knows nothing about the board — it cannot see
  * that a Phoenix Draught is worthless with nobody down, or that a Weakness Lens is worth double
- * with the whole party stacked on the next slot. A v0.4.6 sim therefore measures whether the
+ * with the whole party stacked on the next slot. A fracture sim therefore measures whether the
  * bounty economy as a whole is the right size, NOT whether the item/cash choice is interesting.
  *
  * The one thing it does get right is the last boss: gems banked there can never be spent,

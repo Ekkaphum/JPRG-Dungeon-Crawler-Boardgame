@@ -10,7 +10,42 @@
 // The flag lives on GameState rather than being read from settings at the point of use, so a saved
 // game keeps the ruleset it was started under even if the menu selection changes afterwards.
 
-export type RulesetVersion = 'v0.3' | 'v0.4' | 'v0.4.6';
+// ───────────────────────── version policy ─────────────────────────
+//
+// Two numbers used to drift apart here, and the drift is structural rather than careless:
+// `package.json` counts **releases** (it moved 8 times for UI-only work — the action-card grid,
+// the battle-stage sizing, the effect timing) while a ruleset label counts **rules changes** (4
+// times). One number cannot equal the other while they are counting different events. It was
+// hand-synced once, at 1cad204, by moving `package.json` *backwards* from 0.4.6 to 0.4.2 — which
+// threw away four release numbers and drifted again two commits later.
+//
+// The fix is to stop typing the number twice rather than to keep re-syncing it:
+//
+//   * `APP_VERSION` below is read straight out of package.json. It is the only version string
+//     anybody edits, and bumping it is what "making a release" means.
+//   * The ruleset **currently under development** takes its label from it automatically, so that
+//     one can never disagree with the app again. Every label then names exactly one build,
+//     which is what BALANCE_NOTES.md needs when it cites a measurement.
+//   * A ruleset that is **finished** freezes its label and keeps it forever. v0.3.17 is the
+//     tuned, released game; v0.4.5 is the name its 1,500-game balance run was published under.
+//     Neither may move, and neither is allowed to be ahead of the app.
+//
+// tests/version.test.ts enforces all of that, so the next drift fails the build instead of being
+// discovered months later.
+
+import pkgJson from '../../package.json';
+
+/** The single hand-edited version number in the project. */
+export const APP_VERSION: string = pkgJson.version;
+
+// Ids are permanent keys, not versions. They are written into every save file, so renaming one
+// breaks saves (see the migration in session/persistence.ts) — which is exactly why the newest
+// one is named for what it *is* rather than for the version it happened to ship at. `v0.3` and
+// `v0.4` keep their version-shaped names only because saves in the wild already contain them.
+export type RulesetVersion = 'v0.3' | 'v0.4' | 'fracture';
+
+/** The ruleset still being worked on — the one whose label tracks APP_VERSION. */
+export const LIVE_RULESET: RulesetVersion = 'fracture';
 
 /** The one the game plays by default and the only one considered finished. */
 export const STABLE_RULESET: RulesetVersion = 'v0.3';
@@ -30,6 +65,7 @@ export interface RulesetDef {
 export const RULESETS: Record<RulesetVersion, RulesetDef> = {
   'v0.3': {
     id: 'v0.3',
+    // Frozen: this ruleset is finished and its numbers are the ones the game shipped on.
     label: 'v0.3.17',
     experimental: false,
     name: { th: 'มาตรฐาน', en: 'Standard' },
@@ -49,6 +85,7 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
     // answering to one label is unusable for anything that has to reference a version later, so the
     // camp round takes the next number and the fix keeps the one it shipped with.
     // v0.4.5 folds in the character rework (Eric/Kit/Liora/Luna re-cut for the experimental track).
+    // Frozen at the name its 1,500-game balance run was published under (BALANCE_NOTES.md).
     label: 'v0.4.5',
     experimental: true,
     name: { th: 'ทดลอง', en: 'Experimental' },
@@ -71,9 +108,11 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
       { th: '📊 4 ตัวหลักผ่าน sim แล้ว (1,500 เกม hard — คะแนนห่างกันไม่เกิน 1.2) · 3 ตัวใหม่ยังไม่เคยวัด', en: '📊 The four core characters are sim-measured (1,500 hard games, within 1.2 points of each other); the 3 new ones are not' },
     ],
   },
-  'v0.4.6': {
-    id: 'v0.4.6',
-    label: 'v0.4.6',
+  fracture: {
+    id: 'fracture',
+    // Derived, never typed: this is the ruleset under development, so its label *is* the app
+    // version. Bumping package.json is the only edit a release needs.
+    label: `v${APP_VERSION}`,
     experimental: true,
     name: { th: 'ทดลอง + รอยแตก', en: 'Experimental + Fractures' },
     desc: {
@@ -141,11 +180,11 @@ export function hasV045Content(v: RulesetVersion): boolean {
  *  four core characters, and a bounty that hands out items mid-battle moves every one of those
  *  numbers. Folded in, there would be no un-fractured build left to compare against and the only
  *  claim anyone could make about the feature would be 'it feels fine'. Kept separate, the sim can
- *  run v0.4 and v0.4.6 side by side — they differ by exactly this rule — and attribute the delta.
+ *  run v0.4 and fracture side by side — they differ by exactly this rule — and attribute the delta.
  *
  *  It also keeps v0.4's RNG stream untouched: the fracture draw pulls two cards off the item deck
  *  at the top of every battle, which would shift every roll after it. A v0.4 game plays out today
  *  exactly as it did before this file changed. */
 export function hasFractures(v: RulesetVersion): boolean {
-  return v === 'v0.4.6';
+  return v === LIVE_RULESET;
 }

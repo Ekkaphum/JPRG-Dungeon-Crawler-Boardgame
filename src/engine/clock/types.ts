@@ -325,7 +325,7 @@ export interface BattleState {
   traps: TrapToken[];
   scheduledHits: ScheduledHit[];
   /** v0.4.6 fracture lines, in track order (highest HP first). Always an array — empty in every
-   *  ruleset but v0.4.6, so no read site has to branch. */
+   *  ruleset but the fracture one, so no read site has to branch. */
   fractures: FractureLine[];
   /** v0.3.15: an owned, *timed* window instead of a bare flag. It used to last "until the boss's
    *  next action", which was a fine rule when the boss acted every other visit — after v0.3.14 the
