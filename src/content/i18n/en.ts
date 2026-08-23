@@ -1,10 +1,7 @@
 import type { I18nKey } from './th';
-import { tutorialEn } from './tutorialEn';
 
 export const en: Record<I18nKey, string> = {
-  ...tutorialEn,
   'app.title': 'MoonRage Dungeon',
-  'app.version': 'Clock of Doom',
   'menu.newGame': 'New Game',
   'menu.playingVersion': 'Play now launches',
   'game.sand': 'Sand',
@@ -59,9 +56,7 @@ export const en: Record<I18nKey, string> = {
 
   'draft.title': 'Character Draft',
   'draft.subtitle': 'Pick order is what actually matters — picking earlier gets you the character that fits your style',
-  'draft.yourTurn': 'Your turn to pick',
   'draft.waitingFor': 'Waiting for {name}…',
-  'draft.picked': '{name} picked {char}',
 
   'game.clock': 'Clock',
   'game.marker': 'Marker at slot {n}',
@@ -120,7 +115,6 @@ export const en: Record<I18nKey, string> = {
   'decision.healTarget': 'Heal who',
   'decision.guardTarget': 'Guard who',
   'decision.trapSlot': 'Place trap at slot',
-  'decision.confirm': 'Confirm',
   'decision.lv2': 'Lv2',
   'decision.tooSlow': 'may not land before the clock runs out',
   'decision.immediateBadge': 'resolves the instant it is declared',
@@ -143,7 +137,6 @@ export const en: Record<I18nKey, string> = {
   'result.lastShot': 'Last Shot',
   'result.timeLeft': '{n} slots left on the clock',
   'result.party': 'Party at the end of the battle',
-  'result.levelUp': 'EXP earned — level up a skill',
 
   'scoring.title': 'Game Over!',
   'scoring.winner': 'Winner',
@@ -176,7 +169,6 @@ export const en: Record<I18nKey, string> = {
 
   'log.empty': 'No events yet',
 
-  'common.hp': 'HP',
   'common.back': 'Back',
   'common.close': 'Close',
   'common.language': 'Language',

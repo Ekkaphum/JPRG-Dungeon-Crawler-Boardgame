@@ -58,7 +58,6 @@ export function createRNG(seed: number): RNG {
 }
 
 export function rngFromState(seed: number, state: number): RNG {
-  const rng = createRNG(seed);
   // Re-derive by stepping isn't reversible cheaply; we persist `state` directly as the new seed
   // basis since mulberry32's `a` counter is monotonic and state alone is sufficient to resume.
   return createRNG(state === undefined ? seed : state);

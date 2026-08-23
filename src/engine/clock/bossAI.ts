@@ -267,6 +267,3 @@ function resolveAurelius(state: GameState, moveKey: 'A' | 'B' | 'C') {
   }
 }
 
-export function bossArmorBaseline(bossId: string) {
-  return BOSSES[bossId as keyof typeof BOSSES]?.armor ?? 0;
-}

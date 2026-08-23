@@ -9,7 +9,6 @@ import {
   expireTimedEffectsAtMarker,
   springTrapOnBoss,
   declareBossAction,
-  applyDamageToFighter,
   dealDamageToFighterFromBoss,
   killFighter,
 } from '@engine/index';

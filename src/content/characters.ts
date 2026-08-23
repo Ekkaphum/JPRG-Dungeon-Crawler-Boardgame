@@ -1098,9 +1098,6 @@ export const CHARACTERS: Record<CharId, CharacterDef> = {
   },
 };
 
-export function skillDef(id: SkillId): SkillDef {
-  return SKILLS[id];
-}
 
 /** The card as this ruleset plays it: the base definition with V045_SKILL_OVERRIDES merged on top
  *  when the rework is on. Every reader that cares about a card's *riders* (mana cost, HP cost,

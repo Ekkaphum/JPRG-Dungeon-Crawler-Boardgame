@@ -187,6 +187,3 @@ export function buildItemDeck(): ItemId[] {
   return deck;
 }
 
-export function itemDef(id: ItemId): ItemDef {
-  return ITEMS[id];
-}

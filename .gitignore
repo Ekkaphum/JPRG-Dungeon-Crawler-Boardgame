@@ -5,3 +5,5 @@ dist
 .vercel
 .env*
 .claude/settings.local.json
+tsconfig.tsbuildinfo
+*.tsbuildinfo

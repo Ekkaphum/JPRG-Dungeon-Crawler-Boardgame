@@ -11,9 +11,23 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
+
+    // Dead code fails the build instead of accumulating. Both were off, and by the time they were
+    // turned on the project had collected 15 unused imports, an unused local in rngFromState, an
+    // unused parameter on v040SignatureDamage, and rollTarget() — a stale duplicate of the dice
+    // ladder that rollLadder() actually implements, which would have quietly drifted further from
+    // the real rule every time the ladder changed.
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+
+    // Without these, `tsc -b --noEmit` had no build info to reuse and a warm typecheck cost exactly
+    // as much as a cold one (~24s either way). With them a warm run is ~6.5s. The cache lives under
+    // node_modules/ rather than the repo root because the root copy used to be committed, so 22
+    // commits carry a meaningless tsconfig.tsbuildinfo diff.
+    "incremental": true,
+    "tsBuildInfoFile": "node_modules/.cache/tsbuildinfo",
+
     "baseUrl": ".",
     "paths": {
       "@engine/*": ["src/engine/*"],

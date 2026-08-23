@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useAppStore } from '@session/store';
-import { useT } from '@content/i18n/useT';
+import { useRulebookT, type RulebookKey } from '@ui/tutorial/useRulebookT';
 import { CHAR_IDS, CHARACTERS, SKILLS, charScore, charSkills, skillStats } from '@content/characters';
 import { BOSS_IDS, BOSSES } from '@content/bosses3';
 import { CLASS_COLOR } from '@content/charColors';
@@ -26,7 +26,7 @@ type ChapterId = 'goal' | 'clock' | 'turn' | 'screen' | 'combat' | 'death' | 'sc
 const CHAPTERS: ChapterId[] = ['goal', 'clock', 'turn', 'screen', 'combat', 'death', 'score', 'camp', 'ref'];
 
 export function TutorialScreen() {
-  const t = useT();
+  const t = useRulebookT();
   const lang = useAppStore((s) => s.settings.lang);
   const setScreen = useAppStore((s) => s.setScreen);
   // The ruleset the *next* game will start under, not a fixed one: under v0.4.5 three of the four
@@ -46,7 +46,7 @@ export function TutorialScreen() {
       <div className="rulebook__nav w-full max-w-4xl">
         {CHAPTERS.map((id, i) => (
           <button key={id} onClick={() => go(id)} className={id === chapter ? 'is-active' : ''}>
-            {i + 1}. {t(`tut.nav.${id}` as 'tut.nav.goal')}
+            {i + 1}. {t(`tut.nav.${id}` as RulebookKey)}
           </button>
         ))}
       </div>
@@ -56,7 +56,7 @@ export function TutorialScreen() {
           <div className="text-[0.62rem] tracking-[0.22em] text-gold-dim uppercase">
             {t('tutorial.title')} · {t('tut.chapterOf', { n: idx + 1 })}
           </div>
-          <h2 className="text-2xl font-display gold-text mt-0.5">{t(`tut.${chapter}.h` as 'tut.goal.h')}</h2>
+          <h2 className="text-2xl font-display gold-text mt-0.5">{t(`tut.${chapter}.h` as RulebookKey)}</h2>
         </header>
 
         <div className="rulebook__chapter">
@@ -77,11 +77,11 @@ export function TutorialScreen() {
             onClick={() => go(CHAPTERS[idx - 1])}
             className="gold-frame rounded-lg px-3 py-2 text-xs disabled:opacity-25 hover:bg-gold/10"
           >
-            {idx > 0 ? t('tut.prev', { name: t(`tut.nav.${CHAPTERS[idx - 1]}` as 'tut.nav.goal') }) : ''}
+            {idx > 0 ? t('tut.prev', { name: t(`tut.nav.${CHAPTERS[idx - 1]}` as RulebookKey) }) : ''}
           </button>
           {idx < CHAPTERS.length - 1 ? (
             <button onClick={() => go(CHAPTERS[idx + 1])} className="gold-frame rounded-lg px-3 py-2 text-xs hover:bg-gold/10">
-              {t('tut.next', { name: t(`tut.nav.${CHAPTERS[idx + 1]}` as 'tut.nav.goal') })}
+              {t('tut.next', { name: t(`tut.nav.${CHAPTERS[idx + 1]}` as RulebookKey) })}
             </button>
           ) : (
             <button onClick={() => setScreen('menu')} className="gold-frame rounded-lg px-6 py-2 text-sm gold-text hover:bg-gold/10">
@@ -125,7 +125,7 @@ function Example({ tag, children, warn }: { tag: string; children: ReactNode; wa
 // ── 1. goal ─────────────────────────────────────────────────────────────────────────────────────
 
 function GoalChapter() {
-  const t = useT();
+  const t = useRulebookT();
   const lang = useAppStore((s) => s.settings.lang);
   return (
     <>
@@ -176,7 +176,7 @@ const C = CLASS_COLOR;
 const BOSS_COLOR = '#c0392b';
 
 function ClockChapter() {
-  const t = useT();
+  const t = useRulebookT();
   return (
     <>
       <Lede>{t('tut.clock.lede')}</Lede>
@@ -222,7 +222,7 @@ function ClockChapter() {
 // ── 3. turn ─────────────────────────────────────────────────────────────────────────────────────
 
 function TurnChapter() {
-  const t = useT();
+  const t = useRulebookT();
   return (
     <>
       <Lede>{t('tut.turn.lede')}</Lede>
@@ -274,7 +274,7 @@ function TurnChapter() {
 // ── 4. screen ───────────────────────────────────────────────────────────────────────────────────
 
 function ScreenChapter() {
-  const t = useT();
+  const t = useRulebookT();
   return (
     <>
       <Lede>{t('tut.screen.lede')}</Lede>
@@ -298,7 +298,7 @@ function ScreenChapter() {
 // ── 5. combat ───────────────────────────────────────────────────────────────────────────────────
 
 function CombatChapter() {
-  const t = useT();
+  const t = useRulebookT();
   return (
     <>
       <Lede>{t('tut.combat.lede')}</Lede>
@@ -338,7 +338,7 @@ function CombatChapter() {
 // ── 6. death ────────────────────────────────────────────────────────────────────────────────────
 
 function DeathChapter() {
-  const t = useT();
+  const t = useRulebookT();
   return (
     <>
       <Lede>{t('tut.death.lede')}</Lede>
@@ -373,7 +373,7 @@ function DeathChapter() {
 // ── 7. score ────────────────────────────────────────────────────────────────────────────────────
 
 function ScoreChapter() {
-  const t = useT();
+  const t = useRulebookT();
   const lang = useAppStore((s) => s.settings.lang);
   const ruleset = useAppStore((s) => s.ruleset);
   // Read a real character's three conditions next to the abstract shape, so the ①②③ structure is
@@ -414,7 +414,7 @@ function ScoreChapter() {
 // ── 8. camp ─────────────────────────────────────────────────────────────────────────────────────
 
 function CampChapter() {
-  const t = useT();
+  const t = useRulebookT();
   const ruleset = useAppStore((s) => s.ruleset);
   return (
     <>
@@ -468,7 +468,7 @@ function CampChapter() {
 // ── 9. reference ────────────────────────────────────────────────────────────────────────────────
 
 function RefChapter({ lang, ruleset }: { lang: 'th' | 'en'; ruleset: ReturnType<typeof useAppStore.getState>['ruleset'] }) {
-  const t = useT();
+  const t = useRulebookT();
   return (
     <>
       <Lede>{t('tut.ref.lede')}</Lede>

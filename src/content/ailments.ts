@@ -155,6 +155,3 @@ export interface ActiveAilment {
   stacks: number;
 }
 
-export function ailmentDef(id: AilmentId): AilmentDef {
-  return AILMENTS[id];
-}

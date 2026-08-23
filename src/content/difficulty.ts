@@ -6,8 +6,3 @@ export const DIFFICULTY_MULTIPLIER: Record<Difficulty, number> = {
   challenge: 1.15,
 };
 
-export const DIFFICULTY_LABEL_TH: Record<Difficulty, string> = {
-  relaxed: 'ผ่อนคลาย',
-  standard: 'มาตรฐาน',
-  challenge: 'ท้าทาย',
-};

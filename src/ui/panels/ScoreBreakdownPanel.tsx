@@ -1,6 +1,6 @@
 import type { GameState } from '@engine/index';
 import { BOSSES } from '@content/bosses3';
-import { CHARACTERS, charScore } from '@content/characters';
+import { charScore } from '@content/characters';
 import { CLASS_COLOR } from '@content/charColors';
 import { useT } from '@content/i18n/useT';
 import { useAppStore } from '@session/store';

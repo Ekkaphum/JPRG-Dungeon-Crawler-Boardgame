@@ -4,10 +4,8 @@
 import {
   ASSASSINATE_EXECUTE_BONUS,
   ASSASSINATE_EXECUTE_THRESHOLD,
-  CHARACTERS,
   DEATH_COIL_HP_COST,
   LIFESTEAL,
-  SHADOW_MAX,
   SHADOW_PER_ASSASSINATE,
   SKILLS,
   SOULS_PER_DEATH_COIL,
@@ -188,7 +186,7 @@ function healSelfUndead(fighter: Fighter, amount: number) {
 
 /** Assassinate's and Death Coil's live damage, which both read state the skill table cannot: the
  *  boss's current HP fraction, and whether Morvane chose to pay the HP surcharge. */
-function v040SignatureDamage(state: GameState, fighter: Fighter, skillId: SkillId, stats: SkillLevelStats, paidHp: boolean): number {
+function v040SignatureDamage(state: GameState, skillId: SkillId, stats: SkillLevelStats, paidHp: boolean): number {
   const battle = state.battle!;
   if (skillId === 'Assassinate') {
     const executing = battle.bossHp <= battle.bossHpMax * ASSASSINATE_EXECUTE_THRESHOLD;
@@ -205,7 +203,7 @@ function resolveAttackHits(state: GameState, fighter: Fighter, skillId: SkillId,
   // Assassinate and Death Coil read state the skill table cannot see (live boss HP; whether the HP
   // surcharge was paid), so their damage is computed rather than looked up. Both are single-hit.
   if (skillId === 'Assassinate' || skillId === 'DeathCoil') {
-    dealAttackFor(state, fighter, skillId, v040SignatureDamage(state, fighter, skillId, stats, paidHp), def.ignoresArmor === true);
+    dealAttackFor(state, fighter, skillId, v040SignatureDamage(state, skillId, stats, paidHp), def.ignoresArmor === true);
     return;
   }
   if (stats.secondary != null) {
@@ -591,12 +589,6 @@ function applySlowToBoss(state: GameState, fighter: Fighter, target: number, rng
   battle.bossStackSeq = battle.nextStackSeq++;
   battle.log.push({ t: 'BOSS_SLOWED', slots: V045_SLOW_BOSS_SLOTS, toSlot: battle.bossSlot });
   onSlowLanded(state, fighter.playerId);
-}
-
-function rollTarget(state: GameState, fighter: Fighter, skillId: SkillId, baseTarget: number): number {
-  const attempt = fighter.rollAttempt[skillId] ?? 0; // 0-indexed: 0 = first attempt
-  const target = Math.max(1, baseTarget - attempt);
-  return attempt >= 4 ? 0 : target; // attempt index 4 = 5th try = auto-success (§5.2)
 }
 
 /** Step 1 of a visit: resolve whatever this fighter declared last visit, if anything (first visit

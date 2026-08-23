@@ -1,9 +1,5 @@
-import { tutorialTh } from './tutorialTh';
-
 export const th = {
-  ...tutorialTh,
   'app.title': 'MoonRage Dungeon',
-  'app.version': 'นาฬิกาแห่งหายนะ',
   'menu.newGame': 'เกมใหม่',
   'menu.playingVersion': 'กดเล่นทันทีจะได้เวอร์ชัน',
   'game.sand': 'เม็ดทราย',
@@ -58,9 +54,7 @@ export const th = {
 
   'draft.title': 'ดราฟต์ตัวละคร',
   'draft.subtitle': 'ลำดับการเลือกคือสิ่งที่มีค่าจริง — คนเลือกก่อนได้ตัวที่เข้ากับสไตล์ตัวเอง',
-  'draft.yourTurn': 'ตาของคุณเลือก',
   'draft.waitingFor': 'รอ {name} เลือก…',
-  'draft.picked': '{name} เลือก {char}',
 
   'game.clock': 'นาฬิกา',
   'game.marker': 'มาร์กเกอร์อยู่ช่อง {n}',
@@ -119,7 +113,6 @@ export const th = {
   'decision.healTarget': 'รักษาใคร',
   'decision.guardTarget': 'ปกป้องใคร',
   'decision.trapSlot': 'วางกับดักที่ช่องไหน',
-  'decision.confirm': 'ยืนยัน',
   'decision.lv2': 'Lv2',
   'decision.tooSlow': 'อาจไม่ทันสิ้นยก',
   'decision.immediateBadge': 'ทำทันทีที่ประกาศ',
@@ -142,7 +135,6 @@ export const th = {
   'result.lastShot': 'ผู้ปิดฉาก',
   'result.timeLeft': 'เหลือเวลา {n} ช่อง',
   'result.party': 'สภาพวงตอนจบยก',
-  'result.levelUp': 'ได้ EXP — เลือกอัพสกิล',
 
   'scoring.title': 'จบเกม!',
   'scoring.winner': 'ผู้ชนะ',
@@ -175,7 +167,6 @@ export const th = {
 
   'log.empty': 'ยังไม่มีเหตุการณ์',
 
-  'common.hp': 'HP',
   'common.back': 'ย้อนกลับ',
   'common.close': 'ปิด',
   'common.language': 'ภาษา',

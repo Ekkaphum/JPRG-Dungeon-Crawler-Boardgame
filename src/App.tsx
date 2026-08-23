@@ -1,14 +1,27 @@
+import { Suspense, lazy } from 'react';
 import { useAppStore } from '@session/store';
 import { MenuScreen } from '@ui/screens/MenuScreen';
 import { SetupScreen } from '@ui/screens/SetupScreen';
 import { GameScreen } from '@ui/screens/GameScreen';
-import { ScoringScreen } from '@ui/screens/ScoringScreen';
-import { AllLoseScreen } from '@ui/screens/AllLoseScreen';
-import { TutorialScreen } from '@ui/screens/TutorialScreen';
-import { StatsScreen } from '@ui/screens/StatsScreen';
-import { SettingsScreen } from '@ui/screens/SettingsScreen';
 import { useBattleMusic } from '@ui/audio/useBattleMusic';
 import { useSessionVersion } from '@session/useSession';
+
+// Menu → Setup → Game is the path every session walks, so those three stay in the entry chunk and
+// keep loading exactly as before. The rest are split out: the rulebook and the stats screen are
+// each opened by a minority of sessions, and scoring/all-lose cannot be reached until a whole
+// battle has been played — by which time their chunk has long since been fetched in the background.
+// Nothing here changes behaviour; it only moves code out of the bundle that blocks first paint.
+const ScoringScreen = lazy(() => import('@ui/screens/ScoringScreen').then((m) => ({ default: m.ScoringScreen })));
+const AllLoseScreen = lazy(() => import('@ui/screens/AllLoseScreen').then((m) => ({ default: m.AllLoseScreen })));
+const TutorialScreen = lazy(() => import('@ui/screens/TutorialScreen').then((m) => ({ default: m.TutorialScreen })));
+const StatsScreen = lazy(() => import('@ui/screens/StatsScreen').then((m) => ({ default: m.StatsScreen })));
+const SettingsScreen = lazy(() => import('@ui/screens/SettingsScreen').then((m) => ({ default: m.SettingsScreen })));
+
+/** Shown only while a split chunk is in flight — on a local or warm connection this is typically
+ *  never painted. Deliberately plain: a spinner that flashes for 40ms reads as a glitch. */
+function ScreenFallback() {
+  return <div className="min-h-screen" />;
+}
 
 export default function App() {
   const screen = useAppStore((s) => s.screen);
@@ -30,15 +43,35 @@ export default function App() {
     case 'game':
       return <GameScreen />;
     case 'scoring':
-      return <ScoringScreen />;
+      return (
+        <Suspense fallback={<ScreenFallback />}>
+          <ScoringScreen />
+        </Suspense>
+      );
     case 'allLose':
-      return <AllLoseScreen />;
+      return (
+        <Suspense fallback={<ScreenFallback />}>
+          <AllLoseScreen />
+        </Suspense>
+      );
     case 'tutorial':
-      return <TutorialScreen />;
+      return (
+        <Suspense fallback={<ScreenFallback />}>
+          <TutorialScreen />
+        </Suspense>
+      );
     case 'stats':
-      return <StatsScreen />;
+      return (
+        <Suspense fallback={<ScreenFallback />}>
+          <StatsScreen />
+        </Suspense>
+      );
     case 'settings':
-      return <SettingsScreen />;
+      return (
+        <Suspense fallback={<ScreenFallback />}>
+          <SettingsScreen />
+        </Suspense>
+      );
     default:
       return <MenuScreen />;
   }

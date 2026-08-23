@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { effectiveDeclareTime, type Choice, type GameState, type PendingDecision, type SkillId } from '@engine/index';
 import {
   CHARACTERS,
-  CHAR_IDS,
   DEATH_COIL_HP_COST,
   SAND_PER_REWIND,
   SHADOW_PER_ASSASSINATE,

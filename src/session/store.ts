@@ -3,7 +3,6 @@ import type { NewGameSetup } from '@engine/index';
 import { STABLE_RULESET, type RulesetVersion } from '@content/rulesets';
 import { GameSession } from './GameSession';
 import {
-  DEFAULT_SETTINGS,
   clearSaveFile,
   loadSaveFile,
   loadSettings,

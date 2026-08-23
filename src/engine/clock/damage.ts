@@ -2,7 +2,6 @@
 // rage/death rules in docs/10-v0.3.0-rulings.md §6 apply uniformly instead of being reimplemented
 // per skill.
 
-import { BOSSES } from '@content/bosses3';
 import {
   SOULS_PER_POINT,
   SOUL_HP_LOSS_THRESHOLD,
@@ -329,6 +328,3 @@ export function currentTotalScore(state: GameState, playerId: number): number {
   return state.scoreLog.filter((e) => e.playerId === playerId).reduce((sum, e) => sum + e.points, 0);
 }
 
-export function bossArmorFor(bossId: string) {
-  return BOSSES[bossId as keyof typeof BOSSES]?.armor ?? 0;
-}

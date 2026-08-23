@@ -110,6 +110,3 @@ export function spendItems(
   }
 }
 
-export function hasPermanent(fighter: Fighter, itemId: ItemId): boolean {
-  return fighter.itemPermanents.includes(itemId);
-}

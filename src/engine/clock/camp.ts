@@ -16,7 +16,7 @@
 
 import { BOSSES } from '@content/bosses3';
 import { CHARACTERS, charSkills, type SkillId } from '@content/characters';
-import { ITEMS, buildItemDeck, type ItemId } from '@content/items';
+import { ITEMS, buildItemDeck } from '@content/items';
 import { hasCamp } from '@content/rulesets';
 import type { RNG } from '../rng';
 import { currentTotalScore } from './damage';

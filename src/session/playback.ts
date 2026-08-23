@@ -393,6 +393,3 @@ export function scoreEventCount(battle: BattleState): number {
   return battle.log.reduce((n, e) => n + (e.t === 'SCORE' ? 1 : 0), 0);
 }
 
-export function battleOf(state: GameState): BattleState | null {
-  return state.battle;
-}

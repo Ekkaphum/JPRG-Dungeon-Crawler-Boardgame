@@ -71,7 +71,7 @@ function setup(): NewGameSetup {
 async function runOne(seed: number) {
   const rng = createRNG(seed);
   const state = newGame(setup(), seed);
-  const agents: Agent[] = state.players.map((p, i) => makeBot(i, createRNG(seed * 31 + i + 1).next));
+  const agents: Agent[] = state.players.map((_, i) => makeBot(i, createRNG(seed * 31 + i + 1).next));
   const gen = playGame(state, rng);
 
   const logs: ClockLogEvent[][] = [];

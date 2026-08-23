@@ -15,7 +15,6 @@
 //   silence → isSilenced()              — checked at declare time
 
 import { AILMENTS, type AilmentId } from '@content/ailments';
-import { BOSSES } from '@content/bosses3';
 import { hasV040Content } from '@content/rulesets';
 import { applyDamageToFighter } from './damage';
 import type { Fighter, GameState } from './types';
@@ -26,13 +25,6 @@ export function ailmentsEnabled(state: GameState): boolean {
   return hasV040Content(state.ruleset);
 }
 
-/** The boss's race decides which ailment families simply do not land on *it*. Player-side immunity
- *  is a separate question (Luna's Holy Water) and lives at the application site. */
-export function bossResistsAilment(state: GameState, id: AilmentId): boolean {
-  const def = AILMENTS[id];
-  const immune = BOSSES[state.battle!.bossId].immuneTo;
-  return (def.mental === true && immune.mental === true) || (def.physical === true && immune.physical === true);
-}
 
 /**
  * Puts an ailment on a fighter. Returns false when nothing was applied, so callers can log a
