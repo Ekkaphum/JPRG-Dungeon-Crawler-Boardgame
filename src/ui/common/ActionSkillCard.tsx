@@ -15,6 +15,7 @@ import type { Lang } from '@content/i18n';
 import type { RulesetVersion } from '@content/rulesets';
 import { useT } from '@content/i18n/useT';
 import { useAppStore } from '@session/store';
+import { actionEffectSpriteUrl } from '@ui/common/ActionEffect';
 
 interface StatBadge {
   icon: string;
@@ -112,7 +113,10 @@ export function ActionSkillCard({
   const stats = skillStats(skillId, isLv2, ruleset);
   const badges = [stat('⏱', `${stats.time}`, 'time'), ...effectBadges(skillId, def.kind, isLv2, lang, ruleset)];
   const tooltipId = `action-card-preview-${skillId}`;
-  const artStyle = { '--action-art': `url('/assets/effects/${skillId}.png')` } as CSSProperties;
+  // Through ActionEffect's map rather than rebuilding the path here: this line was still
+  // pointing at .png after every other effect URL moved to .webp, precisely because it was a
+  // second copy of the same string.
+  const artStyle = { '--action-art': `url('${actionEffectSpriteUrl(skillId)}')` } as CSSProperties;
 
   return (
     <button

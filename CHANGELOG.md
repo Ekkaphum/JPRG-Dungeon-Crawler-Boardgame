@@ -4,6 +4,24 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-23
 
+- **Every PNG in `public/assets` is now near-lossless WebP — 33.26 MB of assets down to 23.48 MB, with measured worst-case pixel error of 4/255.** 46 files converted, the PNGs deleted, and the whole roster of URLs moved with them. The art is the product here, so the setting was chosen by measurement rather than by the usual "convert to WebP" default.
+  - **q90 was tried first and rejected.** It was 62% smaller but measured **27–35 dB composited PSNR with single pixels off by up to 217/255** — the effect strips are bright glows with hard edges over transparency, drawn at roughly 1:1 on the battle stage, which is precisely what a lossy encoder mangles. Raising quality does not fix it, because the error is structural rather than a quantiser step:
+
+    | setting | vs PNG | composited PSNR | worst pixel |
+    | --- | --- | --- | --- |
+    | q90 | −62% | 27–35 dB | 217/255 |
+    | q98 | −52% | 27–36 dB | 216/255 |
+    | **nearLossless** | **−48%** | **47–52 dB** | **4/255** |
+    | lossless | −16% | exact | 0 |
+
+    q98 costs 10% more bytes than q90 for 0.2 dB. Near-lossless is the only setting that removes the artefact instead of paying more for it, so the 9.32 MB saved is real and nothing visible was traded for it.
+  - **PSNR was measured on the composited image, not raw RGB.** The first pass compared raw channels and reported an alarming 22–27 dB, which is the wrong measurement for a cutout sprite: nothing ever draws raw RGB, and an encoder is free to discard colour under a nearly-transparent pixel precisely because it is nearly invisible. Weighting by alpha — what the compositor actually paints — is the number that corresponds to what a player sees.
+  - **The anti-halo rule from v0.4.0 was checked, not assumed.** `heroHitSpriteUrl` deliberately served PNG for Chrono, Kage, Morvane and Kit "to preserve clean alpha in every browser decoder", after a pale extraction fringe had to be hand-repainted out of those sheets. An alpha histogram shows all four now sit well outside the hard-cutout band — the same v0.4.0 fix *added a soft alpha edge* — so the original reason no longer applies, and near-lossless keeps the alpha plane within 2/255 regardless. The stale comment was corrected rather than left asserting something untrue.
+  - **`sprites/hit/Kit.webp` was a 472 KB orphan.** Commit `9ab5087` replaced it with a repaired `Kit.png` and pointed the code at the PNG, leaving the broken WebP in the tree. It is now the converted repaired art, at 1/3 the size.
+  - **Two asset-contract tests replaced, three added.** The old ones asserted the PNG IHDR directly; `tests/imageMeta.ts` is a thirty-line WebP header reader that keeps them checking real bytes on disk rather than trusting whatever produced the files. Grid dimensions (4×5 hero sheets, 4×1 strips) are still asserted exactly, and new tests pin every sheet and strip to the lossless container — a re-encode that quietly drops to plain lossy passes every other assertion, so that is the one that catches it.
+  - **`ActionSkillCard` was rebuilding the effect path by hand** instead of going through `ActionEffect`'s map, which is exactly why it was still pointing at `.png` after everything else had moved. It now calls `actionEffectSpriteUrl` like every other caller, so the two cannot drift again.
+  - **Verified on the production build**: a full four-bot game through all three bosses, **82 images requested, zero 4xx, zero `.png` requests, zero broken `<img>` elements**, no console errors — and the run happened to end in a party wipe, which exercised the lazy `AllLoseScreen` chunk as well as the `ScoringScreen` one from the previous pass. 333/333 tests and typecheck clean. `sharp` was installed only to convert and has been removed; it is not a project dependency.
+
 - **Dead-code sweep and build-loop tuning — a warm typecheck is 3.7x faster, the test suite 4.2x, and the entry bundle is 15% smaller.** No behaviour changed anywhere; every number below is measured before and after on this machine, and a full 3-boss game was played through the production build to confirm it.
   - **`tsc` was never incrementing.** `tsc -b --noEmit` had no `incremental`/`tsBuildInfoFile`, so a warm typecheck re-did all the work of a cold one: **24.2s either way**. Turning both on takes a warm run to **6.5s**. Cold is unchanged (~24s), which is the honest ceiling — the win is entirely on the edit-check-edit loop.
   - **`tsconfig.tsbuildinfo` was committed to the repo.** It is a build artifact that changes on every typecheck, and **22 commits carry a meaningless diff of it**. Untracked and gitignored; the cache now lives in `node_modules/.cache/`.

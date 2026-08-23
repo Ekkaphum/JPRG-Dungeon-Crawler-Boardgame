@@ -32,11 +32,14 @@ export function hasSpriteSheet(charId: CharId): boolean {
   return Object.keys(ACTION_ROW[charId]).length > 0;
 }
 
-/** Generated rows and Kit's rebuilt clean hit row stay PNG to preserve clean alpha in every
- *  browser decoder. */
+/** Every hit row is WebP now. The four that used to stay PNG — the three generated rows plus Kit's
+ *  rebuilt clean one — were kept that way "to preserve clean alpha in every browser decoder", which
+ *  was the right call against the pale extraction fringe of that era. It no longer applies: the
+ *  v0.4.0 halo fix repainted those contours and *added a soft alpha edge*, and a measured alpha
+ *  histogram now puts all four well outside the hard-cutout band that a lossy encoder fringes. They
+ *  are ordinary q90 WebP like the rest of the roster. */
 export function heroHitSpriteUrl(charId: CharId): string {
-  const extension = charId === 'Chrono' || charId === 'Kage' || charId === 'Morvane' || charId === 'Kit' ? 'png' : 'webp';
-  return `/assets/sprites/hit/${charId}.${extension}`;
+  return `/assets/sprites/hit/${charId}.webp`;
 }
 
 export function spriteActionRow(charId: CharId, skillId: SkillId | null): number {
@@ -71,7 +74,7 @@ export function HeroSprite({
         ? 'hero-sprite--casting'
         : 'hero-sprite--action';
   const style = {
-    '--sprite-sheet': `url(${isHit ? heroHitSpriteUrl(charId) : `/assets/sprites/${charId}.png`})`,
+    '--sprite-sheet': `url(${isHit ? heroHitSpriteUrl(charId) : `/assets/sprites/${charId}.webp`})`,
     '--sprite-size': isHit ? '400% 100%' : '400% 500%',
     '--sprite-row': `${row * 25}%`,
   } as CSSProperties;

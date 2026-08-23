@@ -256,7 +256,7 @@ html, body, #root {
   aspect-ratio: 2 / 3;
   overflow: hidden;
   border-radius: 14px;
-  background: #17120f url('/assets/cards/action-card-frame.png') center / 100% 100% no-repeat;
+  background: #17120f url('/assets/cards/action-card-frame.webp') center / 100% 100% no-repeat;
   color: #f4ead4;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.75), 0 0 0 2px rgba(240, 203, 116, 0.5);
   opacity: 0;

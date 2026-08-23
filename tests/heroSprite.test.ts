@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CASTING_SKILLS, hasSpriteSheet, heroHitSpriteUrl, isCastingSkill, spriteActionRow } from '@ui/clock/HeroSprite';
+import { readWebp } from './imageMeta';
 
 describe('hero sprite animation rows', () => {
   it('ships sprite sheets for the full v0.4 roster', () => {
@@ -13,13 +14,32 @@ describe('hero sprite animation rows', () => {
 
   it('packs every hero sheet into exact square 4x5 cells', () => {
     for (const charId of ['Eric', 'Kit', 'Liora', 'Luna', 'Chrono', 'Kage', 'Morvane'] as const) {
-      const file = readFileSync(join(process.cwd(), 'public', 'assets', 'sprites', `${charId}.png`));
-      expect(file.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a');
-      const width = file.readUInt32BE(16);
-      const height = file.readUInt32BE(20);
-      expect(width % 4).toBe(0);
-      expect(height % 5).toBe(0);
-      expect(width / 4).toBe(height / 5);
+      const file = readFileSync(join(process.cwd(), 'public', 'assets', 'sprites', `${charId}.webp`));
+      const { width, height } = readWebp(file);
+      expect(width % 4, charId).toBe(0);
+      expect(height % 5, charId).toBe(0);
+      expect(width / 4, charId).toBe(height / 5);
+    }
+  });
+
+  it('keeps every hit row on the same 4x1 grid', () => {
+    for (const charId of ['Eric', 'Kit', 'Liora', 'Luna', 'Chrono', 'Kage', 'Morvane'] as const) {
+      const file = readFileSync(join(process.cwd(), 'public', heroHitSpriteUrl(charId)));
+      const { width, height } = readWebp(file);
+      expect(width % 4, charId).toBe(0);
+      expect(width / 4, charId).toBe(height);
+    }
+  });
+
+  // Same reasoning as the effect strips: these sheets carry the game's character art and v0.4.0
+  // had to hand-repaint an extraction fringe out of three of them, so they ship near-lossless
+  // (VP8L) rather than at the q90 that a routine "convert to WebP" would produce.
+  it('keeps every hero sheet in the lossless container', () => {
+    for (const charId of ['Eric', 'Kit', 'Liora', 'Luna', 'Chrono', 'Kage', 'Morvane'] as const) {
+      for (const path of [join('assets', 'sprites', `${charId}.webp`), heroHitSpriteUrl(charId).slice(1)]) {
+        const file = readFileSync(join(process.cwd(), 'public', path));
+        expect(readWebp(file).format, path).toBe('VP8L');
+      }
     }
   });
 
@@ -40,11 +60,11 @@ describe('hero sprite animation rows', () => {
     expect(spriteActionRow('Morvane', 'DeathCoil')).toBe(4);
   });
 
-  it('uses clean PNG hit rows for Kit and the generated heroes', () => {
-    expect(heroHitSpriteUrl('Kit')).toBe('/assets/sprites/hit/Kit.png');
-    expect(heroHitSpriteUrl('Chrono')).toBe('/assets/sprites/hit/Chrono.png');
-    expect(heroHitSpriteUrl('Kage')).toBe('/assets/sprites/hit/Kage.png');
-    expect(heroHitSpriteUrl('Morvane')).toBe('/assets/sprites/hit/Morvane.png');
+  it('serves every hit row as WebP', () => {
+    expect(heroHitSpriteUrl('Kit')).toBe('/assets/sprites/hit/Kit.webp');
+    expect(heroHitSpriteUrl('Chrono')).toBe('/assets/sprites/hit/Chrono.webp');
+    expect(heroHitSpriteUrl('Kage')).toBe('/assets/sprites/hit/Kage.webp');
+    expect(heroHitSpriteUrl('Morvane')).toBe('/assets/sprites/hit/Morvane.webp');
     expect(heroHitSpriteUrl('Eric')).toBe('/assets/sprites/hit/Eric.webp');
   });
 
