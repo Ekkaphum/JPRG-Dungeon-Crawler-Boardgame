@@ -81,28 +81,58 @@ export function campVpDefault(
   return { kind: 'CAMP_VP', gemsSpent: Math.floor(decision.gems / GEMS_PER_VP) * GEMS_PER_VP };
 }
 
+/** v0.4.6: which way the bot takes each fracture bounty it is owed.
+ *
+ * ⚠️ Crude on purpose, and the same blind spot as the camp table above. The comparison is the
+ * static ITEM_VALUE against the gem payout, which happens to be roughly the right scale (an
+ * 8-gem card values 7-12 and pays 7 in cash) but knows nothing about the board — it cannot see
+ * that a Phoenix Draught is worthless with nobody down, or that a Weakness Lens is worth double
+ * with the whole party stacked on the next slot. A v0.4.6 sim therefore measures whether the
+ * bounty economy as a whole is the right size, NOT whether the item/cash choice is interesting.
+ *
+ * The one thing it does get right is the last boss: gems banked there can never be spent,
+ * because there is no camp after it. Taking cash on boss 3 is a strict loss and the bot knows it.
+ */
+export function autoClaimFractures(
+  decision: Extract<PendingDecision, { kind: 'DECLARE_ACTION' }>
+): { index: number; take: 'item' | 'gems' }[] {
+  const { fractureClaims, fractureGemsUseful } = decision.options;
+  if (!fractureClaims || fractureClaims.length === 0) return [];
+  return fractureClaims.map<{ index: number; take: 'item' | 'gems' }>((c) => ({
+    index: c.index,
+    take: !fractureGemsUseful || ITEM_VALUE[c.itemId] >= c.gems ? 'item' : 'gems',
+  }));
+}
+
 /** Items the bot will spend on this visit, as the free action folded into DECLARE_ACTION. Kept
- *  deliberately simple: heal when hurt, otherwise put an offensive consumable on this swing. */
+ *  deliberately simple: heal when hurt, otherwise put an offensive consumable on this swing.
+ *
+ *  `incoming` is anything the same DECLARE_ACTION is about to win off a fracture claim. The
+ *  engine grants those before it spends items (declareSkill), so they are legitimately holdable
+ *  this visit — but they are not in `prog.items` yet at the moment the bot is deciding. */
 export function autoUseItems(
   state: GameState,
-  playerId: number
+  playerId: number,
+  incoming: ItemId[] = []
 ): { itemId: ItemId; targetPlayerId?: number }[] {
   const prog = state.progress[playerId];
-  if (!prog || prog.items.length === 0) return [];
+  if (!prog) return [];
+  const held = [...prog.items, ...incoming];
+  if (held.length === 0) return [];
   const battle = state.battle;
   const me = battle?.fighters.find((f) => f.playerId === playerId);
   if (!me) return [];
   const uses: { itemId: ItemId; targetPlayerId?: number }[] = [];
 
   if (me.hp * 2 < me.maxHp) {
-    const potion = prog.items.find((id) => ITEMS[id].kind === 'heal');
+    const potion = held.find((id) => ITEMS[id].kind === 'heal');
     if (potion) uses.push({ itemId: potion, targetPlayerId: playerId });
   }
   if (me.ailments.length > 0) {
-    const cure = prog.items.find((id) => ITEMS[id].kind === 'cleanse');
+    const cure = held.find((id) => ITEMS[id].kind === 'cleanse');
     if (cure) uses.push({ itemId: cure, targetPlayerId: playerId });
   }
-  const offensive = prog.items.find((id) => {
+  const offensive = held.find((id) => {
     const k = ITEMS[id].kind;
     return k === 'atkBuff' || k === 'pierce' || k === 'poisonSlots';
   });

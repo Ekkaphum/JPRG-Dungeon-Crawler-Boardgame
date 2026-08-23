@@ -23,6 +23,7 @@ function emptyBattle(bossIndexBoss: 'Ragorath' | 'Somnivar'): BattleState {
     bossStackSeq: 0,
     traps: [],
     scheduledHits: [],
+    fractures: [],
     weakPoint: null,
     currentMoveKey: null,
     partyBuff: null,

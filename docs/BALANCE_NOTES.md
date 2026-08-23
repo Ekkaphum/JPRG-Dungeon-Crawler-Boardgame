@@ -985,3 +985,69 @@ stops being negative-sum.
 > ⚠️ All of the above still measures bots. Kage's 7.2 dmg/⏱ and Death Coil's 28% landing rate are
 > arithmetic and hold regardless; the win-rate deltas assume bots play these kits sensibly, which is
 > exactly the assumption that cannot be checked without human play.
+
+---
+
+## v0.4.6 fracture lines — first measurement, 2026-08-23 (`npm run balance -- 1500 hard v0.4` vs `… v0.4.6`)
+
+v0.4.6 is v0.4.5 plus one rule: two marks on the boss HP track at 60% and 30% of its starting HP,
+each carrying an item card drawn face-up at the start of the battle. Whoever’s damage takes the
+boss to or below a mark takes that item, or gems equal to its shop price minus 1. Nothing else
+differs, which is the entire reason it is a separate ruleset rather than folded onto v0.4 — the
+two columns below are a controlled A/B on that rule.
+
+**1,500 games per column, 4 hard bots, standard difficulty.**
+
+| | v0.4.5 | v0.4.6 | Δ |
+|---|---|---|---|
+| win rate (all 3 bosses) | 62.2% | **66.5%** | **+4.3pp** |
+| Ragorath cleared | 80.9% | 83.5% | +2.6 |
+| Somnivar cleared | 74.8% | 78.4% | +3.6 |
+| Aurelius cleared | 62.2% | 66.5% | +4.3 |
+| Eric win share | 25.5% | 22.3% | −3.2 |
+| Kit win share | 25.7% | 26.3% | +0.6 |
+| Liora win share | 35.0% | 35.7% | +0.7 |
+| Luna win share | 13.7% | 15.7% | +2.0 |
+
+### What the rule actually did
+
+```
+crossed: 5.17 per game (of a maximum 6)
+line 1 (60%): avg clock slot 15.8      line 2 (30%): avg clock slot 12.4
+taken as item 94.8%, as gems 5.2%
+auto-settled — nobody ever got a visit to choose on: 16.4%
+one hit took BOTH lines: 0.9% of games
+dead gems taken on the last boss: 0
+```
+
+**The number that matters — bounty share against damage share:**
+
+| | crossings | damage dealt to bosses | ratio |
+|---|---|---|---|
+| Liora | 54.2% | 42.9% | **1.26×** |
+| Kit | 28.9% | 36.1% | **0.80×** |
+| Eric | 16.6% | 20.5% | 0.81× |
+| Luna | 0.4% | 0.4% | 1.00× |
+
+The rule is not neutral. A line is crossed by *one* hit, so it systematically overpays the
+character who deals damage in few large pieces and underpays the one who deals the same total in
+many small ones: chip the boss down *to* the mark and somebody else steps over it. Liora is paid
+26% above her contribution and Kit 20% below his.
+
+Luna is the other story, and a different one from what it looks like. She crosses 0.4% of lines —
+but she also deals 0.4% of the damage, so the fracture is not excluding her, her own card set is.
+The rule pays in a currency she does not earn. Her win share nevertheless went **up** (13.7% →
+15.7%), because the bounty is an *item*: five extra cards a game keep the party alive, and
+`luna3` pays her for exactly that. A bounty paid in victory points instead would have moved her
+the other way.
+
+### Caveats — what this run does NOT measure
+
+- **The item-vs-gems choice.** 94.8% item is a fact about `ITEM_VALUE` in `src/bots/common.ts`, a
+  static table that cannot see that a Phoenix Draught is worthless with nobody down. Whether the
+  choice is interesting is a question for human play, not for this sim.
+- **Holding damage back to line up a crossing.** No bot has the concept, so the sim cannot produce
+  it. It is the rule’s main strategic risk and this measurement is silent on it.
+- **16.4% of bounties were never chosen at all** — crossed on a killing blow or a last-tick trap,
+  then auto-settled as the item at the end of the battle. A rule whose decision is skipped one time
+  in six is worth watching.

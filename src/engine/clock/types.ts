@@ -197,6 +197,23 @@ export interface Fighter {
   guardRedirectsThisBattle: number;
 }
 
+/** v0.4.6: one mark on the boss HP track and the bounty card sitting against it. Face up from
+ *  the start of the battle — see engine/clock/fracture.ts for the three rulings that matter. */
+export interface FractureLine {
+  /** Fraction of starting HP this line was cut at. Display only; `hp` is what the rule reads. */
+  pct: number;
+  /** Boss HP at or below which the line is crossed. */
+  hp: number;
+  itemId: ItemId;
+  /** Gems offered instead of the item — its shop price less FRACTURE_GEM_DISCOUNT. */
+  gems: number;
+  /** Who took the boss past it. null while the line is still standing; never cleared once set,
+   *  which is what stops a boss that heals back over the line from re-arming it. */
+  crossedBy: PlayerId | null;
+  /** Which way they took it. null while the claim is still owed. */
+  taken: 'item' | 'gems' | null;
+}
+
 export interface TrapToken {
   slot: number;
   dmg: number;
@@ -283,6 +300,15 @@ export type ClockLogEvent =
   | { t: 'MANA_GAINED'; playerId: PlayerId; amount: number; total: number }
   /** Kit banked or spent Focus. `amount` is signed — negative when it was paid into a roll. */
   | { t: 'FOCUS_CHANGED'; playerId: PlayerId; amount: number; total: number }
+  // ── v0.4.6 fractures ──
+  /** Damage took the boss to or below a fracture line. Logged at the crossing rather than at the
+   *  claim, so the table hears it during the swing that earned it. */
+  | { t: 'FRACTURE_CROSSED'; playerId: PlayerId; index: number; itemId: ItemId; hp: number }
+  /** `auto` marks a bounty nobody ever got a visit to claim — crossed on the killing blow, or by
+   *  a trap on the last tick — which settles as the item when the battle ends. Worth carrying
+   *  because it is the one case where the player made no choice at all, and a rule whose choice
+   *  is usually skipped is a rule that is not doing its job. */
+  | { t: 'FRACTURE_CLAIMED'; playerId: PlayerId; index: number; itemId: ItemId; take: 'item' | 'gems'; gems: number; auto: boolean }
   | { t: 'MARKER_TICK'; marker: number }
   | { t: 'BATTLE_END'; outcome: 'boss_defeated' | 'clock_ran_out' | 'party_wiped'; finishedBy: PlayerId | null; expGranted: number };
 
@@ -298,6 +324,9 @@ export interface BattleState {
   bossStackSeq: number;
   traps: TrapToken[];
   scheduledHits: ScheduledHit[];
+  /** v0.4.6 fracture lines, in track order (highest HP first). Always an array — empty in every
+   *  ruleset but v0.4.6, so no read site has to branch. */
+  fractures: FractureLine[];
   /** v0.3.15: an owned, *timed* window instead of a bare flag. It used to last "until the boss's
    *  next action", which was a fine rule when the boss acted every other visit — after v0.3.14 the
    *  boss acts every visit, so the window was collapsing to almost nothing and Kit's whole opener
@@ -381,6 +410,13 @@ export interface DeclareOptions {
   mana: number;
   maxManaSpend: number;
   emptySlotsBelowMarker: number[];
+  /** v0.4.6: fracture bounties this player has crossed and not yet taken. Offered here rather
+   *  than as a decision of its own so the claim rides the visit the player is already taking —
+   *  and so an item claimed can be spent by the same DECLARE_ACTION that claimed it. */
+  fractureClaims: { index: number; itemId: ItemId; gems: number }[];
+  /** v0.4.6: whether gems are still spendable at all — false on the last boss, which has no camp
+   *  after it. Passed through rather than recomputed by every caller that has to warn about it. */
+  fractureGemsUseful: boolean;
   /** Slots Set Trap may be armed on — only the ones inside the skill's own ⏱ window, so the trap
    *  is a read of where the boss will stop in the near term rather than anywhere on the clock. */
   trapSlots: number[];
@@ -407,6 +443,9 @@ export type Choice =
        *  ⏱ cost. Folded into this choice rather than given its own yield so the turn order, the
        *  replay format and every bot keep working unchanged. */
       useItems?: { itemId: ItemId; targetPlayerId?: PlayerId }[];
+      /** v0.4.6: fracture bounties taken this visit, resolved *before* useItems so a claimed item
+       *  can be spent on the same turn it was won. */
+      fractureTakes?: { index: number; take: 'item' | 'gems' }[];
       skillId: SkillId;
       targetPlayerId?: PlayerId;
       manaSpent?: number;

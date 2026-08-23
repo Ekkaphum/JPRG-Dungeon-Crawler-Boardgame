@@ -10,7 +10,7 @@
 // The flag lives on GameState rather than being read from settings at the point of use, so a saved
 // game keeps the ruleset it was started under even if the menu selection changes afterwards.
 
-export type RulesetVersion = 'v0.3' | 'v0.4';
+export type RulesetVersion = 'v0.3' | 'v0.4' | 'v0.4.6';
 
 /** The one the game plays by default and the only one considered finished. */
 export const STABLE_RULESET: RulesetVersion = 'v0.3';
@@ -71,6 +71,34 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
       { th: '📊 4 ตัวหลักผ่าน sim แล้ว (1,500 เกม hard — คะแนนห่างกันไม่เกิน 1.2) · 3 ตัวใหม่ยังไม่เคยวัด', en: '📊 The four core characters are sim-measured (1,500 hard games, within 1.2 points of each other); the 3 new ones are not' },
     ],
   },
+  'v0.4.6': {
+    id: 'v0.4.6',
+    label: 'v0.4.6',
+    experimental: true,
+    name: { th: 'ทดลอง + รอยแตก', en: 'Experimental + Fractures' },
+    desc: {
+      th: 'ทุกอย่างของ v0.4.5 บวกรอยแตกบนหลอดเลือดบอส 2 เส้น — ใครตีผ่านเส้นได้รางวัล',
+      en: 'Everything in v0.4.5, plus two fracture lines on the boss HP track that pay whoever crosses them.',
+    },
+    highlights: [
+      {
+        th: '💥 รอยแตก 2 เส้นที่ 60% และ 30% ของ HP บอส — เปิดไอเทมรางวัลให้ดูตั้งแต่ต้นยก',
+        en: '💥 Two fracture lines at 60% and 30% of boss HP — the bounty item for each is revealed at the start of the battle.',
+      },
+      {
+        th: 'หมัดที่ทำให้ HP บอสถึงหรือต่ำกว่าเส้น = คนตีได้ไอเทมใบนั้น หรือเลือกรับเจมแทน (= ราคาไอเทม −1)',
+        en: 'The hit that brings boss HP to or below a line pays its owner that item — or gems instead, worth its shop price minus 1.',
+      },
+      {
+        th: 'รับรางวัลตอนถูกเยี่ยมครั้งถัดไป · ใช้ไอเทมต่อในตาเดียวกันได้เลย · เส้นที่ข้ามแล้วไม่กลับมาอีกแม้บอสจะฟื้นเลือด',
+        en: 'Claimed on your next visit and usable in that same visit; a crossed line never re-arms, even if the boss heals back over it.',
+      },
+      {
+        th: '📊 แยกออกมาเป็นชุดกติกาของตัวเอง เพื่อให้วัดผลเทียบกับ v0.4.5 ได้ตรงๆ · ยังไม่ผ่านการจูน',
+        en: '📊 Split out as its own ruleset purely so it can be measured against v0.4.5 directly. Not tuned.',
+      },
+    ],
+  },
 };
 
 export function rulesetDef(v: RulesetVersion): RulesetDef {
@@ -80,7 +108,7 @@ export function rulesetDef(v: RulesetVersion): RulesetDef {
 /** Whether this ruleset runs the v0.4.0 additions. A single predicate rather than scattered
  *  `=== 'v0.4'` checks, so adding a later ruleset that keeps them is a one-line change. */
 export function hasV040Content(v: RulesetVersion): boolean {
-  return v === 'v0.4';
+  return v !== 'v0.3';
 }
 
 /** Whether this ruleset runs the camp between battles. Folded into v0.4.0 rather than living in a
@@ -89,7 +117,7 @@ export function hasV040Content(v: RulesetVersion): boolean {
  *  being built. Kept as a predicate rather than an inline `=== 'v0.4'` so a later ruleset that drops
  *  the camp is a one-line change. */
 export function hasCamp(v: RulesetVersion): boolean {
-  return v === 'v0.4';
+  return v !== 'v0.3';
 }
 
 /** Whether this ruleset runs the v0.4.5 character rework — Eric's Guard/survival scoring, Kit's
@@ -102,5 +130,22 @@ export function hasCamp(v: RulesetVersion): boolean {
  *  v0.3 ruleset is untouched by construction: every rework read site goes through this predicate,
  *  so there is no path by which a v0.3 game can see any of it. */
 export function hasV045Content(v: RulesetVersion): boolean {
-  return v === 'v0.4';
+  return v !== 'v0.3';
+}
+
+/** Whether this ruleset runs the v0.4.6 fracture lines — two marks on the boss's HP track that
+ *  pay a bounty to whoever's damage takes the boss past them.
+ *
+ *  This one IS a third RulesetVersion, unlike the camp and the v0.4.5 rework which were both
+ *  folded onto v0.4. The reason is measurement, not taste: v0.4 has 1,500 hard games behind its
+ *  four core characters, and a bounty that hands out items mid-battle moves every one of those
+ *  numbers. Folded in, there would be no un-fractured build left to compare against and the only
+ *  claim anyone could make about the feature would be 'it feels fine'. Kept separate, the sim can
+ *  run v0.4 and v0.4.6 side by side — they differ by exactly this rule — and attribute the delta.
+ *
+ *  It also keeps v0.4's RNG stream untouched: the fracture draw pulls two cards off the item deck
+ *  at the top of every battle, which would shift every roll after it. A v0.4 game plays out today
+ *  exactly as it did before this file changed. */
+export function hasFractures(v: RulesetVersion): boolean {
+  return v === 'v0.4.6';
 }

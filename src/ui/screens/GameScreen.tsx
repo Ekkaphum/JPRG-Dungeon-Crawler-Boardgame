@@ -188,7 +188,7 @@ export function GameScreen() {
             </div>
           </div>
 
-          {detail?.kind === 'boss' && <BossDetailModal battle={shown} onClose={() => setDetail(null)} />}
+          {detail?.kind === 'boss' && <BossDetailModal battle={shown} players={state.players} onClose={() => setDetail(null)} />}
           {detail?.kind === 'hero' && (
             <HeroDetailModal state={state} battle={shown} playerId={detail.playerId} onClose={() => setDetail(null)} />
           )}

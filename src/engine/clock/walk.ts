@@ -10,6 +10,7 @@ import { SHADOW_MAX, scorePoints } from '@content/characters';
 import { declareBossAction } from './bossAI';
 import { reviveFighter } from './damage';
 import { onBattleEndScoring } from './scoring';
+import { fractureGemsAreSpendable, owedFractures, settleUnclaimedFractures } from './fracture';
 import type { Choice, DeclareOptions, Fighter, GameState, PendingDecision } from './types';
 
 /** Who resolves first when two pawns share a clock slot. GAME_DESIGN_v0_3_0.md §4.1: "หมากซ้อนช่อง
@@ -68,6 +69,8 @@ function buildDeclareOptions(state: GameState, fighter: Fighter): DeclareOptions
   return {
     charId: fighter.charId,
     currentSlot: fighter.slot,
+    fractureClaims: owedFractures(state, fighter.playerId),
+    fractureGemsUseful: fractureGemsAreSpendable(state),
     mana: fighter.mana,
     maxManaSpend: Math.min(fighter.mana, 3),
     emptySlotsBelowMarker,
@@ -95,6 +98,9 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
       // "ถึงช่อง 0" reading as "arrives at 0", not "passes 0".
       battle.log.push({ t: 'MARKER_TICK', marker: 0 });
       battle.outcome = 'clock_ran_out';
+      // The clock running out is a hard `return`, so this exit needs its own settle — the one
+      // after the loop below cannot see it. Both calls are idempotent.
+      settleUnclaimedFractures(state);
       battle.log.push({ t: 'BATTLE_END', outcome: 'clock_ran_out', finishedBy: null, expGranted: 0 });
       return;
     }
@@ -163,6 +169,10 @@ export function* runClockBattle(state: GameState, rng: RNG): Generator<PendingDe
       }
     }
   }
+
+  // A bounty crossed on the killing blow — or by a trap on the last tick — never gets a visit to
+  // be claimed on. Rather than losing it, it settles as the item (see settleUnclaimedFractures).
+  settleUnclaimedFractures(state);
 
   if (battle.outcome === 'boss_defeated') {
     onBattleEndScoring(state);

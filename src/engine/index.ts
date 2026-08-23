@@ -25,6 +25,18 @@ export {
   resolveQueuedCounter,
 } from './clock/skills';
 export { declareBossAction, applyBossMove } from './clock/bossAI';
+export {
+  FRACTURE_PCTS,
+  FRACTURE_GEM_DISCOUNT,
+  fractureHpAt,
+  fractureGemsAreSpendable,
+  rollFractures,
+  crossFractures,
+  owedFractures,
+  claimFracture,
+  settleUnclaimedFractures,
+} from './clock/fracture';
+export type { OwedFracture } from './clock/fracture';
 export { pickExtreme, pickExtremeN } from './clock/rank';
 export { currentTotalScore, pushScore, applyDamageToFighter, applyDamageToBoss, healFighter, killFighter, reviveFighter } from './clock/damage';
 export {

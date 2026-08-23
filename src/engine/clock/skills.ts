@@ -27,6 +27,7 @@ import { hasV045Content } from '@content/rulesets';
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage, healFighter, pushScore, reviveFighterNow } from './damage';
 import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onSlowLanded, onTrapTriggered, onWeakPointOpened } from './scoring';
 import { ailmentRollPenalty, ailmentTimeTax, cleanseAilments, consumeTimeTaxAilments, isSilenced } from './ailments';
+import { claimFracture } from './fracture';
 import { spendItems } from './items';
 import type { Choice, Fighter, GameState } from './types';
 import type { RNG } from '../rng';
@@ -232,6 +233,12 @@ function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId,
  *  Shooting) — its weak-point roll happens right here instead of at resolve. */
 export function declareSkill(state: GameState, fighter: Fighter, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>, rng: RNG) {
   const battle = state.battle!;
+  // v0.4.6: fracture bounties are taken before anything else in the visit. Ordering matters —
+  // claiming an item and then spending it on the same turn is the whole reason the claim rides
+  // DECLARE_ACTION instead of being a decision of its own.
+  for (const take of choice.fractureTakes ?? []) {
+    claimFracture(state, fighter.playerId, take.index, take.take);
+  }
   // v0.5: items are a free action taken *before* the skill is declared, so they resolve first and
   // anything they set (haste, +damage, pierce) is already live when the skill below is priced.
   spendItems(state, fighter, choice.useItems);

@@ -176,7 +176,8 @@ export const ITEMS: Record<ItemId, ItemDef> = {
 export const ITEM_IDS: ItemId[] = Object.keys(ITEMS) as ItemId[];
 
 /** Deck composition — cheap staples are common, the 8-gem cards are one-offs, so a market row is
- *  usually affordable but the good stuff is contested. 34 cards; a 3-boss game reveals ~12-16. */
+ *  usually affordable but the good stuff is contested. 35 cards; a 3-boss game reveals ~12-16,
+ *  and v0.4.6 nails two more per battle to the fracture lines. */
 const COPIES: Record<3 | 5 | 8, number> = { 3: 3, 5: 2, 8: 1 };
 
 export function buildItemDeck(): ItemId[] {

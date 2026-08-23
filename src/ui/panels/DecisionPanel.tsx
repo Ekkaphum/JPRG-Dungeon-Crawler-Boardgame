@@ -122,6 +122,10 @@ function DeclareActionPanel({
   const [focusSpent, setFocusSpent] = useState(0);
   // How much mana Aura Shield pours in. Local to that picker, cleared with it.
   const [shieldMana, setShieldMana] = useState(0);
+  // v0.4.6 fracture bounties owed to this player, keyed by the line index. Defaults to the item
+  // for any line not in the map: the item is the reward the rule is named for, and cash is the
+  // deliberate opt-out. Held here like the item and Focus selections, and merged at submit.
+  const [fractureTakes, setFractureTakes] = useState<Record<number, 'item' | 'gems'>>({});
   const player = state.players.find((p) => p.id === decision.playerId)!;
   const battle = state.battle!;
   const fighter = battle.fighters.find((f) => f.playerId === decision.playerId)!;
@@ -150,16 +154,58 @@ function DeclareActionPanel({
         ? { ...withItems, focusSpent }
         : withItems;
     setFocusSpent(0);
-    session.submitHumanChoice(decision.playerId, withFocus);
+    // Claims ride the same submission. The engine grants them before it spends items, which is
+    // what lets a card won this visit be used on this visit — see the held list below.
+    const withFractures: Choice =
+      claims.length > 0 && withFocus.kind === 'DECLARE_ACTION'
+        ? { ...withFocus, fractureTakes: claims.map((c) => ({ index: c.index, take: takeFor(c.index) })) }
+        : withFocus;
+    setFractureTakes({});
+    session.submitHumanChoice(decision.playerId, withFractures);
   };
 
-  const held = state.progress[decision.playerId]?.items ?? [];
+  const claims = decision.options.fractureClaims ?? [];
+  const takeFor = (index: number): 'item' | 'gems' => fractureTakes[index] ?? 'item';
+  // Anything about to be won as an item is legitimately spendable this visit, so it is listed
+  // alongside what the player already holds. Without this the human could not do what the bots do
+  // — claim a potion off a fracture and drink it on the same turn.
+  const incoming = claims.filter((c) => takeFor(c.index) === 'item').map((c) => c.itemId);
+  const held = [...(state.progress[decision.playerId]?.items ?? []), ...incoming];
   const skillKind = skillId ? SKILLS[skillId].kind : null;
   const manaAvailable = Math.min(fighter.mana, decision.options.maxManaSpend);
 
   return (
     <div className="decision-board gold-frame rounded-lg p-3">
       <div className="decision-heading font-display gold-text">{t('decision.declareTitle', { name: player.name })}</div>
+
+      {claims.length > 0 && (
+        <div className="decision-extras fracture-claim flex flex-col gap-1 text-xs">
+          <span className="gold-text font-display">
+            {t('fracture.claimTitle')} <span className="text-gold-dim font-sans">· {t('fracture.usableNow')}</span>
+          </span>
+          {claims.map((c) => (
+            <div key={c.index} className="fracture-claim__row flex items-center gap-2 flex-wrap">
+              <img src={itemImageUrl(c.itemId)} alt="" className="w-7 h-7 rounded object-cover" draggable={false} />
+              <span className="truncate" title={ITEMS[c.itemId].text[lang]}>
+                {ITEMS[c.itemId].name[lang]}
+              </span>
+              {(['item', 'gems'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setFractureTakes((cur) => ({ ...cur, [c.index]: mode }))}
+                  disabled={mode === 'gems' && !decision.options.fractureGemsUseful}
+                  className={`gold-frame rounded px-2 py-1 ${takeFor(c.index) === mode ? 'bg-gold/30 text-gold-bright' : 'hover:bg-gold/10'} disabled:opacity-40`}
+                >
+                  {mode === 'item' ? t('fracture.takeItem') : t('fracture.takeGems', { n: c.gems })}
+                </button>
+              ))}
+            </div>
+          ))}
+          {/* The gem option is legal on the last boss and worthless there, so it is disabled and
+              explained rather than quietly dropped. */}
+          {!decision.options.fractureGemsUseful && <span className="text-gold-dim">{t('fracture.gemsDead')}</span>}
+        </div>
+      )}
 
       {held.length > 0 && (
         <div className="decision-extras flex gap-2 flex-wrap items-center text-xs">

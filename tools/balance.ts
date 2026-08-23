@@ -6,7 +6,7 @@
 // `state.battle` is replaced wholesale each battle, so the logs of earlier battles would be lost
 // by the time the game ends — runOne archives each battle's log as the engine moves on, otherwise
 // every stat here would silently describe only the last boss fought.
-import { createRNG, newGame, playGame, type NewGameSetup, type BossId, type CharId, type ClockLogEvent, type Choice, type PendingDecision } from '../src/engine';
+import { createRNG, newGame, playGame, FRACTURE_PCTS, type NewGameSetup, type BossId, type CharId, type ClockLogEvent, type Choice, type PendingDecision } from '../src/engine';
 import { createMediumBot } from '../src/bots/medium';
 import { createHardBot } from '../src/bots/hard';
 import type { Agent } from '../src/bots/Agent';
@@ -34,7 +34,9 @@ const makeBot = (i: number, rand: () => number) => (BOT_LEVEL === 'hard' ? creat
 // measurement of Chrono/Kage/Morvane. It measures exactly one thing: what the boss ailments do to a
 // party that is otherwise identical to the v0.3 baseline. That is a clean, honest comparison
 // precisely *because* the roster is held constant across the two runs.
-const RULESET = (ARGS.find((a) => a === 'v0.3' || a === 'v0.4') ?? 'v0.3') as RulesetVersion;
+// v0.4.6 adds the fracture lines on top of v0.4.5 and changes nothing else, so `v0.4` vs `v0.4.6` is a
+// controlled A/B on exactly that rule — which is the entire reason it is a separate ruleset.
+const RULESET = (ARGS.find((a) => a === 'v0.3' || a === 'v0.4' || a === 'v0.4.6') ?? 'v0.3') as RulesetVersion;
 
 // `--roster=Chrono,Kit,Liora,Luna` pins every seat and skips the draft, so a single character can
 // be swapped with the other three held constant. Without it a win-rate delta cannot be attributed
@@ -44,8 +46,8 @@ const FIXED_ROSTER = ROSTER_ARG ? (ROSTER_ARG.slice('--roster='.length).split(',
 
 for (const a of ARGS) {
   if (a.startsWith('--roster=')) continue;
-  if (!['medium', 'hard', 'v0.3', 'v0.4'].includes(a)) {
-    throw new Error(`unknown balance flag "${a}" — expected: medium, hard, v0.3, v0.4, --roster=A,B,C,D`);
+  if (!['medium', 'hard', 'v0.3', 'v0.4', 'v0.4.6'].includes(a)) {
+    throw new Error(`unknown balance flag "${a}" — expected: medium, hard, v0.3, v0.4, v0.4.6, --roster=A,B,C,D`);
   }
 }
 if (FIXED_ROSTER) {
@@ -54,7 +56,7 @@ if (FIXED_ROSTER) {
     if (!ALL_CHAR_IDS.includes(c)) throw new Error(`--roster: "${c}" is not a character`);
   }
   if (new Set(FIXED_ROSTER).size !== 4) throw new Error('--roster: characters must be distinct');
-  if (FIXED_ROSTER.some((c) => V040_CHAR_IDS.includes(c)) && RULESET !== 'v0.4') {
+  if (FIXED_ROSTER.some((c) => V040_CHAR_IDS.includes(c)) && RULESET === 'v0.3') {
     throw new Error('--roster includes a v0.4.0 character — pass v0.4 as well, or they have no rules to play under');
   }
 }
@@ -138,6 +140,21 @@ async function main() {
   const ailTicks: Partial<Record<AilmentId, number>> = {};
   let ailWarded = 0;
   let doomKills = 0;
+  // v0.4.6 fractures. Keyed by character rather than by seat: the question the whole feature
+  // hangs on is whether the bounty is pre-assigned to whoever swings biggest.
+  const fracCrossedByChar: Record<string, number> = {};
+  const fracCrossedByLine: number[] = [0, 0];
+  const fracMarkerAt: number[][] = [[], []];
+  let fracTakeItem = 0;
+  let fracTakeGems = 0;
+  let fracAuto = 0;
+  let fracDoubles = 0;
+  let fracGemsOnLastBoss = 0;
+  let fracCrossedTotal = 0;
+  // Damage put into the boss per character. The comparison that matters for the fracture rule:
+  // a bounty share that merely tracks damage share is a damage tax with extra steps, while one
+  // that diverges is doing something of its own (for better or worse).
+  const bossDmgByChar: Record<string, number> = {};
 
   for (let seed = 0; seed < games; seed++) {
     const { state, logs } = await runOne(seed);
@@ -154,7 +171,18 @@ async function main() {
     // that player's next Counter declare or the end of the battle.
     const openWindow: Record<number, number> = {};
 
+    // Which seat is which character, needed to attribute fracture crossings while scanning.
+    const charOfSeat: Record<number, CharId> = {};
+    for (const p of state.players) charOfSeat[p.id] = p.charId;
+
     for (const log of logs) {
+      // A single hit that clears both lines pushes its two FRACTURE_CROSSED events back to back
+      // with nothing in between (crossFractures walks the array in one pass), so adjacency is an
+      // exact test for "one swing took both" rather than an approximation.
+      for (let i = 0; i + 1 < log.length; i++) {
+        if (log[i].t === 'FRACTURE_CROSSED' && log[i + 1].t === 'FRACTURE_CROSSED') fracDoubles++;
+      }
+      let marker = 24;
       for (const ev of log) {
         if (ev.t === 'DECLARE' && ev.playerId !== 'boss') {
           declares[ev.skillId] = (declares[ev.skillId] ?? 0) + 1;
@@ -162,6 +190,19 @@ async function main() {
             if (openWindow[ev.playerId] !== undefined) counterPerWindow.push(openWindow[ev.playerId]);
             openWindow[ev.playerId] = 0;
           }
+        }
+        if (ev.t === 'MARKER_TICK') marker = ev.marker;
+        if (ev.t === 'FRACTURE_CROSSED') {
+          fracCrossedTotal++;
+          fracCrossedByLine[ev.index] = (fracCrossedByLine[ev.index] ?? 0) + 1;
+          fracMarkerAt[ev.index]?.push(marker);
+          const c = charOfSeat[ev.playerId];
+          if (c) fracCrossedByChar[c] = (fracCrossedByChar[c] ?? 0) + 1;
+        }
+        if (ev.t === 'FRACTURE_CLAIMED') {
+          if (ev.take === 'item') fracTakeItem++;
+          else fracTakeGems++;
+          if (ev.auto) fracAuto++;
         }
         if (ev.t === 'BOSS_MOVE') bossMoves++;
         if (ev.t === 'AILMENT_APPLIED') ailApplied[ev.ailment] = (ailApplied[ev.ailment] ?? 0) + 1;
@@ -177,6 +218,10 @@ async function main() {
             bossDamage += ev.dmg;
           } else {
             dmgBySkill[ev.skillId] = (dmgBySkill[ev.skillId] ?? 0) + ev.dmg;
+            if (ev.targetId === 'boss') {
+              const c = charOfSeat[ev.playerId];
+              if (c) bossDmgByChar[c] = (bossDmgByChar[c] ?? 0) + ev.dmg;
+            }
             hitsBySkill[ev.skillId] = (hitsBySkill[ev.skillId] ?? 0) + 1;
             if (ev.dmg >= 25) bigHits++;
             if (ev.skillId === 'CounterAttack' && openWindow[ev.playerId] !== undefined) openWindow[ev.playerId]++;
@@ -200,6 +245,12 @@ async function main() {
       }
     }
     for (const n of Object.values(openWindow)) counterPerWindow.push(n);
+    // Gems banked on the last boss can never be spent — there is no camp after it. Counted
+    // separately because it is the one strictly-wrong claim the rule allows a player to make.
+    const lastLog = logs.length === state.bossQueue.length ? logs[logs.length - 1] : null;
+    if (lastLog) {
+      for (const ev of lastLog) if (ev.t === 'FRACTURE_CLAIMED' && ev.take === 'gems') fracGemsOnLastBoss++;
+    }
 
     const gameOver = state.gameOver;
     if (gameOver?.outcome === 'win') {
@@ -268,7 +319,31 @@ async function main() {
   console.log(`  never hit: ${pct(zero, counterPerWindow.length)}%   |   2+ ripostes: ${pct(multi, counterPerWindow.length)}%`);
   console.log(`boss: ${bossMoves} moves resolved, ${bossDamageEvents} damage events, ${bossDamage} total damage dealt`);
 
-  if (RULESET === 'v0.4') {
+  if (RULESET === 'v0.4.6') {
+    console.log(`
+fractures (lines at ${FRACTURE_PCTS.map((p) => `${p * 100}%`).join(' / ')} of boss HP):`);
+    console.log(`  crossed: ${fracCrossedTotal} total, ${(fracCrossedTotal / games).toFixed(2)}/game (max possible 6)`);
+    for (let i = 0; i < fracCrossedByLine.length; i++) {
+      const at = fracMarkerAt[i] ?? [];
+      console.log(
+        `  line ${i + 1} (${FRACTURE_PCTS[i] * 100}%): crossed ${fracCrossedByLine[i]} times, ` +
+          `avg clock slot ${mean(at).toFixed(1)}`
+      );
+    }
+    console.log(`  taken as item ${fracTakeItem} (${pct(fracTakeItem, fracTakeItem + fracTakeGems)}%), as gems ${fracTakeGems}`);
+    console.log(`  auto-settled (no visit to claim on): ${fracAuto} (${pct(fracAuto, fracTakeItem + fracTakeGems)}%)`);
+    console.log(`  one hit took BOTH lines: ${fracDoubles} times (${pct(fracDoubles, games)}% of games)`);
+    console.log(`  dead gems taken on the last boss: ${fracGemsOnLastBoss}`);
+    const totalBossDmg = Object.values(bossDmgByChar).reduce((a, b) => a + b, 0);
+    console.log(`  by character — crossings / share / share of all damage dealt to bosses:`);
+    for (const [c, n] of Object.entries(fracCrossedByChar).sort((a, b) => b[1] - a[1])) {
+      console.log(
+        `    ${c.padEnd(9)} ${String(n).padStart(6)}  ${pct(n, fracCrossedTotal).padStart(5)}%  vs dmg ${pct(bossDmgByChar[c] ?? 0, totalBossDmg)}%`
+      );
+    }
+  }
+
+  if (RULESET !== 'v0.3') {
     console.log('\nailments (applied / ticks / total tick damage / per game):');
     const ailIds = Object.keys(AILMENTS) as AilmentId[];
     let totalAilDmg = 0;

@@ -13,6 +13,7 @@ import {
   type SkillId,
 } from '@content/characters';
 import { STABLE_RULESET, hasV045Content, type RulesetVersion } from '@content/rulesets';
+import { crossFractures } from './fracture';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
 /** Berserk's threshold (@content/characters PASSIVES.Eric) — always-on, checked here rather than
@@ -66,7 +67,12 @@ export function applyDamageToBoss(
     attackerF.itemPierce = false;
   }
   const effective = Math.max(0, ignores ? dmg : dmg - battle.armor);
+  const hpBefore = battle.bossHp;
   battle.bossHp = Math.max(0, battle.bossHp - effective);
+  // v0.4.6. Sited here rather than at each skill because a fracture pays whoever *owned* the
+  // damage, and this is the one funnel every source already goes through — a trap detonation and
+  // a scheduled Multi Shot hit carry an ownerId and can cross a line exactly like a sword swing.
+  crossFractures(state, attackerId, hpBefore, battle.bossHp);
 
   if (battle.bossId === 'Ragorath') battle.rage += 1;
 

@@ -1471,3 +1471,130 @@ html, body, #root {
   letter-spacing: 0.02em;
 }
 .rule-formula em { font-style: normal; color: #9a927e; font-size: 0.68rem; display: block; margin-top: 0.3rem; }
+
+/* ─────────────── v0.4.6 fracture lines ─────────────── */
+
+/* Laid over the boss HP bar. 2px of bright gold against the boss red reads at the size the bar
+   actually is (8px tall in the battle stage) where a 1px hairline disappears. Once crossed it
+   stays on the track but goes flat and dark — the mark is still information (it says where the
+   line WAS) and erasing it would make the bar lie about what happened. */
+.fracture-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--gold-bright);
+  box-shadow: 0 0 4px rgba(240, 210, 122, 0.9);
+  pointer-events: none;
+}
+
+.fracture-tick--crossed {
+  background: rgba(232, 228, 216, 0.28);
+  box-shadow: none;
+}
+
+.fracture-chips {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-top: 3px;
+}
+
+.fracture-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px 1px 1px;
+  border: 1px solid var(--gold-dim);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 8px;
+  line-height: 1;
+  color: var(--gold-bright);
+}
+
+.fracture-chip img {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+/* Spent chips stay on screen rather than being removed: the row keeping its shape is what stops
+   the boss plate from reflowing mid-battle, and a greyed card still answers "what was that one". */
+.fracture-chip--spent {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+.fracture-bounties {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fracture-bounty {
+  display: flex;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid rgba(138, 111, 47, 0.45);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.fracture-bounty--spent {
+  opacity: 0.55;
+}
+
+.fracture-bounty__art {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 3px;
+  object-fit: cover;
+}
+
+.fracture-bounty__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.fracture-bounty__head {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 10px;
+}
+
+.fracture-bounty__pct {
+  color: var(--gold-bright);
+  font-weight: 600;
+}
+
+.fracture-bounty__hp,
+.fracture-bounty__status {
+  color: var(--gold-dim);
+  font-size: 10px;
+}
+
+.fracture-bounty__name {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.fracture-bounty__text {
+  font-size: 10px;
+  color: rgba(232, 228, 216, 0.7);
+}
+
+.fracture-bounty__alt {
+  color: var(--gem-yellow);
+}
+
+/* The claim row sits at the top of the command dock, above the item row it feeds. Gold left edge
+   rather than a full frame: it is a step inside the declare, not a panel of its own. */
+.fracture-claim {
+  border-left: 2px solid var(--gold-bright);
+  padding-left: 6px;
+}

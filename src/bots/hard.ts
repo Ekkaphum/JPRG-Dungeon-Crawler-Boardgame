@@ -1,7 +1,7 @@
 import type { Choice, GameState, PendingDecision } from '@engine/index';
 import type { Agent } from './Agent';
 import { declareCandidates } from './candidates';
-import { autoUseItems, campBuyDefault, campUpgradeDefault, campVpDefault, chooseCharacterDefault, placeExpDefault } from './common';
+import { autoClaimFractures, autoUseItems, campBuyDefault, campUpgradeDefault, campVpDefault, chooseCharacterDefault, placeExpDefault } from './common';
 import { comboSynergyBonus, estimateChoiceValue, scoreConditionBonus } from './heuristics';
 
 /**
@@ -46,10 +46,20 @@ export function createHardBot(id: number, rand: () => number = Math.random): Age
             })
             .sort((a, b) => b.score - a.score);
 
-          // v0.5: items are free, so they ride along with whatever action was chosen.
-          const useItems = autoUseItems(state, decision.playerId);
+          // v0.4.6: bounties are claimed before items, so a card won this visit can be spent on it.
+          const fractureTakes = autoClaimFractures(decision);
+          // Matched on `index` rather than positionally: `index` is the fracture LINE's index on the
+          // track, and fractureClaims only holds the lines this player is actually owed.
+          const incoming = fractureTakes
+            .filter((f) => f.take === 'item')
+            .map((f) => decision.options.fractureClaims.find((c) => c.index === f.index)!.itemId);
+          const useItems = autoUseItems(state, decision.playerId, incoming);
           const pick = scored.length > 1 && rand() < epsilon ? scored[1].choice : scored[0].choice;
-          return useItems.length > 0 ? { ...pick, useItems } : pick;
+          return {
+            ...pick,
+            ...(useItems.length > 0 ? { useItems } : {}),
+            ...(fractureTakes.length > 0 ? { fractureTakes } : {}),
+          };
         }
       }
     },

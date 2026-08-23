@@ -2,7 +2,9 @@ import type { RNG } from '../rng';
 import { CHAR_IDS, CHARACTERS, type CharId } from '@content/characters';
 import { BOSS_IDS, BOSSES } from '@content/bosses3';
 import { DIFFICULTY_MULTIPLIER, type Difficulty } from '@content/difficulty';
-import { STABLE_RULESET, hasV040Content, hasV045Content, type RulesetVersion } from '@content/rulesets';
+import { STABLE_RULESET, hasFractures, hasV040Content, hasV045Content, type RulesetVersion } from '@content/rulesets';
+import { initCamp } from './camp';
+import { rollFractures } from './fracture';
 import { V040_CHAR_IDS, V045_LUNA_START_MANA } from '@content/characters';
 import type { GameState, PlayerMeta, PlayerId, Choice, PendingDecision } from './types';
 
@@ -136,8 +138,15 @@ function assignCharacter(state: GameState, playerId: PlayerId, charId: CharId) {
   };
 }
 
-/** Fresh per-battle fighter state for every player, boss reset to its 4-player HP. */
-export function prepareBattle(state: GameState) {
+/** Fresh per-battle fighter state for every player, boss reset to its 4-player HP.
+ *
+ *  `rng` is optional only because ~130 existing tests call this as `prepareBattle(state)` to build
+ *  a board and never touch randomness. It is needed for exactly one thing: the v0.4.6 fracture draw,
+ *  which shuffles the item deck on the first battle and pops two cards off it. Without one, a v0.4.6
+ *  battle simply starts with no fracture lines — which is the right failure for a test that never
+ *  asked for them, and why fracture.ts iterates `battle.fractures` everywhere instead of indexing
+ *  it. Every real caller (playGame) passes it. */
+export function prepareBattle(state: GameState, rng?: RNG) {
   const bossId = state.bossQueue[state.bossIndex];
   const bossDef = BOSSES[bossId];
   const hp = Math.round(bossDef.hp * DIFFICULTY_MULTIPLIER[state.difficulty]);
@@ -155,6 +164,7 @@ export function prepareBattle(state: GameState) {
     bossStackSeq: state.players.length,
     traps: [],
     scheduledHits: [],
+    fractures: [],
     weakPoint: null,
     currentMoveKey: null,
     partyBuff: null,
@@ -221,4 +231,12 @@ export function prepareBattle(state: GameState) {
     f.stackSeq = i;
   });
   state.battle.nextStackSeq = state.battle.fighters.length + 1;
+
+  // Last, so the BATTLE_START log entry and the whole board already exist when the bounties are
+  // laid out. initCamp is idempotent and normally runs at the first camp; v0.4.6 needs the deck one
+  // battle earlier, and calling it here means the deck is shuffled exactly once either way.
+  if (hasFractures(state.ruleset) && rng) {
+    initCamp(state, rng);
+    state.battle.fractures = rollFractures(state);
+  }
 }

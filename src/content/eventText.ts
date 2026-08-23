@@ -2,6 +2,7 @@ import type { ClockLogEvent } from '@engine/index';
 import { SKILLS } from './characters';
 import { BOSSES } from './bosses3';
 import { AILMENTS } from './ailments';
+import { ITEMS } from './items';
 
 function skillLabel(id: string): string {
   return id === 'BossMove' ? 'Boss' : SKILLS[id as keyof typeof SKILLS]?.name.th ?? id;
@@ -74,6 +75,13 @@ export function describeEvent(ev: ClockLogEvent): string | null {
       return ev.amount >= 0
         ? `🎯 ${who(ev.playerId)} ได้ Focus +${ev.amount} (รวม ${ev.total})`
         : `🎯 ${who(ev.playerId)} จ่าย Focus ${-ev.amount} (เหลือ ${ev.total})`;
+    // ── v0.4.6 fractures ──
+    case 'FRACTURE_CROSSED':
+      return `💥 ${who(ev.playerId)} ทุบบอสผ่านรอยแตกที่ HP ${ev.hp} — ได้สิทธิ์รับ ${ITEMS[ev.itemId].name.th}`;
+    case 'FRACTURE_CLAIMED':
+      return ev.take === 'gems'
+        ? `💰 ${who(ev.playerId)} รับรางวัลรอยแตกเป็นเจม +${ev.gems}`
+        : `🎁 ${who(ev.playerId)} รับ ${ITEMS[ev.itemId].name.th} จากรอยแตก${ev.auto ? ' (อัตโนมัติ — จบยกก่อนได้เลือก)' : ''}`;
     case 'RESOLVE_ATTACK':
       return ev.wasted
         ? `${who(ev.playerId)} ${skillLabel(ev.skillId)} — เงื่อนไขไม่ครบ เสียฟรี`

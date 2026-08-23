@@ -46,7 +46,7 @@ export function* playGame(state: GameState, rng: RNG): Generator<PendingDecision
 
   while (state.bossIndex < state.bossQueue.length) {
     state.phase = 'BATTLE_INTRO';
-    prepareBattle(state);
+    prepareBattle(state, rng);
     state.phase = 'CLOCK_RUN';
     yield* runClockBattle(state, rng);
     state.phase = 'BATTLE_END';

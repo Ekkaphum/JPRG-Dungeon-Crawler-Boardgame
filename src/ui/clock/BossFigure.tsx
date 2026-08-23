@@ -8,6 +8,7 @@ import { DamagePopups } from '@ui/common/DamagePopups';
 import { StatusBadges } from '@ui/common/StatusBadges';
 import type { ActionFlash, DamagePopup } from '@session/playback';
 import { BossSprite } from './BossSprite';
+import { FractureChips, FractureTicks } from './FractureTrack';
 import { latestDamagePopupId } from './spriteHit';
 
 /** Boss standing large on the left of the stage — status pills over its head, HP plate at its
@@ -49,8 +50,11 @@ export function BossFigure({
           <span className="font-display gold-text text-xs leading-tight truncate">{def.name[lang]}</span>
           <span className="text-[9px] text-gold-dim flex-shrink-0 ml-auto">{def.sin[lang]}</span>
         </div>
-        <div className="mt-1 h-2 bg-black/50 rounded overflow-hidden">
+        {/* relative: the fracture ticks are absolutely placed against this track, so a line at
+            60% of max HP sits where the draining fill actually reaches it. */}
+        <div className="mt-1 h-2 bg-black/50 rounded overflow-hidden relative">
           <div className="h-full bg-boss transition-all" style={{ width: `${hpPct}%` }} />
+          <FractureTicks battle={battle} />
         </div>
         <div className="text-[10px] text-gold-dim mt-0.5 flex justify-between gap-2">
           <span className="font-mono">
@@ -60,6 +64,7 @@ export function BossFigure({
               slot and nothing about which move is coming. */}
           <span className="truncate">→ {landSlotDisplay(battle.bossSlot)}</span>
         </div>
+        <FractureChips battle={battle} />
       </div>
       <DamagePopups popups={popups} />
       <span className="sr-only">{t('detail.open')}</span>
