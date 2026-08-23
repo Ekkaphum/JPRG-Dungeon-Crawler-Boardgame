@@ -92,9 +92,15 @@ html, body, #root {
 
 .decision-extras { margin-bottom: 0.3rem; }
 
+/* All four cards on one axis at every width — a hand of cards is read left to right, and the 2x2
+   grid this replaced made the fourth card look like a second, lesser row. The tracks shrink
+   instead of overflowing: measured 128px wide at 1024px+, 78px at 375px, 64px at 320px, with no
+   horizontal overflow at any of them. Card names wrap to two lines rather than ellipsing once the
+   card is narrow (see .action-skill-card__name) — on a phone there is no hover, so the compact
+   name is the only label there is, and "Counter Att..." is not a label. */
 .skill-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 128px));
+  grid-template-columns: repeat(4, minmax(0, 128px));
   justify-content: center;
   gap: 0.35rem;
   position: relative;
@@ -109,10 +115,6 @@ html, body, #root {
 @media (min-width: 768px) and (max-width: 1279px) {
   .battle-console { flex-direction: column !important; }
   .command-dock { width: 100% !important; }
-}
-
-@media (min-width: 1280px) {
-  .skill-grid { grid-template-columns: repeat(4, minmax(0, 128px)); }
 }
 
 /* Action cards use the existing four-frame skill effects as their live illustration. The compact
@@ -211,9 +213,15 @@ html, body, #root {
   color: #f0cf78;
   font-size: clamp(0.62rem, 1.45vw, 0.76rem);
   line-height: 1.05;
-  white-space: nowrap;
+  /* Wraps rather than ellipses: every skill name is one or two words, so a narrow card breaks it
+     at the space ("Counter / Attack") instead of cutting it. The row is `auto` in the card grid,
+     so the second line comes out of the art rather than out of the card. */
+  white-space: normal;
+  /* "anywhere", not "break-word": the name is a flex container, and only "anywhere" shrinks a flex
+     item below the width of its longest word. With "break-word" the one-word names (Assassinate)
+     stayed on one line and were cut off at 320px instead of wrapping. */
+  overflow-wrap: anywhere;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .action-skill-card__name em,
@@ -252,7 +260,10 @@ html, body, #root {
   z-index: 100;
   display: grid;
   grid-template-rows: 55% 45%;
-  width: min(300px, 82vw);
+  /* 76vw, not 82: with four cards on one axis the second card sits close enough to the left edge
+     on a 320px screen that an 82vw preview centred on it overhangs by 3px. Measured — 82 clips, 78
+     clears; 76 keeps a margin and costs 15px of preview at 375px. */
+  width: min(300px, 76vw);
   aspect-ratio: 2 / 3;
   overflow: hidden;
   border-radius: 14px;
@@ -274,24 +285,24 @@ html, body, #root {
   transform: translate(-50%, 0) scale(1);
 }
 
-@media (min-width: 768px) {
-  .skill-grid .action-skill-card:first-child .action-card-preview {
-    left: 0;
-    transform: translate(0, 12px) scale(0.94);
-    transform-origin: bottom left;
-  }
-  .skill-grid .action-skill-card:last-child .action-card-preview {
-    right: 0;
-    left: auto;
-    transform: translate(0, 12px) scale(0.94);
-    transform-origin: bottom right;
-  }
-  .skill-grid .action-skill-card:first-child:hover .action-card-preview,
-  .skill-grid .action-skill-card:first-child:focus-visible .action-card-preview,
-  .skill-grid .action-skill-card:last-child:hover .action-card-preview,
-  .skill-grid .action-skill-card:last-child:focus-visible .action-card-preview {
-    transform: translate(0, 0) scale(1);
-  }
+/* Keep the hover preview on screen at the ends of the row. No media query: the row is a row at
+   every width now, so "first" and "last" are always the two that would overhang. */
+.skill-grid .action-skill-card:first-child .action-card-preview {
+  left: 0;
+  transform: translate(0, 12px) scale(0.94);
+  transform-origin: bottom left;
+}
+.skill-grid .action-skill-card:last-child .action-card-preview {
+  right: 0;
+  left: auto;
+  transform: translate(0, 12px) scale(0.94);
+  transform-origin: bottom right;
+}
+.skill-grid .action-skill-card:first-child:hover .action-card-preview,
+.skill-grid .action-skill-card:first-child:focus-visible .action-card-preview,
+.skill-grid .action-skill-card:last-child:hover .action-card-preview,
+.skill-grid .action-skill-card:last-child:focus-visible .action-card-preview {
+  transform: translate(0, 0) scale(1);
 }
 
 .action-card-preview__art {
@@ -356,23 +367,6 @@ html, body, #root {
 
 .action-card-preview__landing.is-too-slow { color: #f08074; }
 
-@media (max-width: 767px) {
-  .skill-grid .action-skill-card:nth-child(odd) .action-card-preview {
-    left: 0;
-    transform: translate(0, 12px) scale(0.94);
-  }
-  .skill-grid .action-skill-card:nth-child(even) .action-card-preview {
-    right: 0;
-    left: auto;
-    transform: translate(0, 12px) scale(0.94);
-  }
-  .skill-grid .action-skill-card:nth-child(odd):hover .action-card-preview,
-  .skill-grid .action-skill-card:nth-child(odd):focus-visible .action-card-preview,
-  .skill-grid .action-skill-card:nth-child(even):hover .action-card-preview,
-  .skill-grid .action-skill-card:nth-child(even):focus-visible .action-card-preview {
-    transform: translate(0, 0) scale(1);
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .action-skill-card__art,
