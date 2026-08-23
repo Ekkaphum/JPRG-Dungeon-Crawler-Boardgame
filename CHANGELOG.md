@@ -4,6 +4,9 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-23
 
+- **v0.4.7 — compact action cards are portrait and packed like a real hand of cards.** The command dock cards move from a wide 3:2 button shape to a fixed 3:4 portrait ratio, with a 128px maximum width. Their grid now sizes itself to the cards and centers the complete group instead of stretching four full-width columns across the dock, so the visual X gap is the same 5.6px as the Y gap. Desktop remains a four-card row and mobile remains a 2×2 grid; both preserve the card ratio with no horizontal overflow. The full hover preview remains the taller 2:3 presentation introduced in v0.4.6.
+  - Verified live at 1280×720 and 390×844; 330/330 tests and production build pass. Rulesets and battle music are unchanged.
+
 - **v0.4.6 — action choices are now illustrated, responsive skill cards.** The four plain action buttons in the command dock have been replaced with compact cards that keep their artwork ratio at every viewport size. Hovering or focusing a card opens a full-size preview with the skill name, ruleset-aware description, time cost, and effect badges for attack, defense, healing, mana, Focus, HP cost, Freeze, Aura Shield, Praying, and other special effects.
   - Action artwork and directional effects face from the heroes on the right toward the boss on the left, matching the characters' position on the battle stage.
   - Both stable v0.3 and experimental v0.4.5 skill values are read from the engine rather than duplicated in UI copy, including the reworked Focus and mana mechanics.

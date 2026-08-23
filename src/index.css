@@ -94,8 +94,9 @@ html, body, #root {
 
 .skill-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.4rem;
+  grid-template-columns: repeat(2, minmax(0, 128px));
+  justify-content: center;
+  gap: 0.35rem;
   position: relative;
 }
 
@@ -111,7 +112,7 @@ html, body, #root {
 }
 
 @media (min-width: 1280px) {
-  .skill-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .skill-grid { grid-template-columns: repeat(4, minmax(0, 128px)); }
 }
 
 /* Action cards use the existing four-frame skill effects as their live illustration. The compact
@@ -124,8 +125,8 @@ html, body, #root {
   grid-template-rows: minmax(0, 1fr) auto;
   justify-self: center;
   width: 100%;
-  max-width: 160px;
-  aspect-ratio: 3 / 2;
+  max-width: 128px;
+  aspect-ratio: 3 / 4;
   min-width: 0;
   min-height: 0;
   padding: 0 !important;
@@ -164,10 +165,11 @@ html, body, #root {
 }
 
 .action-skill-card__art {
+  align-self: end;
   justify-self: center;
-  width: auto;
+  width: calc(100% - 8px);
   max-width: calc(100% - 8px);
-  height: 100%;
+  height: auto;
   min-height: 0;
   aspect-ratio: 1;
   margin: 0;
