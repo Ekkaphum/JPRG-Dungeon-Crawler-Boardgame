@@ -4,6 +4,8 @@ Human-readable log of changes to this project, newest first. Add an entry here w
 
 ## 2026-08-23
 
+- **Rulebook chapter 4 re-synced with the v0.4.6/v0.4.7 command dock.** The How-to-Play screen still described the old dock: "four skill cards in a fixed row", with no mention of the hover/focus preview those releases introduced. Both were wrong for a first-time reader — the row is a 2x2 grid on mobile, and the preview is now the main way to find out what a card actually does. Copy updated in both languages; no code or layout changed, and ScreenMap still matches GameScreen (the 58% command dock and 26% log rail are untouched by v0.4.6/v0.4.7).
+
 - **v0.4.7 — compact action cards are portrait and packed like a real hand of cards.** The command dock cards move from a wide 3:2 button shape to a fixed 3:4 portrait ratio, with a 128px maximum width. Their grid now sizes itself to the cards and centers the complete group instead of stretching four full-width columns across the dock, so the visual X gap is the same 5.6px as the Y gap. Desktop remains a four-card row and mobile remains a 2×2 grid; both preserve the card ratio with no horizontal overflow. The full hover preview remains the taller 2:3 presentation introduced in v0.4.6.
   - Verified live at 1280×720 and 390×844; 330/330 tests and production build pass. Rulesets and battle music are unchanged.
 

@@ -104,7 +104,7 @@ export const tutorialEn: Record<keyof typeof tutorialTh, string> = {
   'tut.screen.z4.b': 'One sentence describing what just happened, so you can follow the story without reading the log.',
   'tut.screen.z5.t': 'Command panel',
   'tut.screen.z5.b':
-    'Where you choose your action. Four skill cards in a fixed row, each showing its ⏱ and its effect. Items are used from here as a free action that costs no ⏱.',
+    'Where you choose your action — four skill cards (one row on desktop, a 2×2 grid on mobile), each showing its ⏱ and a compact row of effect icons. Hover or tab onto any card to open the full-size version with its description and every number spelled out, so nothing about your own kit has to be memorised. Items are used from here as a free action that costs no ⏱.',
   'tut.screen.z6.t': 'Party bar',
   'tut.screen.z6.b': 'HP and points for all four seats side by side — who is leading on score, and who is one hit from going down.',
   'tut.screen.z7.t': 'Battle log',
