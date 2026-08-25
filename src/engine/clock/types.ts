@@ -8,7 +8,18 @@
 // docs/10-v0.3.0-rulings.md for the declare-immediate vs resolve-delayed split per skill.
 
 import type { CharId, SkillId } from '@content/characters';
-import type { BossId } from '@content/bosses3';
+import type { BossId } from '@content/bosses';
+
+/** The three run structures a game can be started in.
+ *
+ *  - `classic` — the tuned three-boss queue the game shipped on. The only one with a balance sim
+ *    behind it, and the only one whose numbers should be trusted without qualification.
+ *  - `sins5`  — five of the seven sins, drawn at random from the seed and ordered by designed act.
+ *  - `free`   — any five bosses from either series, chosen at setup.
+ *
+ *  The two long modes end when the fifth boss falls; nothing else about the loop changes, because
+ *  `bossQueue` was already an array and `isLastBoss` already read `length - 1`. */
+export type GameMode = 'classic' | 'sins5' | 'free';
 import type { Difficulty } from '@content/difficulty';
 import type { RulesetVersion } from '@content/rulesets';
 import type { ItemId } from '@content/items';
@@ -195,6 +206,31 @@ export interface Fighter {
    *  (V045_ERIC_GUARD_SAVES_BAR), which is what stops it inflating with boss activity the way the
    *  uncapped v0.3 version did. */
   guardRedirectsThisBattle: number;
+
+  // ─────────────── Seven Sins / Chess series (docs/BOSS_SERIES_DESIGN.md) ───────────────
+  // The series' organising principle is "one boss, one resource" (§3.2): there is no shared token,
+  // and each boss aims at whoever has *used the most* of the one thing it taxes. These are the
+  // meters those superlatives read. All zero for every other boss — a Ragorath fight never writes
+  // to any of them, so nothing here changes a number in the tuned three-boss game.
+
+  /** Buffs this fighter has received **from somebody else** this battle — Levithar's measure.
+   *  Self-buffs deliberately do not count: the sin is envy of what the party gives each other. */
+  buffsReceivedThisBattle: number;
+  /** HP restored to this fighter by anyone, this battle — Gulvorax's measure. The healed player is
+   *  the one it swallows, which makes an instinctive cleric the one choosing its victim. */
+  healReceivedThisBattle: number;
+  /** Gold prised off Mammorax's hoard by this fighter's big hits. Becomes real gems at the end of
+   *  the battle, which is why it is per-fighter rather than a single party pile. */
+  goldRobbedThisBattle: number;
+  /** Asmodeus's measure: how many of his temptations this fighter has taken. Note that offer 4
+   *  (ชื่อเสียง) adds 2 to this without an actual acceptance — that *is* its price. */
+  offersAcceptedThisBattle: number;
+  /** True while an offer stands that this fighter has already had a turn to take and did not.
+   *  Whisper hits exactly this set, and nobody at all when somebody accepted. */
+  refusedStandingOffer: boolean;
+  /** Asmodeus's Enthrall: while positive, this fighter's next declared skill lands on an ally
+   *  instead of the boss. Counted down on their own visit. */
+  enthralledTurns: number;
 }
 
 /** v0.4.6: one mark on the boss HP track and the bounty card sitting against it. Face up from
@@ -309,6 +345,24 @@ export type ClockLogEvent =
    *  because it is the one case where the player made no choice at all, and a rule whose choice
    *  is usually skipped is a rule that is not doing its job. */
   | { t: 'FRACTURE_CLAIMED'; playerId: PlayerId; index: number; itemId: ItemId; take: 'item' | 'gems'; gems: number; auto: boolean }
+  // ── Seven Sins / Chess series ──
+  /** A two-phase finale flipped its sheet (§1.1). */
+  | { t: 'BOSS_PHASE_2'; bossId: BossId }
+  /** Gulvorax swallowed someone, or lost them again. `freed` says which way. */
+  | { t: 'SWALLOWED'; playerId: PlayerId }
+  | { t: 'DISGORGED'; playerId: PlayerId; toSlot: number }
+  /** Asmodeus laid a temptation face up, or somebody took it. */
+  | { t: 'OFFER_MADE'; die: number }
+  | { t: 'OFFER_TAKEN'; playerId: PlayerId; die: number }
+  /** A hit big enough to prise gold off Mammorax's pile. */
+  | { t: 'HOARD_ROBBED'; playerId: PlayerId; amount: number; hoard: number }
+  | { t: 'ENVY_CHANGED'; amount: number; total: number }
+  /** A chess boss stopped exactly on a player's slot (§4.2). */
+  | { t: 'CAPTURED'; playerId: PlayerId; dmg: number }
+  /** The party boxed the King in above and below (§4.7) — an outright win, no HP involved. */
+  | { t: 'CHECKMATE' }
+  /** Something cost the boss its whole next turn. */
+  | { t: 'BOSS_TURN_LOST'; bossId: BossId; reason: 'wall' | 'poisoned' | 'refused' }
   | { t: 'MARKER_TICK'; marker: number }
   | { t: 'BATTLE_END'; outcome: 'boss_defeated' | 'clock_ran_out' | 'party_wiped'; finishedBy: PlayerId | null; expGranted: number };
 
@@ -357,6 +411,47 @@ export interface BattleState {
   nextStackSeq: number;
   log: ClockLogEvent[];
   outcome: 'in_progress' | 'boss_defeated' | 'clock_ran_out' | 'party_wiped';
+
+  // ─────────────── two-phase finales (docs/BOSS_SERIES_DESIGN.md §1.1) ───────────────
+  /** Which sheet the boss is reading from. Flips to 2 the moment a boss with a `phase2` drops to
+   *  half HP, and never flips back — a boss that heals over the line stays uncrowned. `1` for every
+   *  boss without a second sheet, forever, so no read site has to check whether one exists. */
+  phase: 1 | 2;
+
+  // ─────────────── per-boss meters ───────────────
+  // One field per boss mechanic rather than a polymorphic bag: the whole point of §3.2 is that no
+  // two bosses touch the same resource, so a shared "boss counter" would be modelling a thing the
+  // design specifically does not have. Every one of these is 0/null/false in a battle against any
+  // other boss.
+
+  /** Levithar's envy, +1 per buff any player receives from another (§3.4). */
+  envy: number;
+  /** Clock slots since the last time anybody buffed anybody — Levithar's solitude weakness fires
+   *  when this reaches ENVY_SOLITUDE_SLOTS. */
+  slotsSinceBuff: number;
+  /** Mammorax's hoard: flat damage reduction that, unlike armor, can be stolen (§3.7). */
+  hoard: number;
+  /** Who is inside Gulvorax right now, and for how many of its turns (§3.6). */
+  swallowedId: PlayerId | null;
+  swallowedTurns: number;
+  /** Damage the party has put into Gulvorax since the swallow — 15 cuts the victim free. */
+  swallowDamage: number;
+  /** Asmodeus's face-up temptation. `die` indexes TEMPTATIONS; null between offers (§3.8). */
+  offer: { die: number; takenBy: PlayerId | null } | null;
+  /** The Pawn Rank's accumulated ranks — +1 damage on every move, each (§4.3). */
+  pawnRank: number;
+  /** Bishop's Invert: which parity currently counts as black (§4.6). false = odd slots are black. */
+  colorFlipped: boolean;
+  /** Set by anything that costs the boss a whole turn — the Knight hitting a wall of bodies,
+   *  Gulvorax's food poisoning, an offer the whole party refused. Consumed at its next visit. */
+  bossTurnSkipped: boolean;
+  /** Chess only: pawn tokens the Queen summoned. Reuses TrapToken because it is the same object at
+   *  the table — a thing on a slot that bites whoever stops there. */
+  bossPawns: TrapToken[];
+  /** A d6 already rolled for the boss's *next* move and shown to whoever bought Asmodeus's 📖
+   *  ความรู้. The single rule in the game that gives back the telegraph v0.3.14 deleted — and it
+   *  costs a point of somebody else's HP to buy, which is exactly the trade §3.8 is about. */
+  foreseenMove: number | null;
 }
 
 export interface GameState {
@@ -374,6 +469,10 @@ export interface GameState {
   draftOrder: PlayerId[] | null;
   players: PlayerMeta[];
   progress: Record<PlayerId, PlayerProgress>;
+  /** Which of the three run structures this game is playing (see GameMode). Stored rather than
+   *  inferred from `bossQueue.length` because 'sins5' and 'free' both run five bosses and the UI
+   *  has to be able to name the mode a save was started in. */
+  mode: GameMode;
   bossQueue: BossId[];
   bossIndex: number;
   battle: BattleState | null;
@@ -420,6 +519,14 @@ export interface DeclareOptions {
   /** Slots Set Trap may be armed on — only the ones inside the skill's own ⏱ window, so the trap
    *  is a read of where the boss will stop in the near term rather than anywhere on the clock. */
   trapSlots: number[];
+  /** Asmodeus's standing temptation, offered on this visit because nobody has taken it yet. null
+   *  whenever there is nothing on the table — which is every visit of every other fight. Ridden on
+   *  the declare rather than given a decision of its own, exactly like the fracture claim: the
+   *  choice belongs to a turn the player is already taking. */
+  offer: { die: number } | null;
+  /** True while this fighter is inside Gulvorax. Their visit still happens and they still pick a
+   *  card, but only its ⏱ matters — see §3.6 and resolveSwallowedDeclare. */
+  swallowed: boolean;
 }
 
 export type PendingDecision =
@@ -446,6 +553,9 @@ export type Choice =
       /** v0.4.6: fracture bounties taken this visit, resolved *before* useItems so a claimed item
        *  can be spent on the same turn it was won. */
       fractureTakes?: { index: number; take: 'item' | 'gems' }[];
+      /** Take Asmodeus's standing temptation (§3.8). Resolved first of all, before fractures and
+       *  items, because two of the six offers hand you resources you may then want to spend. */
+      acceptOffer?: boolean;
       skillId: SkillId;
       targetPlayerId?: PlayerId;
       manaSpent?: number;

@@ -14,7 +14,7 @@
 // cross-battle optimisation problem, which is what keeps the phase to ~3 minutes rather than the
 // 12-15 a savings-based economy costs (docs/DESIGN_VARIABLES.md §6.2).
 
-import { BOSSES } from '@content/bosses3';
+import { BOSSES } from '@content/bosses';
 import { CHARACTERS, charSkills, type SkillId } from '@content/characters';
 import { ITEMS, buildItemDeck } from '@content/items';
 import { hasCamp } from '@content/rulesets';
@@ -39,12 +39,25 @@ export const MARKET_SIZE = 4;
 /** Divisor on the leftover clock. Same shape as the EXP payout players already know. */
 export const GEMS_TIME_DIVISOR = 3;
 
-/** Gems every player receives for a win: the boss's printed reward plus the leftover clock. Both
- *  halves are equal for everyone — the camp's asymmetry comes from what people *do* with the pile,
- *  not from who earned more. */
+/** The shared half of the payout: the boss's printed reward plus the leftover clock. Equal for
+ *  everyone — the camp's asymmetry is supposed to come from what people *do* with the pile. */
 export function gemsForBattle(state: GameState): number {
   const battle = state.battle!;
   return BOSSES[battle.bossId].gemReward + Math.floor(Math.max(0, battle.marker) / GEMS_TIME_DIVISOR);
+}
+
+/** What one player actually banks — the shared payout plus anything they personally prised off
+ *  Mammorax's hoard (docs/BOSS_SERIES_DESIGN.md §3.7).
+ *
+ *  This is the one structural change the Seven Sins series makes: the payout used to be a single
+ *  number for the whole party, and Mammorax's entire design is that his armor is a *personal*
+ *  reward for whoever throws the big punch. A shared payout would have turned that back into a
+ *  party bonus and deleted the fight's whole tension. Every other boss returns the shared value
+ *  unchanged, so nothing else in the camp notices. */
+export function gemsForPlayer(state: GameState, playerId: PlayerId): number {
+  const battle = state.battle!;
+  const robbed = battle.fighters.find((f) => f.playerId === playerId)?.goldRobbedThisBattle ?? 0;
+  return gemsForBattle(state) + robbed;
 }
 
 /** Shopping order: fewest points first, character speed breaking ties (lower goes first). Doing the
@@ -91,8 +104,7 @@ export function* runCamp(state: GameState, rng: RNG): Generator<PendingDecision,
   state.phase = 'CAMP';
   initCamp(state, rng);
 
-  const gained = gemsForBattle(state);
-  for (const p of state.players) state.progress[p.id].gems += gained;
+  for (const p of state.players) state.progress[p.id].gems += gemsForPlayer(state, p.id);
 
   // ── 1. shop ──
   for (const playerId of shoppingOrder(state)) {

@@ -139,3 +139,22 @@ export function autoUseItems(
   if (offensive) uses.push({ itemId: offensive });
   return uses;
 }
+
+// ─────────────────────── Asmodeus's temptations ───────────────────────
+//
+// ⚠️ Read this before trusting any sim number from an Asmodeus fight. The offer is a *social*
+// decision — §3.8's whole point is four players looking at each other while one of them decides
+// whether three points is worth what it costs the party — and a bot has no model of that at all.
+// The policy below is deliberately crude: take the offers whose cost lands on the taker, decline
+// the two whose cost is a direct gift to the boss. It exists so the mechanic is exercised in a
+// simulated game rather than sitting inert, and it measures nothing about whether the offers are
+// correctly priced.
+
+/** Offers a bot will take: 2 (speed), 3 (power), 4 (fame), 6 (foresight). It declines 1 — which
+ *  heals the boss 8 — and 5, which hands him an extra turn on the spot. */
+const BOT_ACCEPTS = new Set([2, 3, 4, 6]);
+
+export function autoAcceptOffer(decision: Extract<PendingDecision, { kind: 'DECLARE_ACTION' }>): boolean {
+  const offer = decision.options.offer;
+  return offer != null && BOT_ACCEPTS.has(offer.die);
+}

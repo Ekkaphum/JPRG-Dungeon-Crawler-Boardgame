@@ -1,6 +1,6 @@
 import type { ClockLogEvent } from '@engine/index';
 import { SKILLS } from './characters';
-import { BOSSES } from './bosses3';
+import { BOSSES } from './bosses';
 import { AILMENTS } from './ailments';
 import { ITEMS } from './items';
 
@@ -106,6 +106,29 @@ export function describeEvent(ev: ClockLogEvent): string | null {
       return `✨ P${ev.playerId} ฟื้นที่ช่อง ${ev.atSlot} (HP ${ev.hp})`;
     case 'SCORE':
       return `⭐ P${ev.entry.playerId} ได้ ${ev.entry.points} แต้ม (${ev.entry.conditionId})`;
+    // ── Seven Sins / Chess series (docs/BOSS_SERIES_DESIGN.md) ──
+    case 'BOSS_PHASE_2':
+      return `👑 ${BOSSES[ev.bossId].name.th} พลิกแผ่น — เข้าสู่เฟส 2`;
+    case 'SWALLOWED':
+      return `🫃 ${who(ev.playerId)} ถูกกลืนเข้าไปในท้อง — หมากออกจากกระดาน`;
+    case 'DISGORGED':
+      return `🤮 ${who(ev.playerId)} หลุดออกมาที่ช่อง ${ev.toSlot}`;
+    case 'OFFER_MADE':
+      return `😈 ข้อเสนอที่ ${ev.die} ถูกหงายไว้กลางโต๊ะ`;
+    case 'OFFER_TAKEN':
+      return `🤝 ${who(ev.playerId)} รับข้อเสนอที่ ${ev.die}`;
+    case 'HOARD_ROBBED':
+      return `🪙 ${who(ev.playerId)} ปล้นทองไป ${ev.amount} (กองเหลือ ${ev.hoard})`;
+    case 'ENVY_CHANGED':
+      return ev.amount === 0 ? null : `😖 แต้มริษยา ${ev.amount > 0 ? '+' : ''}${ev.amount} (รวม ${ev.total})`;
+    case 'CAPTURED':
+      return `♟️ หมากบอสหยุดทับ ${who(ev.playerId)} — กิน ${ev.dmg} แล้วผลักลง`;
+    case 'CHECKMATE':
+      return `♚ รุกฆาต! ล้อมราชาได้ทั้งบนและล่าง — วงชนะทันที`;
+    case 'BOSS_TURN_LOST': {
+      const why = ev.reason === 'wall' ? 'ชนกำแพงคน' : ev.reason === 'poisoned' ? 'ท้องเสีย' : 'ไม่มีใครรับข้อเสนอ';
+      return `🚫 บอสเสียตาถัดไป — ${why}`;
+    }
     case 'BATTLE_START':
       return `⚔️ เริ่มยก: ${ev.bossId} (HP ${ev.hp})`;
     case 'BATTLE_END':

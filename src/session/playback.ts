@@ -13,7 +13,8 @@
 
 import type { BattleState, ClockLogEvent, GameState, SkillId } from '@engine/index';
 import { WEAK_POINT_SLOTS } from '@engine/index';
-import { BOSSES } from '@content/bosses3';
+import { BOSSES } from '@content/bosses';
+import { MAMMORAX_START_HOARD } from '@engine/clock/bossRules';
 import { CHARACTERS, SKILLS } from '@content/characters';
 
 export interface DamagePopup {
@@ -208,6 +209,21 @@ export function initialDisplayBattle(battle: BattleState): BattleState {
     armor: bossDef.armor,
     rage: 0,
     marker: 24,
+    // Every per-boss meter starts where prepareBattle put it, so a replay of the log rebuilds the
+    // fight from its real opening frame rather than from wherever the live battle has got to.
+    phase: 1,
+    envy: 0,
+    slotsSinceBuff: 0,
+    hoard: bossDef.id === 'Mammorax' ? MAMMORAX_START_HOARD : 0,
+    swallowedId: null,
+    swallowedTurns: 0,
+    swallowDamage: 0,
+    offer: null,
+    pawnRank: 0,
+    colorFlipped: false,
+    bossTurnSkipped: false,
+    bossPawns: [],
+    foreseenMove: null,
     bossSlot: bossDef.startSlot,
     bossStackSeq: battle.fighters.length,
     traps: [],

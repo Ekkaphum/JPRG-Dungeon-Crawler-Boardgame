@@ -10,6 +10,13 @@ export type StatusId =
   | 'rage'
   | 'armor'
   | 'sleepAura'
+  | 'envy'
+  | 'hoard'
+  | 'swallowing'
+  | 'temptation'
+  | 'pawnRank'
+  | 'blackSlots'
+  | 'phase2'
   | 'counter'
   | 'manaShield'
   | 'blessing'
@@ -54,6 +61,70 @@ export const STATUS_DEF: Record<Exclude<StatusId, `ailment:${string}`>, StatusDe
     desc: {
       th: 'ลดดาเมจที่เข้าทุกครั้ง (ยกเว้น Aura Smite และ Trap! ที่ไม่สนเกราะ) · ถ้าโดนดาเมจหลังหักเกราะแล้วเกิน 12 เกราะจะแตก -1 ถาวร',
       en: 'Reduces every incoming hit (except Aura Smite and Trap!, which ignore it). A hit dealing more than 12 after armor permanently breaks 1 point off.',
+    },
+  },
+  // ── Seven Sins / Chess series ──
+  envy: {
+    icon: '😖',
+    tone: 'bad',
+    label: { th: 'แต้มริษยา', en: 'Envy' },
+    desc: {
+      th: 'ทุกครั้งที่ผู้เล่นได้รับบัฟจากคนอื่น Levithar ได้ +1 · ท่า A แรงขึ้นตามครึ่งหนึ่งของแต้ม และท่า C ระเบิดทั้งกองใส่ทุกคน (เพดาน 12) แล้วล้างเป็น 0 · ครบ 6 ช่องที่ไม่มีใครบัฟใคร มันเสีย 6 HP และแต้ม −3',
+      en: 'Levithar gains 1 every time a player receives a buff from someone else. Its A move scales with half the meter; its C move spends the whole pile at once (capped at 12) and resets. Six clock slots with nobody buffing anybody costs it 6 HP and 3 envy.',
+    },
+  },
+  hoard: {
+    icon: '🪙',
+    tone: 'bad',
+    label: { th: 'กองสมบัติ', en: 'Hoard' },
+    desc: {
+      th: 'ทองแต่ละชิ้นลดดาเมจที่เข้า 1 และบอสได้ +1 ทุกครั้งที่ลงมือ · ต่างจากเกราะตรงที่ปล้นได้: หมัดเดียวที่แรงเกิน 10 ปล้นไป 2 ชิ้น และทองที่ปล้นได้กลายเป็น 💎 ของคนปล้นตอนจบยก',
+      en: 'Each gold cancels 1 incoming damage, and the boss gains 1 every time it acts. Unlike armor it can be stolen: a single hit over 10 takes 2, and robbed gold becomes real gems for the robber when the battle ends.',
+    },
+  },
+  swallowing: {
+    icon: '🫃',
+    tone: 'bad',
+    label: { th: 'กลืนผู้เล่นอยู่', en: 'Holding Someone' },
+    desc: {
+      th: 'ผู้เล่นที่ถูกกลืนออกจากการเป็นเป้าหมาย ไม่ได้ผลของสกิลใดๆ ทำได้แค่ดิ้น (ดาเมจ = ⏱ ของการ์ดที่ประกาศ ไม่สนเกราะ) · วงต้องทำดาเมจรวม 15 นับจากที่ถูกกลืนเพื่อดึงเขาออกมา',
+      en: 'The swallowed player cannot be targeted and gets no skill effects — only a flail worth the ⏱ of the card they declared, ignoring armor. The party must deal 15 damage since the swallow to cut them out.',
+    },
+  },
+  temptation: {
+    icon: '😈',
+    tone: 'neutral',
+    label: { th: 'ข้อเสนอ', en: 'Temptation' },
+    desc: {
+      th: 'ข้อเสนอหงายอยู่กลางโต๊ะ · ใครก็รับได้ในตาของตัวเอง คนแรกที่รับได้ไป · ทุกข้อเสนอคือ "ฉันได้ วงเสีย" · ถ้าไม่มีใครรับเลยจนถึงตาถัดไปของบอส มันเสีย 10 HP และเสียตานั้นทั้งตา',
+      en: 'An offer lies face up. Anyone may take it on their own turn and the first taker gets it. Every offer means "I gain, the party loses" — and one nobody takes before the boss acts again costs it 10 HP and that whole turn.',
+    },
+  },
+  pawnRank: {
+    icon: '⬆️',
+    tone: 'bad',
+    label: { th: 'ขั้น', en: 'Rank' },
+    desc: {
+      th: 'ทุกขั้นเพิ่มดาเมจของทุกท่า +1 และเบี้ยสะสมขึ้นเรื่อยๆ · เบี้ยถอยไม่เป็น ทุกครั้งที่ถูกผลักถอย (กับดัก · Grapnel · ❄️ Slow) ขั้นลด 1',
+      en: 'Every rank adds 1 damage to all of its moves and it keeps gaining them. A pawn cannot retreat: every push backwards — a trap, a grapnel, a Slow — strips one rank off.',
+    },
+  },
+  blackSlots: {
+    icon: '⬛',
+    tone: 'neutral',
+    label: { th: 'ช่องดำ = ช่องเลขคี่', en: 'Black = odd slots' },
+    desc: {
+      th: 'ยืนช่องดำ: บิชอปตีคุณได้เต็ม แต่คุณก็ตีเต็มและทะลุเกราะ · ยืนช่องขาว: มันแตะคุณไม่ได้ แต่ดาเมจของคุณเหลือครึ่งเดียว · ท่า B สลับนิยามสีทั้งกระดาน',
+      en: 'On a black slot the Bishop hits you fully — and you hit fully, ignoring its armor. On a white slot it cannot touch you and your damage is halved. Its B move swaps which parity is which.',
+    },
+  },
+  phase2: {
+    icon: '👑',
+    tone: 'bad',
+    label: { th: 'เฟส 2', en: 'Phase 2' },
+    desc: {
+      th: 'บอสพลิกแผ่นแล้ว — ใช้ตารางท่าอีกด้าน · เกราะและบัฟสะสมทั้งหมดหายไป และทุกท่าเร็วขึ้น',
+      en: 'The boss has flipped its sheet and reads from the other move table. Its accumulated armor and buffs are gone, and everything it does is faster.',
     },
   },
   sleepAura: {
@@ -161,6 +232,15 @@ export function bossStatuses(battle: BattleState): ActiveStatus[] {
   if (battle.bossId === 'Ragorath') out.push({ id: 'rage', value: `${battle.rage}` });
   if (battle.armor > 0) out.push({ id: 'armor', value: `${battle.armor}` });
   if (battle.bossId === 'Somnivar') out.push({ id: 'sleepAura' });
+  // ── Seven Sins / Chess. Each of these is that boss's whole fight, so it belongs on the badge row
+  // rather than buried in the detail panel: §3.2's principle only works if the meter is visible.
+  if (battle.phase === 2) out.push({ id: 'phase2' });
+  if (battle.bossId === 'Levithar') out.push({ id: 'envy', value: `${battle.envy}` });
+  if (battle.bossId === 'Mammorax') out.push({ id: 'hoard', value: `${battle.hoard}` });
+  if (battle.swallowedId !== null) out.push({ id: 'swallowing', value: `P${battle.swallowedId}` });
+  if (battle.offer && battle.offer.takenBy === null) out.push({ id: 'temptation', value: `#${battle.offer.die}` });
+  if (battle.bossId === 'PawnRank') out.push({ id: 'pawnRank', value: `+${battle.pawnRank}` });
+  if (battle.bossId === 'Bishop') out.push({ id: 'blackSlots', value: battle.colorFlipped ? 'คู่' : 'คี่' });
   return out;
 }
 

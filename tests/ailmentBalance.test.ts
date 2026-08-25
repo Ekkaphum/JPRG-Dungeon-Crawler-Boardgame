@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { prepareBattle, applyBossMove, createRNG, dealDamageToFighterFromBoss } from '@engine/index';
 import { AILMENTS, type AilmentId } from '@content/ailments';
-import { BOSSES } from '@content/bosses3';
+import { BOSSES } from '@content/bosses';
 import { fixedDraftState } from './testUtils';
 
 // Written off the back of the first v0.4.0 balance run, which turned up two things worth pinning

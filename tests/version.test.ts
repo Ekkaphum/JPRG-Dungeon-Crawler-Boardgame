@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { APP_VERSION, LIVE_RULESET, RULESETS, type RulesetVersion } from '@content/rulesets';
+import { APP_VERSION, LIVE_RULESET, RULESETS, SELECTABLE_RULESETS, STABLE_RULESET, hasBossSeries, hasFractures, type RulesetVersion } from '@content/rulesets';
 
 // Why this file exists.
 //
@@ -58,6 +58,33 @@ describe('version policy', () => {
 
   it('keeps each entry keyed by its own id', () => {
     for (const id of ids) expect(RULESETS[id].id).toBe(id);
+  });
+
+  it('offers a subset of the rulesets in the menu, and every offered one exists', () => {
+    // The picker is allowed to be shorter than the record — a ruleset frozen out of the menu still
+    // has to load the saves that name it. What it may never be is *longer*, or contain an id the
+    // record has never heard of.
+    for (const id of SELECTABLE_RULESETS) expect(ids).toContain(id);
+    expect(new Set(SELECTABLE_RULESETS).size).toBe(SELECTABLE_RULESETS.length);
+    // The two the player must always be able to reach: the tuned one and the one being worked on.
+    expect(SELECTABLE_RULESETS).toContain(STABLE_RULESET);
+    expect(SELECTABLE_RULESETS).toContain(LIVE_RULESET);
+  });
+
+  it('keeps v0.4 loadable but out of the menu', () => {
+    // Frozen out rather than deleted: it is a permanent save key. Deleting it would make every game
+    // saved under it unloadable, which is a far worse outcome than one fewer line in the picker.
+    expect(ids).toContain('v0.4');
+    expect(SELECTABLE_RULESETS).not.toContain('v0.4');
+  });
+
+  it('gates the boss series to its own ruleset, and carries the fractures into it', () => {
+    // v0.4.10 is v0.4.9 plus the other nine bosses — so it must have everything v0.4.9 had, or the
+    // two are not comparable and the split bought nothing.
+    expect(hasBossSeries('bosses')).toBe(true);
+    expect(hasFractures('bosses')).toBe(true);
+    expect(hasFractures('fracture')).toBe(true);
+    for (const id of ['v0.3', 'v0.4', 'fracture'] as RulesetVersion[]) expect(hasBossSeries(id)).toBe(false);
   });
 
   it('keeps the two legacy version-shaped ids and adds no more of them', () => {

@@ -2,7 +2,8 @@ import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
 import { useAppStore as useLangStore } from '@session/store';
 import type { Difficulty } from '@content/difficulty';
-import { RULESETS, rulesetDef, type RulesetVersion } from '@content/rulesets';
+import { SELECTABLE_RULESETS, hasBossSeries, rulesetDef } from '@content/rulesets';
+import { BOSSES, CHESS_BOSS_IDS, LONG_RUN_BOSS_COUNT, SINS_BOSS_IDS, type BossId, type GameMode } from '@engine/index';
 
 export function SetupScreen() {
   const t = useT();
@@ -22,6 +23,10 @@ export function SetupScreen() {
     setSeedText,
     setDraftMode,
     moveDraftSlot,
+    mode,
+    setMode,
+    freeBossQueue,
+    toggleFreeBoss,
     startNewGame,
     setScreen,
   } = useAppStore();
@@ -72,7 +77,7 @@ export function SetupScreen() {
           <label className="text-sm gold-text">{t('setup.ruleset')}</label>
           <div className="text-[11px] text-gold-dim mt-1">{t('setup.rulesetHint')}</div>
           <div className="flex flex-col gap-2 mt-2">
-            {(Object.keys(RULESETS) as RulesetVersion[]).map((v) => {
+            {SELECTABLE_RULESETS.map((v) => {
               const def = rulesetDef(v);
               const selected = ruleset === v;
               return (
@@ -102,6 +107,51 @@ export function SetupScreen() {
             <div className="version-warn text-[11px] mt-2">{t('setup.rulesetExperimentalWarning')}</div>
           )}
         </div>
+
+        {/* Mode above difficulty: it decides how many bosses the run has, which is a bigger
+            question than how hard each one hits. Only the ruleset that ships the other nine bosses
+            offers a choice at all — under the others the queue is the tuned three, so a picker with
+            two dead options would be worse than no picker. */}
+        {hasBossSeries(ruleset) ? (
+        <div className="mt-4">
+          <label className="text-sm gold-text">{t('setup.mode')}</label>
+          <div className="text-[11px] text-gold-dim mt-1">{t('setup.mode.hint')}</div>
+          <div className="flex flex-col gap-2 mt-2">
+            {(['classic', 'sins5', 'free'] as GameMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`text-left px-3 py-2 rounded border ${
+                  mode === m ? 'bg-gold/25 border-gold/60 text-gold-bright' : 'bg-black/20 border-transparent text-gold-dim'
+                }`}
+              >
+                <div className="flex items-baseline gap-2">
+                  <strong className="text-sm">{t(`setup.mode.${m}` as 'setup.mode.classic')}</strong>
+                  <span className="text-[11px] opacity-80">
+                    {m === 'classic' ? '3' : LONG_RUN_BOSS_COUNT} {t('game.bossCountUnit')}
+                  </span>
+                  {m !== 'classic' && <span className="version-warn text-[11px]">⚠️</span>}
+                </div>
+                <div className="text-[11px] mt-0.5 opacity-90">{t(`setup.mode.${m}Desc` as 'setup.mode.classicDesc')}</div>
+              </button>
+            ))}
+          </div>
+          {mode !== 'classic' && <div className="version-warn text-[11px] mt-2">{t('setup.mode.untuned')}</div>}
+
+          {mode === 'free' && (
+            <div className="mt-3">
+              <div className="text-xs gold-text">
+                {t('setup.mode.pickBosses', { n: freeBossQueue.length, max: LONG_RUN_BOSS_COUNT })}
+              </div>
+              <div className="text-[11px] text-gold-dim mt-0.5">{t('setup.mode.pickHint')}</div>
+              <BossPicker title={t('setup.mode.seriesSins')} ids={SINS_BOSS_IDS} chosen={freeBossQueue} lang={lang} onToggle={toggleFreeBoss} />
+              <BossPicker title={t('setup.mode.seriesChess')} ids={CHESS_BOSS_IDS} chosen={freeBossQueue} lang={lang} onToggle={toggleFreeBoss} />
+            </div>
+          )}
+        </div>
+        ) : (
+          <div className="mt-4 text-[11px] text-gold-dim">{t('setup.mode.classicOnly')}</div>
+        )}
 
         <div className="mt-4">
           <label className="text-sm gold-text">{t('setup.difficulty')}</label>
@@ -179,6 +229,49 @@ export function SetupScreen() {
         <button onClick={() => setScreen('menu')} className="w-full mt-2 text-xs text-gold-dim underline">
           {t('common.back')}
         </button>
+      </div>
+    </div>
+  );
+}
+
+/** One series' worth of boss chips. The number badge is the act the boss is designed for, which is
+ *  also the position it will take in the queue — so the picker shows the shape of the run being
+ *  built rather than just a set of names. */
+function BossPicker({
+  title,
+  ids,
+  chosen,
+  lang,
+  onToggle,
+}: {
+  title: string;
+  ids: BossId[];
+  chosen: BossId[];
+  lang: 'th' | 'en';
+  onToggle: (id: BossId) => void;
+}) {
+  return (
+    <div className="mt-2">
+      <div className="text-[11px] text-gold-dim">{title}</div>
+      <div className="flex flex-wrap gap-1.5 mt-1">
+        {ids.map((id) => {
+          const def = BOSSES[id];
+          const picked = chosen.includes(id);
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onToggle(id)}
+              aria-pressed={picked}
+              className={`px-2 py-1 rounded text-[11px] border text-left ${
+                picked ? 'bg-gold/25 border-gold/60 text-gold-bright' : 'bg-black/20 border-gold-dim/25 text-gold-dim'
+              }`}
+            >
+              <span className="tabular-nums opacity-70 mr-1">{def.tier}</span>
+              {def.name[lang]}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

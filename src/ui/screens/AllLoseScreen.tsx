@@ -1,9 +1,10 @@
 import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
-import { BOSSES } from '@content/bosses3';
-import { bossImageUrl, sceneImageUrl } from '@ui/common/assets';
+import { BOSSES } from '@content/bosses';
+import { sceneImageUrl } from '@ui/common/assets';
 import { BattleSummaryPanel } from '@ui/panels/BattleSummaryPanel';
 import { ScoreBreakdownPanel } from '@ui/panels/ScoreBreakdownPanel';
+import { BossPortrait } from '@ui/common/BossPortrait';
 
 export function AllLoseScreen() {
   const t = useT();
@@ -19,7 +20,7 @@ export function AllLoseScreen() {
   // relies on above.
   const partyWiped = session?.state.battle?.outcome === 'party_wiped';
   // The boss that beat the party makes a more dramatic backdrop than the neutral arena.
-  const backdrop = failedAt ? bossImageUrl(failedAt) : sceneImageUrl();
+  const backdrop = sceneImageUrl(failedAt ?? undefined);
 
   return (
     // Scrolls internally: #root is height:100%, so a taller-than-viewport page would otherwise
@@ -36,11 +37,11 @@ export function AllLoseScreen() {
 
         {failedAt && (
           <div className="gold-frame rounded-lg p-4 flex items-center gap-4 max-w-md">
-            <img src={bossImageUrl(failedAt)} alt={failedAt} className="w-20 h-20 object-cover rounded flex-shrink-0" draggable={false} />
+            <BossPortrait bossId={failedAt} className="w-20 h-20 rounded flex-shrink-0" />
             <div className="min-w-0">
               <div className="font-display gold-text">{BOSSES[failedAt].name[lang]}</div>
               <div className="text-xs text-gold-dim">{BOSSES[failedAt].sin[lang]}</div>
-              <div className="text-xs text-gold-dim mt-1">{t('allLose.progress', { n: cleared })}</div>
+              <div className="text-xs text-gold-dim mt-1">{t('allLose.progress', { n: cleared, total: session?.state.bossQueue.length ?? 0 })}</div>
             </div>
           </div>
         )}

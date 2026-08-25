@@ -2,12 +2,13 @@ import { useState, type ReactNode } from 'react';
 import { useAppStore } from '@session/store';
 import { useRulebookT, type RulebookKey } from '@ui/tutorial/useRulebookT';
 import { CHAR_IDS, CHARACTERS, SKILLS, charScore, charSkills, skillStats } from '@content/characters';
-import { BOSS_IDS, BOSSES } from '@content/bosses3';
+import { CLASSIC_BOSS_IDS, BOSSES } from '@content/bosses';
 import { CLASS_COLOR } from '@content/charColors';
 import { hasCamp } from '@content/rulesets';
 import { GEMS_PER_UPGRADE, GEMS_PER_VP, GEMS_TIME_DIVISOR, MARKET_SIZE } from '@engine/clock/camp';
-import { charImageUrl, bossImageUrl } from '@ui/common/assets';
+import { charImageUrl } from '@ui/common/assets';
 import { ClockStrip, DiceLadder, Figure, ScreenMap, StepFlow } from '@ui/tutorial/RuleFigure';
+import { BossPortrait } from '@ui/common/BossPortrait';
 
 /** The How-to-Play screen is a board-game rulebook rather than a page of paragraphs: it is split
  *  into chapters you page through, and every rule with a position, an order or a duration on the
@@ -140,12 +141,12 @@ function GoalChapter() {
       <Figure label={t('tut.figure', { n: 1 })} caption={t('tut.goal.bosses.body')}>
         <div className="text-[0.74rem] gold-text mb-2">{t('tut.goal.bosses.title')}</div>
         <div className="flex gap-2">
-          {BOSS_IDS.map((bossId, i) => {
+          {CLASSIC_BOSS_IDS.map((bossId, i) => {
             const def = BOSSES[bossId];
             return (
               <div key={bossId} className="flex-1 min-w-0 rounded-md overflow-hidden border border-gold-dim/50">
                 <div className="relative h-[92px]">
-                  <img src={bossImageUrl(bossId)} alt={bossId} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                  <BossPortrait bossId={bossId} className="absolute inset-0 w-full h-full" />
                   <div className="absolute inset-x-0 bottom-0 bg-black/75 px-1.5 py-0.5">
                     <div className="text-[0.6rem] gold-text truncate">
                       {i + 1}. {bossId}
@@ -524,12 +525,12 @@ function RefChapter({ lang, ruleset }: { lang: 'th' | 'en'; ruleset: ReturnType<
           <span className="font-display">{t('tutorial.bosses')}</span>
         </div>
         <div className="flex flex-wrap justify-center gap-4">
-          {BOSS_IDS.map((bossId) => {
+          {CLASSIC_BOSS_IDS.map((bossId) => {
             const def = BOSSES[bossId];
             return (
               <div key={bossId} className="w-[220px] rounded-md overflow-hidden gold-frame flex flex-col">
                 <div className="relative w-full h-[180px]">
-                  <img src={bossImageUrl(bossId)} alt={bossId} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                  <BossPortrait bossId={bossId} className="absolute inset-0 w-full h-full" />
                   <div className="absolute inset-x-0 bottom-0 bg-black/75 px-2 py-1">
                     <div className="text-[11px] font-display gold-text truncate">{def.name[lang]}</div>
                     <div className="text-[10px] text-red-300">{def.sin[lang]}</div>

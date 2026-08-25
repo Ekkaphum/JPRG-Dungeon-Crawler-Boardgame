@@ -42,13 +42,24 @@ export const APP_VERSION: string = pkgJson.version;
 // breaks saves (see the migration in session/persistence.ts) — which is exactly why the newest
 // one is named for what it *is* rather than for the version it happened to ship at. `v0.3` and
 // `v0.4` keep their version-shaped names only because saves in the wild already contain them.
-export type RulesetVersion = 'v0.3' | 'v0.4' | 'fracture';
+export type RulesetVersion = 'v0.3' | 'v0.4' | 'fracture' | 'bosses';
 
 /** The ruleset still being worked on — the one whose label tracks APP_VERSION. */
-export const LIVE_RULESET: RulesetVersion = 'fracture';
+export const LIVE_RULESET: RulesetVersion = 'bosses';
 
 /** The one the game plays by default and the only one considered finished. */
 export const STABLE_RULESET: RulesetVersion = 'v0.3';
+
+/** What the setup screen actually offers, in the order it offers it.
+ *
+ *  `v0.4` is deliberately absent. It is not deleted — it is a permanent save key, and a game saved
+ *  under it must still load and still play by its own rules — but it has nothing left to offer a
+ *  player choosing: `fracture` is v0.4.5 plus a strictly additive rule, so anyone who would have
+ *  picked v0.4.5 is better served by v0.4.9, and a picker with two un-tuned variants of the same
+ *  roster asks the table to understand a distinction that only ever mattered while the fractures
+ *  were being measured. Same shape as SELECTABLE_VISUAL_MODES in @session/persistence: frozen out
+ *  of the menu rather than removed from the code. */
+export const SELECTABLE_RULESETS: RulesetVersion[] = ['v0.3', 'fracture', 'bosses'];
 
 export interface RulesetDef {
   id: RulesetVersion;
@@ -110,9 +121,10 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
   },
   fracture: {
     id: 'fracture',
-    // Derived, never typed: this is the ruleset under development, so its label *is* the app
-    // version. Bumping package.json is the only edit a release needs.
-    label: `v${APP_VERSION}`,
+    // Frozen: this ruleset is finished. It was the one under development while the fracture lines
+    // were being measured, so its label tracked APP_VERSION; the boss series took over that role at
+    // v0.4.10 and this one keeps the number it shipped and was measured under.
+    label: 'v0.4.9',
     experimental: true,
     name: { th: 'ทดลอง + รอยแตก', en: 'Experimental + Fractures' },
     desc: {
@@ -135,6 +147,40 @@ export const RULESETS: Record<RulesetVersion, RulesetDef> = {
       {
         th: '📊 แยกออกมาเป็นชุดกติกาของตัวเอง เพื่อให้วัดผลเทียบกับ v0.4.5 ได้ตรงๆ · ยังไม่ผ่านการจูน',
         en: '📊 Split out as its own ruleset purely so it can be measured against v0.4.5 directly. Not tuned.',
+      },
+    ],
+  },
+  bosses: {
+    id: 'bosses',
+    // Derived, never typed: this is the ruleset under development, so its label *is* the app
+    // version. Bumping package.json is the only edit a release needs.
+    label: `v${APP_VERSION}`,
+    experimental: true,
+    name: { th: 'ทดลอง + บอส 12 ตัว', en: 'Experimental + 12 Bosses' },
+    desc: {
+      th: 'ทุกอย่างของ v0.4.9 บวกบอสอีก 9 ตัว (ปีศาจแห่งบาป 7 ครบชุด + ตัวหมากรุก) และหมวดการเล่นแบบ 5 ยก',
+      en: 'Everything in v0.4.9, plus nine more bosses — the complete Seven Deadly Sins and the Chess Pieces — and the five-boss run modes.',
+    },
+    highlights: [
+      {
+        th: '😈 บาป 7 ครบชุด — Levithar (ริษยา) · Gulvorax (ตะกละ) · Mammorax (โลภ) · Asmodeus (ราคะ) เพิ่มจากสามตัวเดิม',
+        en: '😈 The Seven Deadly Sins completed — Levithar (Envy), Gulvorax (Gluttony), Mammorax (Greed) and Asmodeus (Lust) join the original three.',
+      },
+      {
+        th: '♟️ ตัวหมากรุก 5 ตัว — บอสเดินตามกฎการเดินของตัวเอง การเคลื่อนที่คืออาวุธ ไม่ใช่คูลดาวน์ · หยุดทับหมากคุณ = โดนกิน',
+        en: '♟️ Five chess pieces — each moves by its own rule, so movement is the weapon rather than a cooldown. A piece that stops on your slot captures you.',
+      },
+      {
+        th: '👑 ไฟนอลสองเฟส — Aurelius ถอดมงกุฎ และราชินีที่กลายเป็นราชา ซึ่งชนะได้ด้วยการล้อม ไม่ใช่ดาเมจ',
+        en: '👑 Two-phase finales — Aurelius uncrowned, and a Queen who becomes a King you beat by surrounding him rather than by damage.',
+      },
+      {
+        th: '🎲 หมวดการเล่น 3 แบบ: พื้นฐาน (3 ตัว) · 5 Boss (สุ่ม 5 จาก 7 บาป) · Free (เลือกเอง 5 ตัวจากทุกซีรีย์)',
+        en: '🎲 Three run modes: Standard (the tuned three), 5 Boss (five of the seven sins at random), and Free (any five from either series).',
+      },
+      {
+        th: '📊 แยกจาก v0.4.9 เพื่อให้วัดผลเทียบกันได้ตรงๆ · บอสใหม่จูนด้วย sim แล้วบางส่วน แต่ยังไม่ผ่านการวัดเต็มรูปแบบ',
+        en: '📊 Split from v0.4.9 so the two can be measured against each other directly. The new bosses are partly sim-tuned and not fully measured.',
       },
     ],
   },
@@ -186,5 +232,21 @@ export function hasV045Content(v: RulesetVersion): boolean {
  *  at the top of every battle, which would shift every roll after it. A v0.4 game plays out today
  *  exactly as it did before this file changed. */
 export function hasFractures(v: RulesetVersion): boolean {
-  return v === LIVE_RULESET;
+  return v === 'fracture' || v === 'bosses';
+}
+
+/** Whether this ruleset ships the other nine bosses and the five-boss run modes
+ *  (docs/BOSS_SERIES_DESIGN.md §3-§4).
+ *
+ *  Its own ruleset for exactly the reason the fractures were: v0.4.9 is the build the fracture
+ *  measurement was published under, and twelve bosses across three run structures moves every number
+ *  in it. Folded in, there would be no un-extended build left to compare against. Kept separate,
+ *  the two differ by precisely this content and the sim can attribute the delta.
+ *
+ *  It gates the *mode picker*, not the boss data: `bossQueue` is an array and always was, so a game
+ *  handed a five-boss queue by any other route still plays it. What this predicate decides is
+ *  whether the table is offered the choice — which is the whole point of it being a separate
+ *  option rather than a silent addition to v0.4.9. */
+export function hasBossSeries(v: RulesetVersion): boolean {
+  return v === 'bosses';
 }

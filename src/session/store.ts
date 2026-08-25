@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { NewGameSetup } from '@engine/index';
-import { STABLE_RULESET, type RulesetVersion } from '@content/rulesets';
+import { BOSSES, LONG_RUN_BOSS_COUNT, type BossId, type GameMode, type NewGameSetup } from '@engine/index';
+import { STABLE_RULESET, hasBossSeries, type RulesetVersion } from '@content/rulesets';
 import { GameSession } from './GameSession';
 import {
   clearSaveFile,
@@ -41,6 +41,11 @@ interface AppState {
   draftMode: 'random' | 'manual';
   /** Seat indices in pick order — only used when draftMode is 'manual'. */
   draftOrder: number[];
+  /** Which run structure the next new game uses (see GameMode). */
+  mode: GameMode;
+  /** Free mode's hand-picked queue, in fight order. Kept even while another mode is selected so
+   *  switching away and back does not throw away the table's choices. */
+  freeBossQueue: BossId[];
 
   session: GameSession | null;
 
@@ -52,6 +57,11 @@ interface AppState {
   setSeedText: (s: string) => void;
   setDraftMode: (m: 'random' | 'manual') => void;
   moveDraftSlot: (index: number, dir: -1 | 1) => void;
+  setMode: (m: GameMode) => void;
+  /** Adds or removes a boss from Free mode's queue. Adding past LONG_RUN_BOSS_COUNT is ignored
+   *  rather than rolling the oldest pick off the front — silently rewriting a choice the player
+   *  made is worse than refusing the one they cannot have. */
+  toggleFreeBoss: (id: BossId) => void;
   startNewGame: () => void;
   continueGame: () => void;
   recordGameEnd: () => void;
@@ -87,6 +97,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   seedText: '',
   draftMode: 'random',
   draftOrder: [0, 1, 2, 3],
+  mode: 'classic',
+  // Opens on the five bosses the Seven Sins arc was designed around, so Free mode starts from a
+  // sensible campaign rather than from an empty list the player has to fill before they can play.
+  freeBossQueue: ['Ragorath', 'Levithar', 'Somnivar', 'Mammorax', 'Aurelius'],
 
   session: null,
 
@@ -110,10 +124,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setDifficulty: (d) => set({ difficulty: d }),
-  setRuleset: (v) => set({ ruleset: v }),
+  // Switching to a ruleset without the extra bosses drops the run back to the tuned three rather
+  // than leaving an unreachable mode selected behind a hidden picker — the setup screen would then
+  // read "Standard" while the game started five bosses.
+  setRuleset: (v) => set({ ruleset: v, mode: hasBossSeries(v) ? get().mode : 'classic' }),
   setSeedText: (s) => set({ seedText: s }),
 
   setDraftMode: (m) => set({ draftMode: m }),
+
+  setMode: (m) => set({ mode: m }),
+
+  toggleFreeBoss: (id) => {
+    const queue = get().freeBossQueue;
+    if (queue.includes(id)) {
+      set({ freeBossQueue: queue.filter((b) => b !== id) });
+      return;
+    }
+    if (queue.length >= LONG_RUN_BOSS_COUNT) return;
+    // Appended, then sorted by designed act, so the queue the player sees is the queue they will
+    // fight and it still escalates — the same rule buildBossQueue applies to a random draw.
+    set({ freeBossQueue: [...queue, id].sort((a, b) => BOSSES[a].tier - BOSSES[b].tier) });
+  },
 
   moveDraftSlot: (index, dir) => {
     const order = get().draftOrder.slice();
@@ -128,12 +159,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     // play — browsers refuse to start audio outside a user gesture.
     audioEngine.unlock();
     musicPlayer.unlock();
-    const { players, difficulty, ruleset, seedText, draftMode, draftOrder } = get();
+    const { players, difficulty, ruleset, seedText, draftMode, draftOrder, mode, freeBossQueue } = get();
     const setup: NewGameSetup = {
       players: players.map((p) => ({ name: p.name || 'Player', kind: p.kind, botLevel: p.kind === 'bot' ? p.botLevel : undefined })),
       difficulty,
       draftOrder: draftMode === 'manual' ? draftOrder : null,
       ruleset,
+      mode: hasBossSeries(ruleset) ? mode : 'classic',
+      bossQueue: hasBossSeries(ruleset) && mode === 'free' ? freeBossQueue : undefined,
     };
     const seed = seedText.trim() ? hashSeed(seedText.trim()) : randomSeed();
     const session = new GameSession(setup, seed, undefined, get().settings.animDelayMs);

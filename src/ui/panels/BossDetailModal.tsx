@@ -1,13 +1,13 @@
 import type { BattleState, PlayerMeta } from '@engine/index';
-import { BOSSES } from '@content/bosses3';
+import { BOSSES, bossAppearance, bossDisplayName, bossMoves } from '@content/bosses';
 import { bossStatuses } from '@content/statuses';
 import { landSlotDisplay } from '@content/eventText';
-import { bossImageUrl } from '@ui/common/assets';
 import { Modal } from '@ui/common/Modal';
 import { StatusList } from '@ui/common/StatusBadges';
 import { FractureBounties, FractureTicks } from '@ui/clock/FractureTrack';
 import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
+import { BossPortrait } from '@ui/common/BossPortrait';
 
 /** `players` is only ever read for names on the fracture read-out — the rest of the panel is pure
  *  boss data. Passed in rather than pulled off a store so the panel stays a function of its props,
@@ -27,9 +27,9 @@ export function BossDetailModal({
   const hpPct = Math.max(0, Math.min(100, (battle.bossHp / battle.bossHpMax) * 100));
 
   return (
-    <Modal title={def.name[lang]} onClose={onClose}>
+    <Modal title={bossDisplayName(battle.bossId, battle.phase)[lang]} onClose={onClose}>
       <div className="flex gap-3">
-        <img src={bossImageUrl(battle.bossId)} alt={battle.bossId} className="w-24 h-32 object-cover rounded gold-frame flex-shrink-0" draggable={false} />
+        <BossPortrait bossId={battle.bossId} appearance={bossAppearance(battle.bossId, battle.phase)} className="w-24 h-32 rounded gold-frame flex-shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="text-xs text-gold-dim">{def.sin[lang]}</div>
           <div className="mt-2 h-3 bg-black/40 rounded overflow-hidden relative">
@@ -61,7 +61,7 @@ export function BossDetailModal({
 
       <Section title={t('detail.moves')}>
         <div className="flex flex-col gap-2">
-          {def.moves.map((m) => {
+          {bossMoves(battle.bossId, battle.phase).map((m) => {
             return (
               <div key={m.key} className="rounded p-2 border border-gold-dim/25">
                 <div className="flex items-baseline justify-between gap-2">

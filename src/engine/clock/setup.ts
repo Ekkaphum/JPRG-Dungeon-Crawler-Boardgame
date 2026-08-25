@@ -1,12 +1,14 @@
 import type { RNG } from '../rng';
 import { CHAR_IDS, CHARACTERS, type CharId } from '@content/characters';
-import { BOSS_IDS, BOSSES } from '@content/bosses3';
+import { ALL_BOSS_IDS, BOSSES, CLASSIC_BOSS_IDS, LONG_RUN_BOSS_COUNT, SINS_BOSS_IDS, hpForAct, type BossId } from '@content/bosses';
 import { DIFFICULTY_MULTIPLIER, type Difficulty } from '@content/difficulty';
 import { STABLE_RULESET, hasFractures, hasV040Content, hasV045Content, type RulesetVersion } from '@content/rulesets';
 import { initCamp } from './camp';
+import { MAMMORAX_START_HOARD } from './bossRules';
 import { rollFractures } from './fracture';
 import { V040_CHAR_IDS, V045_LUNA_START_MANA } from '@content/characters';
-import type { GameState, PlayerMeta, PlayerId, Choice, PendingDecision } from './types';
+import { createRNG } from '../rng';
+import type { GameMode, GameState, PlayerMeta, PlayerId, Choice, PendingDecision } from './types';
 
 export interface NewGameSetup {
   players: { name: string; kind: 'human' | 'bot'; botLevel?: 'easy' | 'medium' | 'hard' }[]; // exactly 4
@@ -26,6 +28,45 @@ export interface NewGameSetup {
    *  `startNewGame` does not pass it, so no real game can reach it, and a bot can still never
    *  *choose* an experimental character. Length must equal the player count. */
   fixedRoster?: CharId[];
+
+  /** Which run structure to play. Defaults to 'classic' so every existing caller — the ~130 tests,
+   *  the balance sim, an old save being replayed — keeps the tuned three-boss queue it has always
+   *  had without being touched. */
+  mode?: GameMode;
+  /** Free mode's chosen queue. Ignored in the other two modes. Anything shorter or longer than
+   *  LONG_RUN_BOSS_COUNT is padded/trimmed rather than rejected, because a half-filled picker in the
+   *  UI must still be able to start a game. */
+  bossQueue?: BossId[];
+}
+
+/** Builds the boss queue for a run.
+ *
+ *  'sins5' draws from a stream forked off the seed rather than from the game's own RNG: the queue
+ *  has to be decided before the first `createRNG(seed)` the session makes, and consuming from that
+ *  same stream here would shift every roll in the game after it — which would silently change what
+ *  a replayed seed does. Forking keeps a seed reproducible *and* leaves the existing streams alone.
+ *
+ *  The five drawn sins are then sorted by their designed act (`tier`), so a random draw still
+ *  escalates. Without it a run can open on the finale and close on the tutorial boss, which is five
+ *  random fights rather than a campaign. */
+export function buildBossQueue(mode: GameMode, seed: number, chosen?: BossId[]): BossId[] {
+  if (mode === 'classic') return [...CLASSIC_BOSS_IDS];
+  if (mode === 'sins5') {
+    const rng = createRNG((seed ^ 0x5155eed) >>> 0);
+    const drawn = rng.sample(SINS_BOSS_IDS, LONG_RUN_BOSS_COUNT);
+    return [...drawn].sort((a, b) => BOSSES[a].tier - BOSSES[b].tier);
+  }
+  // Free: honour the order the table picked — the whole point of the mode is that the queue is
+  // theirs. Deduplicated (the same boss twice would share one meter set), then topped up from the
+  // full roster in act order so a partly-filled picker still starts.
+  const seen: BossId[] = [];
+  for (const id of chosen ?? []) if (!seen.includes(id)) seen.push(id);
+  const filler = [...ALL_BOSS_IDS].sort((a, b) => BOSSES[a].tier - BOSSES[b].tier);
+  for (const id of filler) {
+    if (seen.length >= LONG_RUN_BOSS_COUNT) break;
+    if (!seen.includes(id)) seen.push(id);
+  }
+  return seen.slice(0, LONG_RUN_BOSS_COUNT);
 }
 
 /** Builds the initial GameState with no character assigned yet — draft happens via runDraft(). */
@@ -50,7 +91,8 @@ export function newGame(setup: NewGameSetup, seed: number): GameState {
     draftOrder: setup.draftOrder ?? null,
     players,
     progress: {},
-    bossQueue: [...BOSS_IDS],
+    mode: setup.mode ?? 'classic',
+    bossQueue: buildBossQueue(setup.mode ?? 'classic', seed, setup.bossQueue),
     bossIndex: 0,
     battle: null,
     scoreLog: [],
@@ -149,7 +191,12 @@ function assignCharacter(state: GameState, playerId: PlayerId, charId: CharId) {
 export function prepareBattle(state: GameState, rng?: RNG) {
   const bossId = state.bossQueue[state.bossIndex];
   const bossDef = BOSSES[bossId];
-  const hp = Math.round(bossDef.hp * DIFFICULTY_MULTIPLIER[state.difficulty]);
+  // Classic keeps the exact numbers its 5,000-game sim was run on. The two long modes read the
+  // per-act HP column off the boss sheet instead (docs/BOSS_SERIES_DESIGN.md §1) — an act ① boss is
+  // a different fight from the same boss in act ⑤, and printing one number for both was what made
+  // the old three-boss queue impossible to extend.
+  const baseHp = state.mode === 'classic' ? bossDef.hp : hpForAct(bossId, state.bossIndex + 1);
+  const hp = Math.round(baseHp * DIFFICULTY_MULTIPLIER[state.difficulty]);
   state.battle = {
     bossId,
     bossHp: hp,
@@ -165,6 +212,22 @@ export function prepareBattle(state: GameState, rng?: RNG) {
     traps: [],
     scheduledHits: [],
     fractures: [],
+    // Every boss opens on its first sheet; only Aurelius and the Queen have a second one.
+    phase: 1,
+    // Seven Sins / Chess meters. Mammorax is the only one that does not start at zero: his hoard
+    // *is* his defence, so a fresh pile of 8 is his equivalent of printed armor (§3.7).
+    envy: 0,
+    slotsSinceBuff: 0,
+    hoard: bossId === 'Mammorax' ? MAMMORAX_START_HOARD : 0,
+    swallowedId: null,
+    swallowedTurns: 0,
+    swallowDamage: 0,
+    offer: null,
+    pawnRank: 0,
+    colorFlipped: false,
+    bossTurnSkipped: false,
+    bossPawns: [],
+    foreseenMove: null,
     weakPoint: null,
     currentMoveKey: null,
     partyBuff: null,
@@ -222,6 +285,13 @@ export function prepareBattle(state: GameState, rng?: RNG) {
         // carry are in-battle economies, and eric2's counter is a per-battle threshold.
         focus: 0,
         guardRedirectsThisBattle: 0,
+        // Series meters — all inert unless one of the nine new bosses is in the queue.
+        buffsReceivedThisBattle: 0,
+        healReceivedThisBattle: 0,
+        goldRobbedThisBattle: 0,
+        offersAcceptedThisBattle: 0,
+        refusedStandingOffer: false,
+        enthralledTurns: 0,
       };
     }),
   };

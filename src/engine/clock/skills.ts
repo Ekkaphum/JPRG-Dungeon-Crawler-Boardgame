@@ -29,6 +29,7 @@ import { onGuardRedirected, onHealResolved, onPlayerDealtDamage, onSlowLanded, o
 import { ailmentRollPenalty, ailmentTimeTax, cleanseAilments, consumeTimeTaxAilments, isSilenced } from './ailments';
 import { claimFracture } from './fracture';
 import { spendItems } from './items';
+import { onBossPushedBack, onBuffReceived } from './bossRules';
 import type { Choice, Fighter, GameState } from './types';
 import type { RNG } from '../rng';
 
@@ -161,6 +162,22 @@ function dealAttackFor(state: GameState, fighter: Fighter, skillId: SkillId, raw
   // usual buff pipeline and consumed whether or not the hit ends up mattering.
   const stealthBonus = fighter.stealthUntilSlot != null ? fighter.stealthStrikeBonus : 0;
   const outgoing = computeOutgoingPlayerDamage(battle, rawBase + stealthBonus, fighter.playerId);
+
+  // 💋 Asmodeus's Enthrall (§3.8): the swing lands on an ally instead of the boss. Sited here, at
+  // the one funnel every attack passes through, rather than at each card — and it deliberately
+  // costs the party the damage as well as the HP, which is what makes his favourite dangerous to
+  // sit next to rather than merely unlucky.
+  if (fighter.enthralledTurns > 0) {
+    fighter.enthralledTurns -= 1;
+    const victims = battle.fighters.filter((f) => f.alive && f.playerId !== fighter.playerId);
+    if (victims.length > 0) {
+      const victim = victims.reduce((a, b) => (b.hp < a.hp ? b : a));
+      const dealt = applyDamageToFighter(state, victim, outgoing);
+      battle.log.push({ t: 'RESOLVE_ATTACK', playerId: fighter.playerId, skillId, targetId: victim.playerId, dmg: dealt, wasted: false });
+      return { effective: 0, armorBroke: false };
+    }
+  }
+
   const result = applyDamageToBoss(state, fighter.playerId, outgoing, { ignoresArmor, skillId });
   // Ordering matters: kage2 asks "did you come out of hiding to land this", so scoring has to read
   // the stealth flag *before* the attack clears it.
@@ -224,6 +241,10 @@ function resolveAttackRoll(state: GameState, fighter: Fighter, skillId: SkillId,
   dealAttackFor(state, fighter, skillId, stats.primary!, false);
   if (rollLadder(state, fighter, skillId, `${skillId} weak point`, rng, focusBonus)) {
     battle.weakPoint = { ownerId: fighter.playerId, expiresAtSlot: battle.marker - WEAK_POINT_SLOTS, hitsPaid: 0 };
+    // A weak point is +4 handed to everyone else — §3.4 names it explicitly as a buff received.
+    for (const ally of battle.fighters) {
+      if (ally.alive) onBuffReceived(state, ally, fighter.playerId);
+    }
     onWeakPointOpened(state, fighter.playerId);
   }
 }
@@ -423,6 +444,11 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
         ownerId: fighter.playerId,
         expiresAtSlot: battle.marker - 4,
       };
+      // A party buff is a buff received by everyone but the caster — Levithar's meter counts each
+      // of them, which is what makes Blessing the single most expensive card in that fight (§3.4).
+      for (const ally of battle.fighters) {
+        if (ally.alive) onBuffReceived(state, ally, fighter.playerId);
+      }
       break;
     case 'buffMana':
       fighter.mana = Math.min(V045_LIORA_MANA_MAX, fighter.mana + stats.primary!);
@@ -440,6 +466,7 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
       fighter.mana = Math.max(0, fighter.mana - manaSpent);
       const boosted = (stats.secondary ?? 0) + V045_AURASHIELD_DEF_PER_MANA * manaSpent;
       target.shield = { kind: 'mana', reduction: boosted };
+      onBuffReceived(state, target, fighter.playerId);
       battle.log.push({ t: 'RESOLVE_BUFF', playerId: target.playerId, skillId });
       break;
     }
@@ -517,6 +544,10 @@ export function declareSkill(state: GameState, fighter: Fighter, choice: Extract
         wardId: choice.targetPlayerId!,
         reduction: stats.primary ?? 0,
       };
+      {
+        const ward = battle.fighters.find((f) => f.playerId === choice.targetPlayerId);
+        if (ward) onBuffReceived(state, ward, fighter.playerId);
+      }
       break;
     case 'trap': {
       // Validated rather than trusted: the choice comes from a UI or a bot, and an out-of-window
@@ -593,6 +624,7 @@ function applySlowToBoss(state: GameState, fighter: Fighter, target: number, rng
   battle.log.push({ t: 'ROLL', playerId: fighter.playerId, purpose: 'Freeze slow', die, target, success });
   if (!success) return;
   battle.bossSlot = Math.max(0, battle.bossSlot - V045_SLOW_BOSS_SLOTS);
+  onBossPushedBack(state);
   battle.bossStackSeq = battle.nextStackSeq++;
   battle.log.push({ t: 'BOSS_SLOWED', slots: V045_SLOW_BOSS_SLOTS, toSlot: battle.bossSlot });
   onSlowLanded(state, fighter.playerId);
@@ -757,6 +789,10 @@ export function springTrapOnBoss(state: GameState, rng: RNG): boolean {
   const result = applyDamageToBoss(state, trap.ownerId, trap.dmg, { ignoresArmor: true, skillId: 'Trap', countsAsAttack: false });
   battle.log.push({ t: 'RESOLVE_TRAP_TRIGGER', slot: trap.slot, dmg: result.effective, ownerId: trap.ownerId });
   onTrapTriggered(state, trap.ownerId);
+  // ⏪ Against the Pawn Rank a cancelled advance is the weakness: it cannot retreat, so being
+  // stopped costs it a rank (§4.3). Trap! is the party's main way of doing that, which is why the
+  // sheet calls out Trap!/Air Push/Grapnel as doubly effective against it.
+  onBossPushedBack(state);
   return true;
 }
 
@@ -889,4 +925,38 @@ export function dealDamageToFighterFromBoss(
   const { applied, counterDmg, recipient } = applyBossDamageToFighter(state, fighter, rawDamage, opts);
   resolveQueuedCounter(state, recipient, counterDmg);
   return { applied, recipient };
+}
+
+/** A visit taken from inside Gulvorax (docs/BOSS_SERIES_DESIGN.md §3.6).
+ *
+ *  The player still picks a card and still moves their pawn by its ⏱ — but the only thing the card
+ *  contributes is that number: they thrash, and the boss takes damage equal to the ⏱ they declared,
+ *  ignoring armor. Nothing else the skill does happens, which matters more than the damage: almost
+ *  every scoring condition in the game asks for a skill's *effect* rather than for raw damage, so a
+ *  swallowed player keeps contributing to the kill while being unable to score at all.
+ *
+ *  Items are the exception and are deliberately spent normally — see itemPotency: an item used from
+ *  in here is the one thing Gulvorax cannot digest, and it is the swallowed player alone who can
+ *  feed it to him. */
+export function resolveSwallowedDeclare(state: GameState, fighter: Fighter, choice: Extract<Choice, { kind: 'DECLARE_ACTION' }>): void {
+  const battle = state.battle!;
+  spendItems(state, fighter, choice.useItems);
+  if (battle.outcome !== 'in_progress' || !fighter.alive) return;
+
+  const stats = skillStats(choice.skillId, isLv2(state, fighter, choice.skillId), state.ruleset);
+  const time = effectiveDeclareTime(state, fighter, stats.time);
+  battle.log.push({
+    t: 'DECLARE',
+    playerId: fighter.playerId,
+    slot: battle.marker,
+    skillId: choice.skillId,
+    landSlot: battle.marker - time,
+    label: `${SKILLS[choice.skillId].name.th} (ดิ้นในท้อง)`,
+  });
+  applyDamageToBoss(state, fighter.playerId, time, { ignoresArmor: true, skillId: choice.skillId, countsAsAttack: false });
+  // The pawn still walks. It is on the clock for the party's benefit — they need to know when their
+  // team-mate comes back round — even though it cannot be aimed at while the belly holds them.
+  fighter.pending = null;
+  fighter.slot = Math.max(0, battle.marker - time);
+  fighter.stackSeq = battle.nextStackSeq++;
 }

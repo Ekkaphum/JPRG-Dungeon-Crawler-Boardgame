@@ -43,7 +43,7 @@ export function GameScreen() {
     // scrolling; the stage is the only flexible row and gives up height to the fixed panels.
     <div className={`game-screen visual-${visualMode} md:h-screen md:overflow-y-auto flex flex-col gap-1.5 px-2 py-1.5`}>
       <div className="game-topbar flex items-center justify-between flex-shrink-0">
-        <div className="text-sm gold-text font-display">{t('game.bossOf', { i: state.bossIndex + 1 })}</div>
+        <div className="text-sm gold-text font-display">{t('game.bossOf', { i: state.bossIndex + 1, n: state.bossQueue.length })}</div>
         <div className="flex gap-2">
           <button onClick={() => setScreen('settings')} className="text-xs text-gold-dim underline">
             {t('game.settings')}
@@ -149,7 +149,7 @@ export function GameScreen() {
                   </div>
                 </div>
 
-                <ActionFlash flash={session.actionFlash} bossId={shown.bossId} />
+                <ActionFlash flash={session.actionFlash} bossId={shown.bossId} phase={shown.phase} />
               </div>
 
               <div className="timeline-dock flex-shrink-0">

@@ -7,7 +7,9 @@ import {
   V045_LIORA_MANA_MAX,
   charSkills,
   skillDefFor,
+  type SkillId,
 } from '@content/characters';
+import { isSilenced } from '@engine/clock/ailments';
 
 /** Ceiling on how many Focus amounts a single dice card is enumerated at. Kit's pool is uncapped,
  *  but Trap! already multiplies by its legal slots and a d6 is certain once the bonus covers the
@@ -26,6 +28,11 @@ function bestBossMoveGuess(): 'A' | 'B' | 'C' {
 /** Enumerates every legal DECLARE_ACTION choice for the fighter currently being visited — shared
  *  by every bot tier so skill-specific plumbing (mana amounts, heal targets, trap slots) only
  *  lives in one place. */
+/** Mirrors SPENDS_RESOURCE in @engine/clock/skills — the cards 🤐 silence bars. Duplicated rather
+ *  than exported from the engine because it is a *bot's model of the rule*, and a bot reaching into
+ *  the engine's private sets is how the two quietly stop agreeing about anything else. */
+const SILENCED_SKILLS = new Set<SkillId>(['Fireball', 'Meteor', 'Rewind', 'Assassinate', 'DeathCoil']);
+
 export function declareCandidates(state: GameState, decision: Extract<PendingDecision, { kind: 'DECLARE_ACTION' }>): Choice[] {
   const playerId = decision.playerId;
   const player = state.players.find((p) => p.id === playerId)!;
@@ -51,6 +58,11 @@ export function declareCandidates(state: GameState, decision: Extract<PendingDec
     // an unaffordable card is simply not offered. Same treatment sand/shadow/souls already get.
     if (def.manaCost != null && fighter.mana < def.manaCost) continue;
     if (def.selfHpCost != null && fighter.hp <= def.selfHpCost) continue;
+    // 🤐 silence is a gate for the same reason: declaring a resource skill under it throws out of
+    // the engine. Nothing in the tuned three-boss queue inflicts silence, so this never came up
+    // until Levithar's Dispossess and the Bishop's Shadow Litany arrived — at which point a hard
+    // bot picking Meteor while silenced crashed the run outright.
+    if (isSilenced(fighter) && SILENCED_SKILLS.has(skillId)) continue;
 
     if (def.kind === 'heal') {
       // A living target is required at declare time. If that target dies while Heal is pending,

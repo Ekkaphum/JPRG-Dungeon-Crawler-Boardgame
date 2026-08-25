@@ -1,7 +1,7 @@
 import type { BossId } from '@engine/index';
 import { SKILLS } from '@content/characters';
 import { skillBriefText } from '@content/skillText';
-import { BOSSES } from '@content/bosses3';
+import { bossMoves } from '@content/bosses';
 import { useAppStore } from '@session/store';
 import type { ActionFlash as Flash, FlashTone } from '@session/playback';
 import { ActionEffect } from '@ui/common/ActionEffect';
@@ -15,7 +15,7 @@ const TONE: Record<FlashTone, string> = {
 /** Big announcement over the middle of the board the instant something lands: a skill or boss move
  *  with a one-line reminder of what it does, or a die roll with its outcome. Purely decorative —
  *  the parent must be `relative`; pointer events pass straight through. */
-export function ActionFlash({ flash, bossId }: { flash: Flash | null; bossId: BossId }) {
+export function ActionFlash({ flash, bossId, phase = 1 }: { flash: Flash | null; bossId: BossId; phase?: 1 | 2 }) {
   const lang = useAppStore((s) => s.settings.lang);
   // The flash is the most-read text in the game and it was quoting STABLE_RULESET numbers in every
   // v0.4.5 match — the default skillBriefText falls back to, since this call never passed a ruleset.
@@ -26,7 +26,7 @@ export function ActionFlash({ flash, bossId }: { flash: Flash | null; bossId: Bo
   let detail = '';
 
   if (flash.source === 'boss') {
-    const move = BOSSES[bossId].moves.find((m) => m.key === flash.moveKey);
+    const move = bossMoves(bossId, phase).find((m) => m.key === flash.moveKey);
     if (!move) return null;
     title = move.name[lang];
     detail = move.desc[lang];
@@ -37,7 +37,7 @@ export function ActionFlash({ flash, bossId }: { flash: Flash | null; bossId: Bo
     title = `🎲 ${flash.die}`;
     if (flash.moveKey) {
       // A roll that picked the boss's next move rather than passing a check.
-      const move = BOSSES[bossId].moves.find((m) => m.key === flash.moveKey);
+      const move = bossMoves(bossId, phase).find((m) => m.key === flash.moveKey);
       detail = move ? (lang === 'th' ? `บอสจะใช้ ${move.name.th}` : `Boss will use ${move.name.en}`) : '';
     } else if (flash.target != null) {
       const need = lang === 'th' ? `ต้อง ${flash.target}+` : `needed ${flash.target}+`;

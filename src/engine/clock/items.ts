@@ -14,6 +14,7 @@ import { CHARACTERS } from '@content/characters';
 import { healFighter } from './damage';
 import { cleanseAilments } from './ailments';
 import { WEAK_POINT_SLOTS } from './skills';
+import { GULVORAX_POISON_HP, itemPotency, onBossPushedBack } from './bossRules';
 import type { Fighter, GameState } from './types';
 
 /** Applies one item and returns whether it actually did anything. A no-op (healing someone already
@@ -25,38 +26,44 @@ export function useItem(state: GameState, user: Fighter, itemId: ItemId, targetP
   const target =
     targetPlayerId != null ? battle.fighters.find((f) => f.playerId === targetPlayerId) ?? user : user;
 
+  // 🍴 Gulvorax's battle tax (§3.6): he steals half of every item the party spends — the gems they
+  // shopped with, eaten. Applied to the *value* rather than by refusing the card, so a halved item
+  // still does its job, just badly. The one card he cannot touch is one used from inside his belly,
+  // which itemPotency lets through whole and which poisons him below.
+  const value = itemPotency(state, user, def.value);
+
   switch (def.kind) {
     case 'heal':
-      healFighter(target, def.value);
+      healFighter(target, value);
       break;
     case 'cleanse':
       cleanseAilments(state, target);
       break;
     case 'atkBuff':
-      user.itemAtkBonus += def.value;
+      user.itemAtkBonus += value;
       break;
     case 'pierce':
       user.itemPierce = true;
       break;
     case 'ward':
-      user.itemWard += def.value;
+      user.itemWard += value;
       break;
     case 'absorb':
       // Takes the larger rather than stacking, so buying a Smoke Bomb on top of a Bulwark Charm is
       // a wasted card instead of a 109-point wall.
-      user.itemAbsorb = Math.max(user.itemAbsorb, def.value);
+      user.itemAbsorb = Math.max(user.itemAbsorb, value);
       break;
     case 'haste':
       // Consumed by declareSkill via pendingHaste below — stored on the fighter because the ⏱ cut
       // has to survive from "item spent" to "skill declared" inside the same visit.
-      user.itemHaste += def.value;
+      user.itemHaste += value;
       break;
     case 'poisonSlots': {
       // Writes flat damage onto the next N slots the marker will reach. No roll, no boss-position
       // check — the mirror image of Kit's trap, which needs both but ignores armor and shoves the
       // boss. Two cards, one primitive, different jobs.
-      for (let i = 1; i <= def.value && battle.marker - i > 0; i++) {
-        battle.scheduledHits.push({ slot: battle.marker - i, dmg: def.value, ownerId: user.playerId, skillId: 'Slash' });
+      for (let i = 1; i <= value && battle.marker - i > 0; i++) {
+        battle.scheduledHits.push({ slot: battle.marker - i, dmg: value, ownerId: user.playerId, skillId: 'Slash' });
       }
       break;
     }
@@ -73,6 +80,8 @@ export function useItem(state: GameState, user: Fighter, itemId: ItemId, targetP
     }
     case 'bossPush':
       battle.bossSlot = Math.max(0, battle.bossSlot - def.value);
+      // ⏪ A pawn cannot retreat: shoving the Pawn Rank back strips a rank (§4.3).
+      onBossPushedBack(state);
       break;
     case 'weakPoint':
       // Must use the same lifetime as the skill path. The first version set expiresAtSlot: 0, which
@@ -107,6 +116,23 @@ export function spendItems(
     if (idx < 0) continue;
     prog.items.splice(idx, 1);
     useItem(state, fighter, use.itemId, use.targetPlayerId);
+    // 🤢 §3.6's weakness. An item swallowed whole gives Gulvorax food poisoning — 8 HP and his
+    // entire next turn — which makes the person he ate the only one who can force-feed him. That is
+    // what stops being swallowed from being pure punishment: the party may deliberately hold off on
+    // the rescue and pass cards to the player inside instead.
+    poisonGulvoraxIfForceFed(state, fighter);
+  }
+}
+
+function poisonGulvoraxIfForceFed(state: GameState, user: Fighter): void {
+  const battle = state.battle!;
+  if (battle.bossId !== 'Gulvorax' || battle.swallowedId !== user.playerId) return;
+  battle.bossHp = Math.max(0, battle.bossHp - GULVORAX_POISON_HP);
+  battle.bossTurnSkipped = true;
+  battle.log.push({ t: 'BOSS_TURN_LOST', bossId: battle.bossId, reason: 'poisoned' });
+  if (battle.bossHp <= 0 && battle.outcome === 'in_progress') {
+    battle.finishedBy = user.playerId;
+    battle.outcome = 'boss_defeated';
   }
 }
 

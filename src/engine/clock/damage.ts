@@ -14,6 +14,7 @@ import {
 } from '@content/characters';
 import { STABLE_RULESET, hasV045Content, type RulesetVersion } from '@content/rulesets';
 import { crossFractures } from './fracture';
+import { applyBossDefence, onBossDamaged } from './bossRules';
 import type { BattleState, Fighter, GameState, ScoreEntry } from './types';
 
 /** Berserk's threshold (@content/characters PASSIVES.Eric) — always-on, checked here rather than
@@ -66,7 +67,11 @@ export function applyDamageToBoss(
     ignores = true;
     attackerF.itemPierce = false;
   }
-  const effective = Math.max(0, ignores ? dmg : dmg - battle.armor);
+  // Standing per-boss defences (Mammorax's stealable hoard, the Bishop's colour rule) resolve
+  // before armor, because both of them can also change *whether* armor applies at all.
+  const defended = applyBossDefence(battle, attackerF, dmg, ignores);
+  ignores = defended.ignoresArmor;
+  const effective = Math.max(0, ignores ? defended.dmg : defended.dmg - battle.armor);
   const hpBefore = battle.bossHp;
   battle.bossHp = Math.max(0, battle.bossHp - effective);
   // v0.4.6. Sited here rather than at each skill because a fracture pays whoever *owned* the
@@ -75,6 +80,11 @@ export function applyDamageToBoss(
   crossFractures(state, attackerId, hpBefore, battle.bossHp);
 
   if (battle.bossId === 'Ragorath') battle.rage += 1;
+
+  // Everything the Seven Sins / Chess bosses hang off a hit landing: gold prised off Mammorax's
+  // pile, progress toward cutting somebody out of Gulvorax, and the half-HP flip on the two
+  // two-phase finales. One call rather than a growing chain of per-boss branches in here.
+  onBossDamaged(state, attackerId, effective, dmg);
 
   let armorBroke = false;
   if (battle.bossId === 'Aurelius' && !ignores && effective > 12 && battle.armor > 0) {
@@ -205,7 +215,11 @@ export function grantSouls(state: GameState, fighter: Fighter, amount: number) {
 
 /** Heals a fighter, capped at maxHp. Returns the actual amount restored (0 if already full or dead
  *  — callers use this to gate Luna's condition 1, which requires restoring >=1 HP to an injured
- *  target). */
+ *  target).
+ *
+ *  Also the one place healing is counted, which is what Gulvorax's swallow reads (§3.6): he eats
+ *  whoever has been healed most, so a cleric playing on instinct picks his victim for him. Counted
+ *  here rather than at the heal's call sites so an item, a skill and a passive all feed it alike. */
 export function healFighter(fighter: Fighter, amount: number): number {
   if (!fighter.alive) return 0;
   // v0.4.0 — Morvane's Undead Pact, the hardest rule exception on the roster: no external healing
@@ -214,7 +228,9 @@ export function healFighter(fighter: Fighter, amount: number): number {
   if (fighter.charId === 'Morvane') return 0;
   const before = fighter.hp;
   fighter.hp = Math.min(fighter.maxHp, fighter.hp + amount);
-  return fighter.hp - before;
+  const restored = fighter.hp - before;
+  fighter.healReceivedThisBattle += restored;
+  return restored;
 }
 
 export function killFighter(state: GameState, fighter: Fighter) {

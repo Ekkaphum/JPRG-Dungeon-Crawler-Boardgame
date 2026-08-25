@@ -2,12 +2,13 @@ import { hasCamp } from '@content/rulesets';
 import { gemsForBattle } from '@engine/clock/camp';
 import type { ReactNode } from 'react';
 import type { BattleState, GameState } from '@engine/index';
-import { BOSSES } from '@content/bosses3';
-import { bossImageUrl, charImageUrl } from '@ui/common/assets';
+import { BOSSES } from '@content/bosses';
+import { charImageUrl } from '@ui/common/assets';
 import { Modal } from '@ui/common/Modal';
 import { useAppStore } from '@session/store';
 import { useT } from '@content/i18n/useT';
 import type { GameSession } from '@session/GameSession';
+import { BossPortrait } from '@ui/common/BossPortrait';
 
 /** Shown the moment a battle ends: who won, who landed the finishing blow, who survived, and what
  *  the party earned. The engine is parked until this is acknowledged; after that the level-up step
@@ -35,12 +36,7 @@ export function BattleResultModal({
   return (
     <Modal title={won ? t('result.win', { boss: def.name[lang] }) : t(partyWiped ? 'result.losePartyWiped' : 'result.lose')} onClose={() => {}}>
       <div className="flex gap-3">
-        <img
-          src={bossImageUrl(result.bossId)}
-          alt={result.bossId}
-          className={`w-24 h-32 object-cover rounded gold-frame flex-shrink-0 ${won ? 'grayscale opacity-60' : ''}`}
-          draggable={false}
-        />
+        <BossPortrait bossId={result.bossId} grayscale={won} className="w-24 h-32 rounded gold-frame flex-shrink-0" />
         <div className="min-w-0 flex-1">
           <div className={`text-lg font-display ${won ? 'popup-heal' : 'text-boss'}`}>{won ? t('result.winTag') : t('result.loseTag')}</div>
           <div className="text-xs text-gold-dim mt-1">

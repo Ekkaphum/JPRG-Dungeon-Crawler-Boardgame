@@ -1,5 +1,5 @@
 import type { GameState } from '@engine/index';
-import { BOSSES } from '@content/bosses3';
+import { BOSSES, BOSS_SCORE_LABELS } from '@content/bosses';
 import { charScore } from '@content/characters';
 import { CLASS_COLOR } from '@content/charColors';
 import { useT } from '@content/i18n/useT';
@@ -13,6 +13,10 @@ export function ScoreBreakdownPanel({ state }: { state: GameState }) {
 
   const conditionLabel = (playerId: number, conditionId: string) => {
     if (conditionId === 'timeBonus') return t('scoring.breakdown.timeBonus');
+    // Points a *boss* handed out rather than a character earning them. Asmodeus is the only boss
+    // that pays anybody, and both of his payouts are part of his bargain, so they need a name here
+    // or the breakdown shows a raw id next to real conditions.
+    if (conditionId in BOSS_SCORE_LABELS) return BOSS_SCORE_LABELS[conditionId][lang];
     const charId = state.players.find((player) => player.id === playerId)?.charId;
     const condition = charId ? charScore(charId, state.ruleset).find((row) => row.id === conditionId) : null;
     return condition?.desc[lang] ?? conditionId;

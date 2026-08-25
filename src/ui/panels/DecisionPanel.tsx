@@ -13,7 +13,7 @@ import {
   skillStats,
 } from '@content/characters';
 import { landSlotDisplay } from '@content/eventText';
-import { BOSSES } from '@content/bosses3';
+import { bossMoves } from '@content/bosses';
 import { declareRoute } from './declareRouting';
 import { CampBuyPanel, CampUpgradePanel, CampVpPanel } from './CampPanels';
 import { ITEMS, type ItemId } from '@content/items';
@@ -237,7 +237,7 @@ function DeclareActionPanel({
         <div className="decision-extras flex gap-2 flex-wrap items-center text-xs">
           <span className="text-gold-dim">{t('decision.predictBossMove')}</span>
           {(['A', 'B', 'C'] as const).map((k) => {
-            const move = BOSSES[battle.bossId].moves.find((m) => m.key === k)!;
+            const move = bossMoves(battle.bossId, battle.phase).find((m) => m.key === k)!;
             return (
               <button
                 key={k}

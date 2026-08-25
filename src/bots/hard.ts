@@ -1,7 +1,7 @@
 import type { Choice, GameState, PendingDecision } from '@engine/index';
 import type { Agent } from './Agent';
 import { declareCandidates } from './candidates';
-import { autoClaimFractures, autoUseItems, campBuyDefault, campUpgradeDefault, campVpDefault, chooseCharacterDefault, placeExpDefault } from './common';
+import { autoAcceptOffer, autoClaimFractures, autoUseItems, campBuyDefault, campUpgradeDefault, campVpDefault, chooseCharacterDefault, placeExpDefault } from './common';
 import { comboSynergyBonus, estimateChoiceValue, scoreConditionBonus } from './heuristics';
 
 /**
@@ -59,6 +59,7 @@ export function createHardBot(id: number, rand: () => number = Math.random): Age
             ...pick,
             ...(useItems.length > 0 ? { useItems } : {}),
             ...(fractureTakes.length > 0 ? { fractureTakes } : {}),
+            ...(autoAcceptOffer(decision) ? { acceptOffer: true } : {}),
           };
         }
       }

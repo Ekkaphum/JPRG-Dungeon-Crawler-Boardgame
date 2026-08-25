@@ -1,7 +1,7 @@
 import type { Choice, GameState, PendingDecision } from '@engine/index';
 import type { Agent } from './Agent';
 import { declareCandidates } from './candidates';
-import { autoClaimFractures, autoUseItems, campBuyDefault, campUpgradeDefault, campVpDefault, chooseCharacterDefault, placeExpDefault } from './common';
+import { autoAcceptOffer, autoClaimFractures, autoUseItems, campBuyDefault, campUpgradeDefault, campVpDefault, chooseCharacterDefault, placeExpDefault } from './common';
 
 /** "มือใหม่ที่ตื่นเต้น" — picks uniformly at random among legal candidates, no evaluation at all. */
 export function createEasyBot(id: number, rand: () => number = Math.random): Agent {
@@ -35,6 +35,7 @@ export function createEasyBot(id: number, rand: () => number = Math.random): Age
             ...pick,
             ...(useItems.length > 0 ? { useItems } : {}),
             ...(fractureTakes.length > 0 ? { fractureTakes } : {}),
+            ...(autoAcceptOffer(decision) ? { acceptOffer: true } : {}),
           };
         }
       }

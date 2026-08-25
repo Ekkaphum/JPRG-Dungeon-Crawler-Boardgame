@@ -5,7 +5,7 @@ import { declareSkill } from '@engine/clock/skills';
 import { applyDamageToBoss, applyDamageToFighter, computeOutgoingPlayerDamage } from '@engine/clock/damage';
 import { useItem } from '@engine/clock/items';
 import { ITEMS, buildItemDeck } from '@content/items';
-import { BOSSES } from '@content/bosses3';
+import { BOSSES } from '@content/bosses';
 import { CHARACTERS, charSkills } from '@content/characters';
 import { fixedDraftState } from './testUtils';
 

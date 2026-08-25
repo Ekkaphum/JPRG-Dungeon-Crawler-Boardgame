@@ -53,5 +53,18 @@ export type { NewGameSetup } from './clock/setup';
 export type { FinalScores } from './clock/scoring';
 
 export type { CharId, SkillId, SkillDef, SkillKind, CharacterDef, ScoreConditionDef } from '@content/characters';
-export type { BossId, BossDef, BossMoveDef } from '@content/bosses3';
+export type { BossId, BossDef, BossMoveDef, BossSeries, BossAppearance, BossPhase2Def } from '@content/bosses';
+export {
+  BOSSES,
+  ALL_BOSS_IDS,
+  CLASSIC_BOSS_IDS,
+  SINS_BOSS_IDS,
+  CHESS_BOSS_IDS,
+  LONG_RUN_BOSS_COUNT,
+  bossMoves,
+  bossAppearance,
+  bossDisplayName,
+  hpForAct,
+  rollBossMove,
+} from '@content/bosses';
 export type { Difficulty } from '@content/difficulty';
