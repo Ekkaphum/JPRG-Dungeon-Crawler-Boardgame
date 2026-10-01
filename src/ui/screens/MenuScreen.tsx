@@ -20,9 +20,9 @@ export function MenuScreen() {
       <section className="menu-sanctum relative z-10 w-full max-w-md px-6 py-8 sm:px-10 sm:py-10">
         <div className="text-center mb-8">
           <div className="menu-moon-sigil" aria-hidden="true">
-            <span>☾</span>
+            <span>⚔</span>
           </div>
-          <p className="menu-kicker font-display">THE CLOCK OF DOOM</p>
+          <p className="menu-kicker font-display">DESCEND · ENDURE · CONQUER</p>
           <h1 className="menu-title text-4xl sm:text-5xl font-display tracking-widest">{t('app.title')}</h1>
           <div className="menu-divider" aria-hidden="true"><span>◆</span></div>
           <p className="menu-subtitle mt-3">{t('menu.subtitle')}</p>

@@ -591,7 +591,7 @@ html, body, #root {
   isolation: isolate;
   overflow: hidden;
   background-color: #080b11;
-  background-image: url('/assets/board/menu-clock-cathedral.webp');
+  background-image: url('/assets/board/menu-dungeon-descent-v2.jpg');
   background-position: center;
   background-size: cover;
 }
@@ -602,8 +602,8 @@ html, body, #root {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse at 50% 42%, rgba(4, 9, 16, 0.24) 0%, rgba(4, 8, 14, 0.55) 52%, rgba(2, 4, 8, 0.92) 100%),
-    linear-gradient(180deg, rgba(2, 6, 12, 0.08) 0%, rgba(4, 6, 10, 0.42) 72%, rgba(2, 3, 6, 0.76) 100%);
+    radial-gradient(ellipse at 50% 47%, rgba(3, 8, 15, 0.16) 0%, rgba(3, 7, 13, 0.48) 49%, rgba(1, 3, 7, 0.88) 100%),
+    linear-gradient(180deg, rgba(2, 6, 12, 0.04) 0%, rgba(4, 6, 10, 0.28) 68%, rgba(2, 3, 6, 0.66) 100%);
 }
 
 .menu-atmosphere {
@@ -612,8 +612,9 @@ html, body, #root {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 50% 7%, rgba(148, 195, 230, 0.15), transparent 19%),
-    radial-gradient(ellipse at 50% 94%, rgba(192, 137, 55, 0.1), transparent 38%);
+    radial-gradient(circle at 50% 5%, rgba(148, 195, 230, 0.18), transparent 20%),
+    radial-gradient(ellipse at 50% 73%, rgba(154, 26, 24, 0.09), transparent 21%),
+    radial-gradient(ellipse at 50% 100%, rgba(210, 143, 54, 0.12), transparent 39%);
   box-shadow: inset 0 0 130px 35px rgba(0, 0, 0, 0.58);
 }
 
@@ -621,8 +622,8 @@ html, body, #root {
   border: 1px solid rgba(212, 169, 74, 0.48);
   border-radius: 2px;
   background:
-    linear-gradient(180deg, rgba(7, 13, 22, 0.82), rgba(8, 10, 16, 0.91)),
-    radial-gradient(circle at 50% 0%, rgba(72, 112, 145, 0.2), transparent 45%);
+    linear-gradient(180deg, rgba(6, 12, 20, 0.76), rgba(8, 9, 14, 0.88)),
+    radial-gradient(circle at 50% 0%, rgba(72, 112, 145, 0.22), transparent 45%);
   box-shadow:
     0 0 0 1px rgba(7, 9, 14, 0.88),
     0 0 0 2px rgba(212, 169, 74, 0.18),
@@ -654,13 +655,14 @@ html, body, #root {
   border: 1px solid rgba(212, 169, 74, 0.55);
   border-radius: 50%;
   color: var(--gold-bright);
-  background: radial-gradient(circle, rgba(74, 117, 155, 0.25), rgba(8, 12, 20, 0.68) 70%);
-  box-shadow: 0 0 24px rgba(89, 139, 180, 0.2), inset 0 0 12px rgba(212, 169, 74, 0.13);
-  font-size: 1.6rem;
+  background: radial-gradient(circle, rgba(123, 37, 28, 0.28), rgba(8, 12, 20, 0.72) 70%);
+  box-shadow: 0 0 24px rgba(184, 70, 43, 0.18), inset 0 0 12px rgba(212, 169, 74, 0.16);
+  font-size: 1.35rem;
+  text-shadow: 0 0 10px rgba(240, 210, 122, 0.5);
 }
 
 .menu-kicker {
-  color: #9eb1c0;
+  color: #bdad87;
   font-size: 0.63rem;
   letter-spacing: 0.34em;
 }
