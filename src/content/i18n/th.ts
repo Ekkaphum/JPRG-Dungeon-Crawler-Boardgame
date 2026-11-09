@@ -1,4 +1,6 @@
 export const th = {
+  'credits.createdBy': 'จัดทำโดย',
+  'credits.gameDesign': 'ออกแบบเกมโดย',
   'app.title': 'MoonRage Dungeon',
   'menu.newGame': 'เกมใหม่',
   'menu.playingVersion': 'กดเล่นทันทีจะได้เวอร์ชัน',

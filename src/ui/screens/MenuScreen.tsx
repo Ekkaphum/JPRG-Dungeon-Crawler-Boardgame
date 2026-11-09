@@ -2,6 +2,7 @@ import { useAppStore } from '@session/store';
 import { SELECTABLE_VISUAL_MODES } from '@session/persistence';
 import { useT } from '@content/i18n/useT';
 import { rulesetDef } from '@content/rulesets';
+import { CreatorCredits } from '@ui/common/CreatorCredits';
 
 export function MenuScreen() {
   const t = useT();
@@ -14,7 +15,7 @@ export function MenuScreen() {
   const activeRuleset = rulesetDef(ruleset);
 
   return (
-    <main className="menu-hero min-h-screen flex items-center justify-center p-5 sm:p-8">
+    <main className="menu-hero min-h-screen flex flex-col items-center justify-center gap-6 p-5 sm:p-8">
       <div className="menu-atmosphere" aria-hidden="true" />
 
       <section className="menu-sanctum relative z-10 w-full max-w-md px-6 py-8 sm:px-10 sm:py-10">
@@ -75,6 +76,7 @@ export function MenuScreen() {
           <MenuButton onClick={() => setScreen('settings')}>{t('menu.settings')}</MenuButton>
         </div>
       </section>
+      <CreatorCredits />
     </main>
   );
 }

@@ -725,6 +725,50 @@ html, body, #root {
   background: linear-gradient(180deg, rgba(76, 61, 31, 0.86), rgba(29, 25, 19, 0.94));
 }
 
+.creator-credits {
+  --credit-muted: #bbb4a4;
+  color: var(--credit-muted);
+  text-shadow: 0 1px 6px #000;
+}
+
+.creator-credits-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+}
+
+.creator-credits-brands {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(0.5rem, 3vw, 1.1rem);
+  margin: 0.35rem 0 0.5rem;
+}
+
+.creator-credits-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.2rem;
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.creator-credits-link:hover { color: var(--gold-bright); }
+.creator-credits-link:focus-visible {
+  outline: 2px solid var(--gold-bright);
+  outline-offset: 3px;
+}
+
+.creator-credits-lifebugs { width: 116px; height: auto; }
+.creator-credits-lunar { width: 32px; height: 32px; border-radius: 50%; }
+.creator-credits-separator { color: var(--gold); font-size: 0.75rem; }
+.creator-credits-designer { font-size: 0.7rem; }
+.creator-credits-designer strong { color: #e2dccb; font-weight: 500; }
+
 .visual-mode-picker {
   padding: 0.65rem;
   border: 1px solid rgba(138, 111, 47, 0.48);

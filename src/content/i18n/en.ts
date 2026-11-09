@@ -1,6 +1,8 @@
 import type { I18nKey } from './th';
 
 export const en: Record<I18nKey, string> = {
+  'credits.createdBy': 'Created by',
+  'credits.gameDesign': 'Game design by',
   'app.title': 'MoonRage Dungeon',
   'menu.newGame': 'New Game',
   'menu.playingVersion': 'Play now launches',
